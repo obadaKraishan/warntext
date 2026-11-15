@@ -10,6 +10,7 @@ import pytest
 from cap_samples import invented
 from test_tables import BASE, COUNTY, record, run
 from warntext import cli, release, tables
+from warntext import codes as cd
 
 
 @pytest.fixture()
@@ -27,7 +28,11 @@ def pack(tmp_path):
     b = run(recs)
     tables.write(b, tmp_path / "t", tmp_path / "p")
     out = tmp_path / "pack"
-    m = release.build_pack(tmp_path / "t", out, "0.1.0", "2026-11-14T17:00:00.000Z", "2026-11-15")
+    from warntext import codes as cd
+
+    m = release.build_pack(
+        tmp_path / "t", out, "0.1.0", "2026-11-14T17:00:00.000Z", "2026-11-15", cd.CODEBOOK_VERSION
+    )
     senders = [x["sender"] for x in b.raw_senders]
     return {
         "dir": out,
@@ -100,7 +105,13 @@ def test_release_commands(pack, tmp_path, capsys):
     out = tmp_path / "pack2"
     build = ["release", "build", "--tables", str(pack["tmp"] / "t"), "--state", str(state)]
     assert (
-        cli.main([*build, "--out", str(out), "--version", "0.1.0", "--retrieved", "2026-11-15"])
+        cli.main(
+            [
+                *build,
+                *("--out", str(out), "--version", "0.1.0", "--retrieved", "2026-11-15"),
+                *("--codebook-version", cd.CODEBOOK_VERSION),
+            ]
+        )
         == 0
     )
     check = ["release", "check", "--pack", str(out), "--private", str(pack["tmp"] / "p")]
@@ -137,3 +148,8 @@ def test_code_status_covers_every_code_and_fills_the_card():
     tables = release.code_tables()
     assert "| `hazard` | 0.86 |" in tables["code_alpha_table"]
     assert "`complete`" in tables["codes_left_out"] and "`hazard`" in tables["codes_released"]
+
+
+def test_a_pack_is_refused_from_codes_of_another_version(pack, tmp_path):
+    with pytest.raises(SystemExit, match="measured on version 0"):
+        release.build_pack(pack["tmp"] / "t", tmp_path / "other", "0.1.0", "x", "y", "0")

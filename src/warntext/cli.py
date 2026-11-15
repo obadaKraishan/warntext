@@ -389,7 +389,9 @@ def cmd_update(args: argparse.Namespace) -> int:
 def cmd_release_build(args: argparse.Namespace) -> int:
     """Build the release pack (record layer, released codes, text_federal) from the tables."""
     state = json.loads(Path(args.state).read_text(encoding="utf-8"))
-    m = rl.build_pack(args.tables, args.out, args.version, state["until"], args.retrieved)
+    m = rl.build_pack(
+        args.tables, args.out, args.version, state["until"], args.retrieved, args.codebook_version
+    )
     kaggle = Path(f"{args.out.rstrip('/')}-kaggle")
     rl.build_kaggle(args.out, kaggle)
     print(
@@ -567,6 +569,11 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--out", required=True, help="a new folder under data/release/")
     q.add_argument("--version", required=True)
     q.add_argument("--retrieved", required=True, help="the access date to cite (YYYY-MM-DD)")
+    q.add_argument(
+        "--codebook-version",
+        default=rl.CODE_STATUS_VERSION,
+        help="the codes' version the release statuses were measured on",
+    )
     q.set_defaults(func=cmd_release_build)
     q = rsub.add_parser("check", help="the pack's own check (exits 1 on any failure)")
     q.add_argument("--pack", required=True)

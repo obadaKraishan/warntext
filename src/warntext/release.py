@@ -33,6 +33,9 @@ from warntext.tables import CONFIGS, RECORD_TABLES
 #: The tables of the first release, in each configuration's folder.
 RELEASED_TABLES = (*RECORD_TABLES, "text_federal")
 CODE_STATUS_FILE = "code_status.csv"
+#: The codebook version the statuses (and their hand-sheet alphas) were measured on. A pack is
+#: built only from codes of that version, so new rules never reach a release unchecked.
+CODE_STATUS_VERSION = "1"
 
 
 def code_status() -> dict[str, dict[str, str]]:
@@ -72,11 +75,24 @@ def build_pack(
     version: str,
     until: str,
     retrieved: str,
+    codebook_version: str = CODE_STATUS_VERSION,
 ) -> dict[str, Any]:
-    """Write the release files, the manifest and the card to ``out_dir`` (which must be new)."""
+    """Write the release files, the manifest and the card to ``out_dir`` (which must be new).
+
+    The tables' codes must be of ``codebook_version``, the version the statuses were measured on.
+    """
     tables_dir, out_dir = Path(tables_dir), Path(out_dir)
     if out_dir.exists() and any(out_dir.iterdir()):
         raise SystemExit(f"{out_dir} is not empty; a pack is built once into a new folder.")
+    codes_path = tables_dir / "alerts" / "codes.parquet"
+    if codes_path.exists():
+        found = set(pq.read_table(codes_path, columns=["codebook_version"]).column(0).to_pylist())
+        if found and found != {codebook_version}:
+            raise SystemExit(
+                f"{codes_path} holds codebook version(s) {sorted(found)}, but the release statuses "
+                f"were measured on version {codebook_version}. Build the pack from tables of that "
+                "version, or score the new version and update code_status.csv first."
+            )
     files = []
     for config in CONFIGS:
         (out_dir / config).mkdir(parents=True, exist_ok=True)
