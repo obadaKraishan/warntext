@@ -198,3 +198,33 @@ def test_backfill_stops_before_a_call_when_the_cap_is_too_small(tmp_path, capsys
     assert code == 2
     assert "Nothing was fetched" in capsys.readouterr().out
     assert not (tmp_path / "raw").exists()
+
+
+def test_backfill_prints_one_line_per_page_without_text(tmp_path, capsys, monkeypatch):
+    from warntext import client as cl
+
+    class Resp:
+        status = 200
+        seconds = 0.2
+        content = json.dumps(
+            {"metadata": {}, probe.ENTITY: [{"id": "a", "sent": "2012-07-01T00:00:00.000Z"}]}
+        ).encode()
+
+    class Fake:
+        budget = cl.Budget(max_calls=50)
+
+        def get(self, url, params):
+            self.budget.record(10)
+            return Resp()
+
+        def clock(self):
+            return "2026-11-15T15:00:00.000Z"
+
+    monkeypatch.setattr(cli, "_client", lambda args: Fake())
+    a = backfill_counts_file(tmp_path, "a.json", [{"name": "other:2012", "count": 1}])
+    raw = tmp_path / "raw"
+    args = ["backfill", "--counts", str(a), "--first", "2012", "--raw", str(raw), "--since", "x"]
+    assert cli.main(args) == 0
+    out = capsys.readouterr().out
+    assert "2012 page 0: 1 records" in out
+    assert "1 pages and 1 records in all" in out

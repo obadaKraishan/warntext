@@ -165,7 +165,7 @@ def cmd_backfill(args: argparse.Namespace) -> int:
 
     def show(line: bf.PageLine) -> None:
         print(
-            f"{line.year} skip {line.skip}: {line.records} records, {line.bytes:,} bytes, "
+            f"{line.year} page {line.page}: {line.records} records, {line.bytes:,} bytes, "
             f"{line.seconds:.1f} s; {c.budget.calls} calls, {c.budget.nbytes:,} bytes so far",
             flush=True,
         )
