@@ -318,7 +318,7 @@ def test_a_hand_override_sets_the_authority_kind_and_name():
     assert rows["q1"]["organization"] == "Example Relay Center"
     assert rows["q2"]["sender_kind"] == "local"
     assert b.summary["kind_overrides"]["messages"] == 2
-    assert b.summary["kind_overrides"]["rule_kind_to_override_kind"] == {"local->other": 2}
+    assert b.summary["kind_overrides"]["kind_before_to_override_kind"] == {"local->other": 2}
     # a person-shaped name in the override file is refused
     bad = {707: senders.Override(707, "other", "Jane Doe", "Invented.")}
     with pytest.raises(ValueError, match="refused"):

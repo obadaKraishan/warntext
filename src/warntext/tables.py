@@ -34,6 +34,7 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from warntext import authorities as au
 from warntext import backfill, cap, measures, patterns, privacy
 from warntext import senders as sd
 from warntext.probe import ENDPOINT
@@ -75,8 +76,11 @@ SCHEMAS: dict[str, pa.Schema] = {
             ("signed", B),
             ("cog_id", INT),
             ("organization", S),
+            ("organization_source", S),
             ("sender_kind", S),
             ("sender_kind_source", S),
+            ("sender_kind_rule", S),
+            ("authority_type", S),
             ("event_codes", LS),
             ("event_code", S),
             ("event_group", S),
@@ -309,12 +313,14 @@ _PERSON_NAME = re.compile(r"^[A-Z][a-z]+(\s[A-Z]\.?)?\s[A-Z][a-z'-]+$")
 _ACRONYM = re.compile(r"^[A-Z][A-Z0-9&-]{1,11}$")
 
 
-def org_name_check(name: str, raw_senders: set[str]) -> str | None:
+def org_name_check(name: str, raw_senders: set[str], official: bool = False) -> str | None:
     """Why an organization name may not be released (a reason), or None when it may.
 
     A name must look like an organization's: it holds an organization word (office, county,
     police, emergency ...), a word the sender-kind rule reads, or it is one acronym. A name
-    shaped like a person's ("Jane Doe", "Sgt. Jane Doe") is never released.
+    shaped like a person's ("Jane Doe", "Sgt. Jane Doe") is never released. An ``official``
+    name (from FEMA's list of alerting authorities) needs no organization word, since the list
+    itself says it is an organization; every other check still applies.
     """
     if not 3 <= len(name) <= 120:
         return "length"
@@ -324,6 +330,8 @@ def org_name_check(name: str, raw_senders: set[str]) -> str | None:
         return "equals_a_sender_value"
     if _PERSON_NAME.match(name) and not _ORG_WORDS.search(name):
         return "person_shaped"
+    if official:
+        return None
     organization_like = (
         _ORG_WORDS.search(name)
         or sd.kind_from_name(name) is not None
@@ -444,6 +452,9 @@ class Unit:
     by_name: str | None = None
     by_domain: str | None = None
     organization: str | None = None
+    organization_source: str | None = None
+    kind_rule: str = "unknown"
+    authority_type: str | None = None
     withheld: str | None = None
     hits: list[str] = field(default_factory=list)
     text_group: str | None = None
@@ -538,6 +549,47 @@ def text_row(u: Unit, i: Info, index: int) -> dict[str, Any]:
     }
 
 
+def fema_summary(units: list[Unit], fema: Mapping[int, au.Authority]) -> dict[str, Any]:
+    """How the archive's authorities meet FEMA's list, and how often the two kinds agree."""
+    first: dict[int, Unit] = {}
+    msgs: Counter = Counter()
+    real: Counter = Counter()
+    for u in units:
+        if u.first.cog_id is None:
+            continue
+        first.setdefault(u.first.cog_id, u)
+        msgs[u.first.cog_id] += 1
+        real[u.first.cog_id] += u.config == "alerts"
+    listed = [c for c in first if c in fema]
+    cross: Counter = Counter()
+    cross_real: Counter = Counter()
+    for c in listed:
+        key = f"{fema[c].type}->{first[c].kind_rule}"
+        cross[key] += 1
+        cross_real[key] += real[c]
+    agree = [c for c in listed if fema[c].kind == first[c].kind_rule]
+    real_listed = sum(real[c] for c in listed)
+    return {
+        "snapshot": {
+            "page": au.PAGE_URL,
+            "page_last_updated": au.SNAPSHOT_PAGE_UPDATED,
+            "retrieved": au.SNAPSHOT_RETRIEVED,
+            "authorities_listed": len(fema),
+            "by_type": dict(Counter(a.type for a in fema.values())),
+        },
+        "archive_authorities": len(first),
+        "archive_authorities_listed": len(listed),
+        "messages_listed": sum(msgs[c] for c in listed),
+        "messages": sum(msgs.values()),
+        "real_alerts_listed": real_listed,
+        "real_alerts": sum(real.values()),
+        "kind_agrees_authorities": len(agree),
+        "kind_agrees_real_alerts": sum(real[c] for c in agree),
+        "fema_type_to_rule_kind_authorities": dict(cross.most_common()),
+        "fema_type_to_rule_kind_real_alerts": dict(cross_real.most_common()),
+    }
+
+
 def _people(u: Unit) -> bool:
     """Whether a message's times are rounded to the hour: it carries a people code."""
     return u.withheld == "people_code"
@@ -563,13 +615,19 @@ def text_table_for(kind: str) -> str:
     return "text_federal" if kind == "federal" else "text_other"
 
 
-def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = None) -> Build:
+def build(
+    parsed: list[Parsed],
+    overrides: Mapping[int, sd.Override] | None = None,
+    fema: Mapping[int, au.Authority] | None = None,
+) -> Build:
     """Apply every rule to the parsed records and return the rows of every table.
 
-    ``overrides`` are the hand overrides by alerting authority (by default the tracked file
-    shipped with the package, :func:`warntext.senders.load_overrides`).
+    ``overrides`` are the hand overrides by alerting authority, and ``fema`` is FEMA's list of
+    alerting authorities; by default both are the tracked files shipped with the package
+    (:func:`warntext.senders.load_overrides`, :func:`warntext.authorities.load`).
     """
     overrides = sd.load_overrides() if overrides is None else overrides
+    fema = au.load() if fema is None else fema
     summary: dict[str, Any] = {"records": len(parsed)}
 
     # Parse errors and the cross-check, per record.
@@ -633,8 +691,16 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
     authorities = sd.pool((u.first.cog_id, u.message_id, ev[u.message_id]) for u in units)
     for u in units:
         a = authorities[u.message_id]
-        u.kind, u.kind_source = a.kind, a.source
+        u.kind, u.kind_source, u.kind_rule = a.kind, a.source, a.kind
         u.by_name, u.by_domain = ev[u.message_id].by_name, ev[u.message_id].by_domain
+    # FEMA's list of alerting authorities: its type is the first evidence for the kind.
+    for u in units:
+        listed = fema.get(u.first.cog_id) if u.first.cog_id is not None else None
+        if listed is not None:
+            u.authority_type = listed.type
+            if listed.kind is not None:
+                u.kind, u.kind_source = listed.kind, "fema_list"
+    summary["fema_list"] = fema_summary(units, fema)
     # Hand overrides, by authority: the only exception to "by rule".
     touched: Counter = Counter()
     for u in units:
@@ -649,7 +715,7 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
         "authorities_listed": len(overrides),
         "authorities_seen": len({k[0] for k in touched}),
         "messages": sum(touched.values()),
-        "rule_kind_to_override_kind": dict(changes),
+        "kind_before_to_override_kind": dict(changes),
     }
 
     # Organization names, by authority.
@@ -672,9 +738,18 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
                 chosen[gkey] = name
                 break
             rejected[reason] += 1
+    official_refused: Counter = Counter()
     for u in units:
         gkey = f"cog:{u.first.cog_id}" if u.first.cog_id is not None else f"msg:{u.message_id}"
         u.organization = chosen.get(gkey)
+        u.organization_source = "sender_name" if u.organization else None
+        listed = fema.get(u.first.cog_id) if u.first.cog_id is not None else None
+        if listed is not None:
+            reason = org_name_check(listed.name, raw_sender_set, official=True)
+            if reason is None:
+                u.organization, u.organization_source = listed.name, "fema_list"
+            else:
+                official_refused[reason] += 1
         o = overrides.get(u.first.cog_id) if u.first.cog_id is not None else None
         if o is not None and o.organization:
             reason = org_name_check(o.organization, raw_sender_set)
@@ -683,12 +758,14 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
                     f"{sd.OVERRIDES_FILE}: the organization name for cog_id {o.cog_id} is "
                     f"refused ({reason}); give the organization's official name."
                 )
-            u.organization = o.organization
+            u.organization, u.organization_source = o.organization, "override"
     summary["organization_names"] = {
         "authorities": len({k for k in names_by_group if k.startswith("cog:")}),
         "authorities_with_a_name": sum(1 for k, v in chosen.items() if k.startswith("cog:") and v),
         "candidate_names_rejected_by_reason": dict(rejected),
         "messages_without_organization": sum(1 for u in units if not u.organization),
+        "messages_by_name_source": dict(Counter(u.organization_source for u in units)),
+        "fema_names_refused_messages_by_reason": dict(official_refused),
     }
 
     # The people rule.
@@ -975,8 +1052,11 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
                 "signed": m.signed if m else None,
                 "cog_id": u.first.cog_id,
                 "organization": u.organization,
+                "organization_source": u.organization_source,
                 "sender_kind": u.kind,
                 "sender_kind_source": u.kind_source,
+                "sender_kind_rule": u.kind_rule,
+                "authority_type": u.authority_type,
                 "event_codes": u.codes,
                 "event_code": u.codes[0] if u.codes else None,
                 "event_group": u.group,
