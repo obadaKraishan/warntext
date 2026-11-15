@@ -111,7 +111,8 @@ Tribal, Territory, Federal, Military, National). WarnText keeps a dated snapshot
 (`alerting_authorities.csv`, read 2026-11-15 from the page last updated 2026-11-12; 2,177
 authorities) and refreshes it with `warntext authorities`. It joins exactly, by identifier: 1,308
 of the archive's 1,329 authorities are on it (98.4%), with 76,646 of 83,851 messages and 31,478
-of 34,665 real alerts. The 21 that are not are retired identifiers. For a listed authority,
+of 34,665 real alerts. Of the 21 that are not, 16 last sent before 2026 and 5 sent in 2026;
+they keep the rule's kind and their own name. For a listed authority,
 **FEMA's type is the first evidence for the kind** (Federal and Military read as `federal`,
 National as `other`, the rest by name) and **FEMA's name is the organization name** when it
 passes the same checks (a person's shape, an address, a sender value; an official name needs no
@@ -122,7 +123,8 @@ agree for 1,250 of the 1,308 listed authorities (95.6%) and 26,879 of their 31,4
 
 **Hand overrides.** A tracked file (`kind_overrides.csv`) sets the kind of an authority by hand,
 with its reason in one line, for organizations only. It holds the national clearinghouse that
-relays AMBER alerts for local police agencies (three identifiers, two of them retired), as
+relays AMBER alerts for local police agencies (three identifiers, two of them not on FEMA's
+current list), as
 `other`: its messages carry the police agencies' names, so neither the rule nor FEMA's list can
 place it. Overrides come last.
 
