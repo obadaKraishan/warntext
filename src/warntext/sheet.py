@@ -11,7 +11,7 @@
 
 The workbook's first sheet holds only the row number, the text and six empty cells with a yes or
 no list: hazard, hazard description, source, guidance, time, location. Its second sheet holds the
-settled definitions and three edge cases, and a plain-text copy of them sits next to it. No rule
+settled definitions and six edge cases, and a plain-text copy of them sits next to it. No rule
 output is on it. The key (row number to message, block and unit, with the stratum) is a separate
 file. A later sheet leaves out every text group and text an earlier sheet used (``used_by``,
 ``without_used``).
@@ -70,7 +70,8 @@ DEFINITIONS = (
     (
         "Hazard description",
         "Anything said about the hazard beyond its name: what it is doing, how big, how fast, "
-        "where it is heading, how dangerous, what it can cause.",
+        "where it is heading, how dangerous, what it can cause. No named hazard, no "
+        "description.",
         "Fast-moving brush fire, 200 acres, heading east.",
         "Brush fire near Oak Road. Leave now.",
     ),
@@ -107,23 +108,90 @@ DEFINITIONS = (
         "Police activity in your area. Stay inside.",
     ),
 )
-#: Three invented edge cases: (text, the column it is about, the answer and why).
+#: Six invented edge cases: (the column it is about, what it shows, and its invented texts, each
+#: with the answer and why). Every answer is what the codebook says, version 2.
 EDGE_CASES = (
     (
-        "SCSO: Oak Road closed at Elm St.",
         "Source",
-        "yes: a sheriff's office's usual initials, written as the speaker.",
+        "Initials as a source",
+        (
+            (
+                "SCSO: Oak Road closed at Elm St.",
+                "yes: a sheriff's office's usual initials, written as the speaker.",
+            ),
+        ),
     ),
     (
-        "Updates at sampletoncounty.gov.",
         "Source",
-        "no: a web address alone does not name the source (Guidance is yes: it says where to "
-        "get information).",
+        "A web address that is not a source",
+        (
+            (
+                "Updates at sampletoncounty.gov.",
+                "no: a web address alone does not name the source (Guidance is yes: it says "
+                "where to get information).",
+            ),
+        ),
     ),
     (
-        "No burning in Sampleton County until further notice.",
         "Guidance",
-        "yes: a prohibition is an instruction (Time and Location are yes too).",
+        "A prohibition that is guidance",
+        (
+            (
+                "No burning in Sampleton County until further notice.",
+                "yes: a prohibition is an instruction (Time and Location are yes too).",
+            ),
+        ),
+    ),
+    (
+        "Hazard description",
+        "The event's own name is not its description",
+        (
+            (
+                "Oak Road closed at Elm St.",
+                "no: the closure is the event itself, so it is the hazard's name (Hazard is "
+                "yes); nothing more is said about it.",
+            ),
+            (
+                "Large power outage across Sampleton.",
+                'yes: "large" says how big the outage is.',
+            ),
+            (
+                "Oak Road closed at Elm St due to flooding.",
+                "yes: the flooding is the hazard, and the closure is what it causes.",
+            ),
+        ),
+    ),
+    (
+        "Location",
+        "A place written only as the speaker is not a location",
+        (
+            (
+                "Sampleton County: boil water before use.",
+                'no: "Sampleton County:" is the speaker, so it is the source (Source is yes), '
+                'and no other place is named. The same holds for "City of Sampleton:" and '
+                '"from Sampleton County".',
+            ),
+            (
+                "Sampleton County: boil water before use on Oak Road.",
+                "yes: Oak Road is a named place.",
+            ),
+        ),
+    ),
+    (
+        "Time",
+        "A promised update is not time",
+        (
+            (
+                "Water main break on Oak Road. An update will follow.",
+                'no: a promised update, with or without its hour ("updates to follow", "next '
+                'update at 5 PM"), is not when the danger comes, when to act, or until when it '
+                "lasts.",
+            ),
+            (
+                "Water main break on Oak Road. Repairs will last until 5 PM.",
+                "yes: it says until when it lasts.",
+            ),
+        ),
     ),
 )
 
@@ -321,8 +389,9 @@ def definitions_sheet() -> xlsx.Sheet:
         rows.append([(heading, _BOLD), (definition, _TEXT), (yes, _TEXT), (no, _TEXT)])
     rows.append([])
     rows.append([(h, _HEAD) for h in ("Edge case", "Text (invented)", "Answer", "")])
-    for n, (text, column, answer) in enumerate(EDGE_CASES, start=1):
-        rows.append([(f"{n}. {column}", _BOLD), (text, _TEXT), (answer, _TEXT)])
+    for n, (column, shows, examples) in enumerate(EDGE_CASES, start=1):
+        rows.append([(f"{n}. {column}", _BOLD), (f"{shows}.", _BOLD)])
+        rows += [[("", _TEXT), (text, _TEXT), (answer, _TEXT)] for text, answer in examples]
     rows.append([])
     rows.append(
         [
@@ -350,8 +419,9 @@ def guide_text() -> str:
     for heading, definition, yes, no in DEFINITIONS:
         lines += ["", heading.upper(), definition, f'  Yes: "{yes}"', f'  No:  "{no}"']
     lines += ["", "EDGE CASES"]
-    for n, (text, column, answer) in enumerate(EDGE_CASES, start=1):
-        lines.append(f'{n}. {column}. "{text}" {answer}')
+    for n, (column, shows, examples) in enumerate(EDGE_CASES, start=1):
+        lines.append(f"{n}. {column}: {shows}.")
+        lines += [f'  "{text}" {answer}' for text, answer in examples]
     lines += [
         "",
         "A text in Spanish should not be on the sheet; if one is, leave its row empty and say so "

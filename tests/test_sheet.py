@@ -2,6 +2,7 @@
 
 import pytest
 
+from warntext import codes as cd
 from warntext import sheet as sh
 from warntext import xlsx
 
@@ -148,13 +149,17 @@ def test_the_workbook_carries_the_settled_definitions_and_a_plain_text_guide(tmp
     cells = {c for _, row in definitions for c in row}
     assert [h for h, *_ in sh.DEFINITIONS] == [h for h, _ in sh.CODES]
     assert all(d in cells for _, d, _, _ in sh.DEFINITIONS)
-    assert sum(text in cells for text, _, _ in sh.EDGE_CASES) == 3
+    examples = [text for _, _, ex in sh.EDGE_CASES for text, _ in ex]
+    assert len(sh.EDGE_CASES) == 6 and len(examples) == 10
+    assert all(text in cells for text in examples)
+    assert all(f"{shows}." in cells for _, shows, _ in sh.EDGE_CASES)
     guide = paths["guide"].read_text(encoding="utf-8")
     assert guide.splitlines()[0] == "Judge only the words in the text. About a minute per row."
     assert all(d in guide for _, d, _, _ in sh.DEFINITIONS)
     # The settled definitions, word for word.
     assert sh.DEFINITIONS[2][1].endswith('(an opener such as "City of X:", or "from X County").')
     assert sh.DEFINITIONS[3][1].startswith("Any instruction or prohibition to the public, in any")
+    assert sh.DEFINITIONS[1][1].endswith("what it can cause. No named hazard, no description.")
     # sheet-check reads the first sheet, whatever follows it.
     assert sh.read_filled(paths["workbook"]) == {n: dict.fromkeys(CODE_FIELDS) for n in range(1, 7)}
 
@@ -243,5 +248,38 @@ def test_the_guide_in_docs_says_what_the_workbook_says():
     assert guide.splitlines()[0] == sh.GUIDE_FIRST_LINE
     for heading, definition, yes, no in sh.DEFINITIONS:
         assert f'| **{heading}** | {definition} | "{yes}" | "{no}" |' in guide
-    for text, _, _ in sh.EDGE_CASES:
-        assert f'"{text}"' in guide
+    for _, shows, examples in sh.EDGE_CASES:
+        assert f"**{shows}.**" in guide
+        for text, answer in examples:
+            assert f'"{text}" {answer}' in guide
+
+
+def test_every_invented_example_is_coded_by_version_2_as_the_guide_says():
+    field = dict(sh.CODES)
+    for heading, _, yes, no in sh.DEFINITIONS:
+        assert cd.code_text(yes)[field[heading]], yes
+        assert not cd.code_text(no)[field[heading]], no
+    for column, _, examples in sh.EDGE_CASES:
+        for text, answer in examples:
+            assert cd.code_text(text)[field[column]] is answer.startswith("yes: "), text
+    # What the answers say in passing about another column.
+    said = {
+        "Updates at sampletoncounty.gov.": {"guidance": True},
+        "No burning in Sampleton County until further notice.": {"time": True, "location": True},
+        "Oak Road closed at Elm St.": {"hazard": True},
+        "Sampleton County: boil water before use.": {"source_named": True},
+    }
+    for text, want in said.items():
+        got = cd.code_text(text)
+        assert {k: got[k] for k in want} == want, text
+
+
+def test_the_two_known_misses_of_version_2_stay_as_frozen():
+    # The settled definitions say a place written only as the speaker is not a location, and a
+    # promised update is not time, with or without its hour. Version 2 is frozen with two
+    # narrow misses of them (codebook 2.6 and 2.3); a later version would fix them and flip
+    # these asserts.
+    assert cd.code_text("City of Sampleton: boil water before use.")["location"]
+    assert cd.code_text("Water main break on Oak Road. Next update at 5 PM.")["time"]
+    assert not cd.code_text("Water main break on Oak Road. An update will follow.")["time"]
+    assert not cd.code_text("Sampleton County: boil water before use.")["location"]
