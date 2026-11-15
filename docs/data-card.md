@@ -35,11 +35,12 @@ messages; tests are the most common message of all.
 ## Two layers, and why
 The record layer and the text layer are released on different terms, so that the corpus never
 depends on an open question about rights.
-- **The record layer** (`messages`, `infos`, `areas`, `references`, `threads`) holds no message
-  text: the authority (FEMA's identifier for it and its name), the sender kind, times, places
-  (area codes, states and counties, and shapes), event codes, channels, links between messages,
-  text lengths, flags and FEMA's record id. It is released everywhere, including the archive
-  deposit.
+- **The record layer** (`messages`, `infos`, `areas`, `references`, `threads`, `codes`) holds
+  no message text: the authority (FEMA's identifier for it and its name), the sender kind, times,
+  places (area codes, states and counties, and shapes), event codes, channels, links between
+  messages, text lengths, flags, the content codes, and FEMA's record id. Rows are keyed by FEMA's
+  record ids; no raw sender value and no raw CAP identifier is in it. It is released everywhere,
+  including the archive deposit.
 - **The text layer** holds the words, keyed by message id and language block.
   - `text_federal`: text from federal senders (federal works).
   - `text_other`: text from state, local, tribal, territorial and other senders. These works may
@@ -63,7 +64,18 @@ their rows and withholds their text, by code and with no hand review:
   this withholds some ordinary hazard messages (an agency's hotline number is enough), by design;
 - a withheld message has no text in either text table and no area shapes (a polygon or circle
   can mark one address); its counts, codes, times, counties, lengths and flags stay, with the
-  reason in `text_withheld`.
+  reason in `text_withheld`;
+- a message with a people code carries its times rounded down to the hour (sent, effective,
+  onset, expiry, and the times of the references and threads that touch it); the county stays,
+  and the exact times are kept only on the maintainer's machine.
+
+**What is released for withheld messages.** Their content codes are computed from their text
+on the maintainer's machine and released, because each is a yes or no, a count, a kind or a
+category: whether the text names a hazard, a place, a time, a source and an action, how many
+actions, the kinds of place and time, the hazard category, whether it has a link and of what
+kind, abbreviations, capitals, evacuation wordings, and whether it is about a missing person.
+Nothing that quotes the text or locates beyond the county is released for them: no words, no
+place or road names, no exact times, no links, no shapes.
 
 In this build, of the 34,665 real alerts: 8,859 withheld by code and 4,897 by pattern (3,820 of
 the 20,137 non-weather hazard alerts), 13,756 in all (39.7%). Researchers lose the words of
@@ -71,12 +83,14 @@ these messages, and with them any content coding of alerts about people; they ke
 needed to count them, place them, time them and follow their threads.
 
 ## Senders
-Rows name the sending **organization**, never a person: FEMA's identifier for the alerting
-authority (`cog_id`), the authority's organization name as it signs its messages, and a sender
-kind (federal, state, local, tribal, territorial, other, unknown) assigned by rule
-(`method.md`). The raw sender value (often an employee's email address) is in no table. The
-sender kind decides which text table a message's words go to; a message is federal only on
-positive evidence, and unknown counts as not federal.
+Rows name the sending **organization**, never a person: the alerting authority is the only
+sender key, as FEMA's identifier for it (`cog_id`) and its name. The name and the sender kind
+come from FEMA's list of IPAWS alerting authorities (1,308 of the 1,329 authorities in the
+archive are on it, with 31,478 of the 34,665 real alerts); for the others, from the
+authority's own signature and a rule (`method.md`). A short tracked file sets the kind of the
+national AMBER alert clearinghouse by hand. The raw sender value (often an employee's email
+address) is in no table. The sender kind decides which text table a message's words go to; a
+message is federal only on positive evidence, and unknown counts as not federal.
 
 ## What no table holds
 Staff and vendor parameters (user names, account names and passwords, email addresses, pager
@@ -123,18 +137,22 @@ Each row's `retrieved_at` gives the exact time its message was read.
 ## Configurations and tables
 | Configuration | Messages | Record layer | Text layer |
 |---|---:|---|---|
-| `alerts` (real alerts) | 34,665 | messages, infos, areas, references, threads | text_federal (183 messages), text_other (16,746, not released for now) |
-| `tests` (tests and demonstrations) | 49,186 | the same | text_federal (3,866), text_other (44,281, not released for now) |
+| `alerts` (real alerts) | 34,665 | messages, infos, areas, references, threads, codes | text_federal (223 messages), text_other (16,706, not released for now) |
+| `tests` (tests and demonstrations) | 49,186 | the same, without codes | text_federal (3,869), text_other (44,278, not released for now) |
 
 The field list is in `schema.md`, and how each field is derived in `method.md`.
 
 ## Known limits
 - Years before 2016 are thin (244 real alerts in 2013, 6,872 in 2026 to mid-November); most
   authorities joined IPAWS later.
-- Only 183 real alerts come from federal senders, most of them earthquake warnings; the
-  released text is therefore small until the rights question for the other senders is
+- Only 223 real alerts with text come from federal senders, 168 of them earthquake warnings;
+  the released text is therefore small until the rights question for the other senders is
   settled.
-- Sender kinds rest on names and email domains; 3,251 real alerts have an unknown kind.
+- Sender kinds rest on FEMA's list where an authority is on it, and on names and email domains
+  where it is not; 32 real alerts have an unknown kind.
+- The content codes are rules (codebook version 1), checked against the published shares of
+  Olson et al. (2024) and, before they are called reliable, against a hand-coded sheet;
+  some codes are marked experimental (`codebook.md`).
 - References often give a different sent time from the referenced message's; they are matched
   by the sender's identifier, which is unique in the archive.
 - The people patterns over-withhold by design and can still miss a detail written in an unusual

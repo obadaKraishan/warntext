@@ -24,12 +24,15 @@ drafts are in [`docs/`](docs/).
   in another. The second is not released for now; anyone can build it on their own machine
   from FEMA's API with `warntext text`.
 - Alerts about people (child abductions, missing persons, Blue Alerts, law enforcement
-  warnings), and any message with a personal detail, keep their row but not their text.
-- Later: content variables from the warning literature (source, hazard, location, guidance and
-  time), coded by rules where rules are enough, and a weekly update.
+  warnings), and any message with a personal detail, keep their row but not their text; those
+  with a people code keep their times to the hour only.
+- Content codes from the warning literature for every real alert's phone and full texts
+  (hazard, location, time, source and guidance with their kinds, hazard category, completeness
+  and style), coded by rules, version 1, with a hand-coded check still to come.
+- Later: a weekly update.
 
-See [`docs/data-card.md`](docs/data-card.md) (draft), [`docs/schema.md`](docs/schema.md) and
-[`docs/method.md`](docs/method.md).
+See [`docs/data-card.md`](docs/data-card.md) (draft), [`docs/schema.md`](docs/schema.md),
+[`docs/method.md`](docs/method.md) and [`docs/codebook.md`](docs/codebook.md) (draft).
 
 ## What it is not
 - **Not an alerting service.** WarnText is a research record. It runs at least a day behind the

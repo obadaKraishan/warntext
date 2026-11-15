@@ -47,3 +47,34 @@ All notable changes to this project are recorded here. The format follows
   as, wearing, the named alert programs), used by the people rule.
 - Documentation: the schema and the method as built, the data card (draft), and what the
   backfill did.
+- FEMA's list of IPAWS alerting authorities as a dated snapshot in the package
+  (`alerting_authorities.csv`) and `warntext authorities` to refresh it: the source of
+  organization names and the first evidence for sender kinds; the rule's kind stays in
+  `sender_kind_rule`, FEMA's type in `authority_type`, the name's origin in
+  `organization_source`.
+- A tracked file of hand overrides of the sender kind, by alerting authority, with a reason
+  (`kind_overrides.csv`); it sets the national AMBER alert clearinghouse to `other`.
+- Content codes by rule, codebook version 1 (`docs/codebook.md`): for every real alert's
+  90-character, 360-character and full text, the five Warning Response Model contents with
+  their kinds of time and location, the count of actions, the hazard description, the hazard
+  category, links and their kinds, abbreviations, capitals, evacuation wordings, completeness,
+  and flags for missing-person and test texts, in the record layer's new `codes` table.
+- `warntext compare-olson`: the corpus filtered as Olson et al. (2024) filtered theirs, with
+  the rules' shares beside the published ones (aggregates only).
+- `warntext sheet` and `warntext sheet-check`: a blind, stratified hand sheet of 100 texts as
+  .xlsx with yes-or-no lists and a separate key, and Krippendorff's alpha per code between a
+  person and the rules, against the bar of .80. The .xlsx writer and reader use only the
+  standard library and defusedxml, so no dependency is added.
+- Documentation: the codebook (version 1, draft), the hand sheet guide, the options for
+  model-assisted coding, and the method, schema and data card for all of the above.
+
+### Changed
+- Messages with a people code carry their times rounded down to the hour in the record layer
+  (`times_rounded`); the exact times are kept only in a private local table.
+- Raw CAP identifiers are no longer released: `identifier`, `identifier_withheld` and
+  `ref_identifier` are gone, and rows, references and threads are keyed by FEMA's record ids.
+  The raw identifiers are kept in a private local file.
+- `warntext check` also fails on a raw CAP identifier in any cell, and on a time finer than
+  the hour in a people-code row (or a reference or thread that touches one).
+- CI runs ruff and pytest on Python 3.12 for pushes and pull requests; the full 3.10 to 3.13
+  matrix runs when the workflow is started by hand.

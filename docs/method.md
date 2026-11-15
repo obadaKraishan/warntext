@@ -328,7 +328,7 @@ texts written in Spanish. Shares of the coded units (90 / 360 / full): hazard 39
 45.2; location 59.0 / 84.6 / 59.9; time 18.5 / 40.7 / 31.2; source 19.6 / 44.3 / 34.5; guidance
 46.1 / 77.2 / 54.9; complete 1.9 / 11.7 / 9.8; a link 19.6 / 31.8 / 8.9; abbreviations 49.8 /
 57.2 / 40.1; evacuation wordings 11.8 / 19.3 / 12.4. A quarter of the units are about a missing
-person (all of them the people code's or withheld). These shares cover every real alert, about
+person, every one of them in a withheld message. These shares cover every real alert, about
 people and tests sent under real codes included; section 13 applies Olson et al.'s filters.
 
 ## 13. The check against Olson et al. (2024)
