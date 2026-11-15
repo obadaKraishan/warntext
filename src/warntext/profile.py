@@ -408,7 +408,11 @@ def people(rows: list[Row]) -> dict[str, Any]:
 
 
 def structure(rows: list[Row]) -> dict[str, Any]:
-    """Which parameters, geocodes and shapes the messages carry (names only), by kind."""
+    """Which parameters, geocodes and shapes the messages carry (names only), by kind.
+
+    These shares are of sampled messages, not weighted: the sample has as many messages from
+    each year, so they describe the variety of the layout, not the archive's mix.
+    """
     out: dict[str, Any] = {}
     for kind in ("nws", "other"):
         part = [r.message for r in rows if r.message and r.kind == kind]
