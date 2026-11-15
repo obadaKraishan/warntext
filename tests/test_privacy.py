@@ -58,6 +58,8 @@ def test_parameters_are_split_into_kept_text_and_dropped():
         Pair(name="Email", value="invented@example.org"),
         Pair(name="AssignedAddress", value="invented"),
         Pair(name="EAS-ORG", value="Invented free text"),
+        Pair(name="BLOCKCHANNEL", value=" "),
+        Pair(name="EAS-STN-ID", value="ABC,1,XY"),
     ]
     kept, text, dropped = privacy.split_parameters(params)
     assert [p.name for p in kept] == [
@@ -66,9 +68,16 @@ def test_parameters_are_split_into_kept_text_and_dropped():
         "timezone",
         "WEAHandling",
         "EASHeader",
+        "EAS-STN-ID",
     ]
     assert [p.name for p in text] == ["CMAMtext", "EASText"]
-    assert dropped == ["UserName", "Email", "AssignedAddress", "EAS-ORG (unexpected value)"]
+    assert dropped == [
+        "UserName",
+        "Email",
+        "AssignedAddress",
+        "EAS-ORG (unexpected value)",
+        "BLOCKCHANNEL (empty)",
+    ]
     # a dropped value never comes back from the split
     assert all("invented" not in d for d in dropped)
 

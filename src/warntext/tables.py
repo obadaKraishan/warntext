@@ -437,6 +437,8 @@ class Unit:
     config: str = "alerts"
     kind: str = "unknown"
     kind_source: str = "none"
+    by_name: str | None = None
+    by_domain: str | None = None
     organization: str | None = None
     withheld: str | None = None
     hits: list[str] = field(default_factory=list)
@@ -586,6 +588,7 @@ def build(parsed: list[Parsed]) -> Build:
     for u in units:
         a = authorities[u.message_id]
         u.kind, u.kind_source = a.kind, a.source
+        u.by_name, u.by_domain = ev[u.message_id].by_name, ev[u.message_id].by_domain
 
     # Organization names, by authority.
     raw_sender_set = {u.first.sender.casefold() for u in units if u.first.sender}
@@ -966,7 +969,11 @@ def build(parsed: list[Parsed]) -> Build:
     raw_senders = [
         {"sender": snd, "cog_ids": sorted(cogs)} for snd, cogs in sorted(cogs_by_sender.items())
     ]
-    return Build(units=units, tables=tables, summary=summary, raw_senders=raw_senders)
+    b = Build(units=units, tables=tables, summary=summary, raw_senders=raw_senders)
+    from warntext.describe import describe
+
+    summary.update(describe(b))
+    return b
 
 
 def write(b: Build, out_dir: Path | str, private_dir: Path | str) -> dict[str, int]:

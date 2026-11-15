@@ -45,7 +45,7 @@ PEOPLE_CODES = frozenset({"CAE", "MEP", "BLU", "LEW"})
 #:   kept only in its standard form, which holds codes only.
 ALLOWED_PARAMETERS: dict[str, re.Pattern[str]] = {
     "EAS-ORG": re.compile(r"(EAS|CIV|WXR|PEP)"),
-    "EAS-STN-ID": re.compile(r"[A-Z0-9/ ._-]{1,8}", re.IGNORECASE),
+    "EAS-STN-ID": re.compile(r"[A-Z0-9/ ,._-]{1,8}", re.IGNORECASE),
     "EAS-Must-Carry": re.compile(r"(true|false|yes|no)", re.IGNORECASE),
     "BLOCKCHANNEL": re.compile(r"[A-Z]{2,10}", re.IGNORECASE),
     "WEAHandling": re.compile(r"[A-Za-z ]{3,40}"),
@@ -55,7 +55,9 @@ ALLOWED_PARAMETERS: dict[str, re.Pattern[str]] = {
 #: Case variants seen in the archive, read as the allowed name.
 PARAMETER_ALIASES = {"TimeZone": "timezone", "Timezone": "timezone"}
 #: Parameters whose value is part of the message itself: kept in the text layer only.
-TEXT_PARAMETERS = frozenset({"CMAMtext", "CMAMlongtext", "EASText", "ShortText", "EASDescription"})
+TEXT_PARAMETERS = frozenset(
+    {"CMAMtext", "CMAMlongtext", "CMAMText", "EASText", "ShortText", "EASDescription"}
+)
 
 #: The text fields of an info block, in the order the text tables hold them.
 INFO_TEXT_FIELDS = ("event", "headline", "description", "instruction", "web")
@@ -71,7 +73,8 @@ def split_parameters(params: Iterable[Pair]) -> tuple[list[Pair], list[Pair], li
     """Split parameters into kept, text and dropped (names only for the dropped ones).
 
     An allow-listed parameter whose value does not have its allowed form is dropped and named
-    as ``<name> (unexpected value)``, so the count shows it without the value.
+    as ``<name> (unexpected value)``, or ``<name> (empty)`` when it has no value, so the count
+    shows it without the value.
     """
     kept: list[Pair] = []
     text: list[Pair] = []
@@ -79,7 +82,9 @@ def split_parameters(params: Iterable[Pair]) -> tuple[list[Pair], list[Pair], li
     for p in params:
         name = allowed_name(p.name)
         if name is not None:
-            if ALLOWED_PARAMETERS[name].fullmatch(p.value.strip()):
+            if not p.value.strip():
+                dropped.append(f"{name} (empty)")
+            elif ALLOWED_PARAMETERS[name].fullmatch(p.value.strip()):
                 kept.append(Pair(name=name, value=p.value.strip()))
             else:
                 dropped.append(f"{name} (unexpected value)")
