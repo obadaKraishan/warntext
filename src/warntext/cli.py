@@ -348,6 +348,20 @@ def cmd_update(args: argparse.Namespace) -> int:
         up.init_state(args.state, args.init, {y: n for y, (n, _) in counts.items()}, until)
         print(f"State started at {args.state}: raw {args.init}, window end {until}.")
         return 0
+    if args.rebuild:
+        result = up.rebuild_from_state(args.state, args.raw_root, args.out, args.private)
+        failures = result.pop("failures")
+        build_summary = result.pop("summary")
+        out = Path(args.summary)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(build_summary, indent=1, default=str) + "\n", encoding="utf-8")
+        print(
+            f"Rebuilt {result['records']:,} records from the state's raw folders (no request), "
+            f"FEMA list {result['fema_list']}; check {result['check']}. Summary in {out}."
+        )
+        for f in failures:
+            print(f"  FAIL {f}")
+        return 0 if not failures else 1
     c = _client(args)
     summary = up.run_update(
         c,
@@ -537,6 +551,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--summary", default="data/interim/update/summary.json")
     p.add_argument("--until", help="exclusive UTC end (default: the newest hour 25 h old)")
     p.add_argument("--no-list", action="store_true", help="keep the packaged FEMA list")
+    p.add_argument(
+        "--rebuild", action="store_true", help="rebuild from the state's raw folders, no request"
+    )
     p.add_argument("--init", nargs="+", help="start the state from these raw folders, no calls")
     p.add_argument("--counts", nargs="*", help="with --init: backfill-counts files")
     _client_options(p, since_required=False, max_calls=30, max_bytes=100_000_000)

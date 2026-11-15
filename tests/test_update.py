@@ -205,3 +205,22 @@ def test_a_failing_check_leaves_the_state_where_it_was(world, monkeypatch):
     )
     assert s["check"] == "failed"
     assert update.read_state(world["state"])["until"] == "2026-11-14T00:00:00.000Z"
+
+
+def test_rebuild_from_state_needs_no_request_and_keeps_the_state(world):
+    server = Server(world["old"] + world["new"])
+    update.run_update(
+        server,
+        world["state"],
+        world["raw"],
+        world["tmp"] / "t",
+        world["tmp"] / "p",
+        until="2026-11-18T00:00:00.000Z",
+    )
+    before = update.read_state(world["state"])
+    r = update.rebuild_from_state(
+        world["state"], world["raw"], world["tmp"] / "t2", world["tmp"] / "p2"
+    )
+    assert r["check"] == "passed" and r["records"] == 5
+    assert r["fema_list"] == "alerting_authorities-2026-11-18.csv"
+    assert update.read_state(world["state"]) == before

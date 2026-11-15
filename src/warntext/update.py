@@ -324,3 +324,33 @@ def run_update(
         write_state(state_path, state)
     summary["failures"] = failures
     return summary
+
+
+def rebuild_from_state(
+    state_path: Path | str, raw_root: Path | str, out_dir: Path | str, private_dir: Path | str
+) -> dict[str, Any]:
+    """Rebuild both layers from every raw folder the state lists, with no request.
+
+    It uses the FEMA list the last run saved (or the packaged snapshot), and checks the tables
+    against the state's year counts. The state is not changed.
+    """
+    state = read_state(state_path)
+    fema = au.load()
+    list_name = state.get("fema_list", {}).get("file")
+    if list_name:
+        path = Path(state_path).parent / "authorities" / list_name
+        fema = au.parse_csv(path.read_text(encoding="utf-8"))
+    build = tables.build(tables.parse_records(records(raw_root, state["raw_folders"])), fema=fema)
+    written = tables.write(build, out_dir, private_dir)
+    year_counts = {int(y): n for y, n in state["year_counts"].items()}
+    failures = ck.check(
+        build.tables, [x["sender"] for x in build.raw_senders], year_counts, build.raw_identifiers
+    )
+    return {
+        "records": build.summary["records"],
+        "fema_list": list_name or "packaged snapshot",
+        "rows_written": written,
+        "check": "passed" if not failures else "failed",
+        "failures": failures,
+        "summary": build.summary,
+    }

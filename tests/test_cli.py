@@ -408,3 +408,7 @@ def test_update_command_starts_the_state_then_runs(tmp_path, monkeypatch, capsys
     printed = capsys.readouterr().out
     assert "1 new records" in printed and "check passed" in printed
     assert json.loads((tmp_path / "s.json").read_text())["new_real_alerts"] == 1
+    again = ["update", "--state", str(state), "--raw-root", str(raw), "--rebuild", "--out"]
+    again += [str(tmp_path / "t2"), "--private", str(tmp_path / "p2")]
+    assert cli.main([*again, "--summary", str(tmp_path / "b.json")]) == 0
+    assert "no request" in capsys.readouterr().out
