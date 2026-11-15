@@ -441,3 +441,24 @@ def test_v2_hazards_and_their_description():
 def test_v2_spanish_and_tests_under_real_codes_are_caught():
     assert cd.looks_spanish("EXFIRE: ORDEN DE RESGUARDO INMEDIATO humo nocivo en Oak Ave")
     assert code("EXEM TESTING IPAWS WITH EXAMPLE SUPPORT #1")["about_test"]
+
+
+def test_v2_speaker_edge_cases_from_development():
+    assert code("Sheriff:Oak Valley shelter moved to the invented school.")["source_named"]
+    assert code("Example County Sheriff's Office with an important message. Leave now.")[
+        "source_named"
+    ]
+    assert code("Sampleton Twp emergency officials recommending residents evacuate.")[
+        "source_named"
+    ]
+    assert not code("EAS Immediate Evacuation Order for all residents.")["source_named"]
+    c = code("FLOOD ALERT Oak Creek")
+    assert not c["source_named"] and c["hazard"]
+    assert code("NWS: OAK CO. FLASH FLOOD WARNING till 3 AM.")["source_named"]
+    assert code("NWS: OAK CO. FLASH FLOOD WARNING till 3 AM.")["loc_boundary"]
+
+
+def test_v2_but_and_thru_and_generic_areas():
+    assert code("The storm has passed, but stay alert for hazards.")["guidance"]
+    assert not code("Thru traffic detour at exit 4.")["time"]
+    assert not code("Local Area Emergency")["location"]

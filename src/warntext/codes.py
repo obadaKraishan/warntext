@@ -153,7 +153,16 @@ _SPEAKER = re.compile(
 )
 _SPEAKER_VERB = re.compile(
     rf"\b({_NAME})\s+(?i:(?:is\s+|has\s+|have\s+)?(?:advis|urg|ask|report|issu|announc|recommend|"
-    r"order|request|say|encourag|remind|confirm|warn|declar)\w*)\b"
+    r"order|request|say|encourag|remind|confirm|declar)\w*)\b"
+)
+#: A speaker announced by its message: "X County Sheriff's Office with an important message".
+_SPEAKER_WITH = re.compile(
+    rf"\b({_NAME})\s+(?i:with\s+(?:an?\s+)?(?:important|emergency|urgent)\s+(?:message|update|"
+    r"alert|notice))"
+)
+#: An agency word joined to the text by a colon with no space: "Sheriff:Valley Center ...".
+_OPENER_AGENCY_TIGHT = re.compile(
+    _LEAD_STAMP + r"([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*)?)\s*:(?=\S)"
 )
 #: The text's own subject speaking: its first words, then a speaker verb ("OTTAWA HAS ISSUED",
 #: "CTA is suspending", "UCPD ordering", "... SHERIFFS OFC ADV").
@@ -227,29 +236,33 @@ def speaker_spans(text: str, ctx: Context) -> list[tuple[int, int]]:
             spans.append(_organization_part(m.group(1), m.start(1)))
     for rx in (_OPENER_TIGHT, _PREFIX_ALERT):
         m = rx.search(text)
-        if m and not _ALERT_WORDS.fullmatch(m.group(1)):
+        if m and _initials_ok(m.group(1)):
             spans.append(m.span(1))
-    for rx in (_SPEAKER,):
+    m = _OPENER_AGENCY_TIGHT.search(text)
+    if m and _AGENCY_HEAD.search(m.group(1)):
+        spans.append(m.span(1))
+    for rx in (_SPEAKER, _SPEAKER_WITH):
         for m in rx.finditer(text):
             name = m.group(1)
             if (
                 _names_an_organization(name)
-                or _speaker_head(name)
+                or _speaker_head(name, strict=True)
                 or re.search(r"(?i)\b(?:alerts?|notifications?|system|program)$", name)
             ):
                 spans.append(_organization_part(name, m.start(1)))
     m = _SUBJECT_SPEAKS.search(text)
     if m:
         subject = m.group(1).strip()
+        named_body = _AGENCY_HEAD.search(subject) or _JURISDICTION.search(subject)
         if not (
             _GENERIC_SPEAKER.match(subject)
-            or _ALERT_WORDS.search(subject)
+            or (_ALERT_WORDS.search(subject) and not named_body)
             or any(rx.search(subject) for rx in HAZARD_WORDS.values())
             or _ROAD_WORDS.search(subject)
         ):
             spans.append(m.span(1))
     for m in _SPEAKER_VERB.finditer(text):
-        if _names_an_organization(m.group(1)) or _speaker_head(m.group(1)):
+        if _names_an_organization(m.group(1)) or _speaker_head(m.group(1), strict=True):
             spans.append(_organization_part(m.group(1), m.start(1)))
     first = re.match(_LEAD_STAMP + r"(?:(?i:the)\s+)?([^\s:]+(?:\s+[^\s:]+){0,5})", text)
     if first:
@@ -273,10 +286,32 @@ def speaker_spans(text: str, ctx: Context) -> list[tuple[int, int]]:
     return _merge(spans)
 
 
-def _speaker_head(name: str) -> bool:
-    """An opener or subject that names a speaker by an agency word or by initials."""
+def _initials_ok(token: str) -> bool:
+    """Initials that can name a speaker: not a channel's name, a common word, an alert word or a
+    hazard word ("EAS", "NOW", "ALERT" and "FLOOD" are not a speaker's initials)."""
+    return not (
+        token.upper() in _NOT_ACRONYMS
+        or _ALERT_WORDS.fullmatch(token)
+        or any(rx.fullmatch(token) for rx in HAZARD_WORDS.values())
+    )
+
+
+def _speaker_head(name: str, strict: bool = False) -> bool:
+    """An opener or subject that names a speaker by an agency word or by initials.
+
+    With ``strict`` (a name found mid-text), an all-caps name counts only by an agency word:
+    in an all-caps text every short word looks like initials.
+    """
     if _STATE_OF.search(name):
         return False
+    if _AGENCY_HEAD.search(name):
+        return True
+    if strict and name.isupper():
+        return False
+    for w in re.findall(r"[A-Za-z0-9]+", name):
+        if _INITIALS.fullmatch(w) and _initials_ok(w):
+            return True
+    return False
     if _AGENCY_HEAD.search(name):
         return True
     for w in re.findall(r"[A-Za-z0-9]+", name):
@@ -675,7 +710,7 @@ _LEAD_IN = _rx(
     r"instructed|recommended)\s+to|to|also|now|immediately|"
     r"\bfor\s+(?:more\s+)?(?:\w+\s+)?(?:info\w*|assistance|help|questions|updates|details)\b[^.!?]{0,40}|"
     r"\blevel\s+\w+\s*[(\-:]?|"
-    r"\b(?:if|when|while|unless)\b[^.!?]{0,80}|"
+    r"\b(?:if|when|while|unless)\b[^.!?]{0,80}|,?\s*\bbut|"
     r"\b(?:residents|everyone|people|public|citizens|drivers|motorists|those|anyone|customers|"
     r"students|staff|homeowners|occupants|individuals|visitors|travelers|you|all)\b[^.!?]{0,60})"
     r"\s*$"
@@ -770,7 +805,7 @@ _EXPIRY = _rx(
     r"will\s+be\s+lifted|next\s+update|updates?\s+(?:will|at|by|to\s+follow)|"
     r"more\s+information\s+(?:will|to\s+follow))\b"
 )
-_UNTIL = _rx(r"\b(?:until|till|til|thru)\b")
+_UNTIL = _rx(r"\b(?:until|till|til)\b")
 _IMPACT = _rx(
     r"\b(?:expected\s+(?:to|at|by|around|between|within|later|soon|overnight|tonight)|"
     r"(?:opening|reopen\w*|clear\w*|expected|end\w*|lift\w*)\s+(?:very\s+)?soon|"
@@ -894,6 +929,8 @@ _NOT_A_PLACE_NAME = _rx(
     r"^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|"
     r"april|may|june|july|august|september|october|november|december|zone|zones|level|phase|"
     r"stage|area|areas|road|county|city|town|the|this|that|these|those|your|our|all|effect|"
+    r"local|civil|affected|surrounding|entire|whole|burn|impacted|danger|hazard|staging|service|"
+    r"coverage|outage|flood|storm|fire|evacuation|evacuated|nearby|other|any|each|"
     r"place|shelter|evacuation|evacuations|order|warning|alert|alerts|emergency|police|fire|"
     r"sheriff|department|office|information|updates?|details|today|tonight|tomorrow|now|"
     r"further|notice|english|spanish|facebook|twitter|nixle|everbridge|codered|instagram|"
@@ -1177,6 +1214,11 @@ _NOT_ACRONYMS = frozenset(
         "LIVE",
         "LIFE",
         "ALSO",
+        "EAS",
+        "WEA",
+        "IPAWS",
+        "CMAS",
+        "NWEM",
     ]
 )
 _DIRECTIONS = re.compile(r"\b(?:NB|SB|EB|WB)\b")
