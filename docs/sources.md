@@ -308,7 +308,9 @@ minutes).
 > limit data to a region or date, and then post-process offline with external tools.
 
 FEMA's examples filter event codes and geocodes inside the nesting, for example
-`contains(infos/eventCode/value,'CAE')` and `startswith(infos/areas/geocode/value,'006')`.
+`contains(infos/eventCode/value,'CAE')` and `startswith(infos/areas/geocode/value,'006')`. On
+2026-11-15 the `infos/` form answered HTTP 400 for every code; the same filter with `info/`
+(the name the records use) answered, for example `contains(info/eventCode/value,'CAE')`.
 
 **Searchable fields.** The dataset page marks each field "Is Searchable". Searchable: `id`,
 `identifier`, `sender`, `sent`, `status`, `msgType`, `source`, `scope`, `restriction`,
@@ -337,7 +339,10 @@ records themselves.
 `https://www.fema.gov/api/open/v1/IpawsArchivedAlerts.<format>`, each with 4,887,710 records and
 an "Approximate File Size" of "large (500MB - 10GB)"; the metadata record says
 "x-large (> 10GB)" for each. "Working with Large Data Sets" says: "Although the full source file
-is uncompressed, data should be compressed by GZIP during transmission [...]".
+is uncompressed, data should be compressed by GZIP during transmission [...]". A HEAD request on
+each file (2026-11-15) answered 200 with `Content-Length: 0` (`json`, `jsona`) or no length
+(`jsonl`), so the size is not known before downloading; `backfill.md` estimates it from the
+sample.
 
 ## 7. CAP v1.2 and the IPAWS profile
 

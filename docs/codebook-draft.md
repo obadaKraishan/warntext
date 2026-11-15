@@ -25,12 +25,19 @@ Warning Response Model content elements (hazard, location, source, guidance, tim
 time were included far less often than the other three; a message is "complete" when it holds
 all five, and 8.5% were; 360-character messages were complete more often than 90-character ones.
 
+**From the authors' slides** ("A Decade of Wireless Emergency Alerts", IPAWS Users Conference
+2023, on fema.gov): the messages were sent from 2012 to April 2022, "Excluding National Weather
+Service, missing persons, AMBER alerts, test/demonstrations, cancellations/updates, and messages
+sent in Spanish", leaving "6,080 unique WEA Messages", of which "69.2% were 90-character messages
+and 30.8% were 360-character". Applying the same exclusions to this archive's sample gives about
+4,000 messages (95 sampled; a wide margin), with 22% at 360 characters: the same order, so the
+archive may be their source, which the slides do not say.
+
 **Not confirmed, and to be checked in the full text:** the values and decision rules for each
 variable; whether any style variable was coded; the coders and their training; the reliability
 statistic and its values (their reference list cites Krippendorff 2011, Freelon's ReCal OIR
-2013 and Lombard et al. 2010, which suggests Krippendorff's alpha); the sampling and exclusions
-(tests, child abduction alerts, presidential or national alerts, Spanish, duplicates); and the
-sentence that describes the corpus as non-public, with its page.
+2013 and Lombard et al. 2010, which suggests Krippendorff's alpha); how "unique" was decided;
+and the sentence that describes the corpus as non-public, with its page.
 
 ## Unit and text
 
