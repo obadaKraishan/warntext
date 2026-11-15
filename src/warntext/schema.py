@@ -53,7 +53,8 @@ class Channels(Frozen):
     """Which channels the message asked to go to, read from its parameters.
 
     The record shows what the sender asked for, not what was delivered. ``blocked`` lists the
-    values of every ``BLOCKCHANNEL`` parameter.
+    values of every ``BLOCKCHANNEL`` parameter (seen: CMAS, WEA, EAS, NWEM, PUBLIC, CAPEXCH,
+    EMNET).
     """
 
     wea: bool = False

@@ -182,3 +182,10 @@ def test_models_are_frozen_and_refuse_unknown_fields():
 def test_resource_size_that_is_not_a_number_is_none():
     xml = WEA_TWO_LANGUAGES.replace("<size>1234</size>", "<size>big</size>")
     assert cap.parse_xml(xml).infos[0].resources[0].size is None
+
+
+def test_blockchannel_wea_also_turns_phones_off():
+    xml = BLOCKED_PHONES.replace("<value>cmas</value>", "<value>WEA</value>")
+    ch = cap.parse_xml(xml).channels
+    assert ch.blocked == ("PUBLIC", "WEA")
+    assert not ch.wea

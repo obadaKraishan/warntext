@@ -155,7 +155,7 @@ def channels(infos: Iterable[Info], sender: str | None = None) -> Channels:
     """The channels a message asked for, from its parameters.
 
     - ``wea``: some info block carries a phone text (``CMAMtext`` or ``CMAMlongtext``) and no
-      ``BLOCKCHANNEL`` names ``CMAS``.
+      ``BLOCKCHANNEL`` names ``CMAS`` or ``WEA`` (both are seen in the archive).
     - ``eas``: some info block carries ``EAS-ORG`` and no ``BLOCKCHANNEL`` names ``EAS``.
     - ``nwem``: the message is not from the National Weather Service, has a SAME event code and
       no ``BLOCKCHANNEL`` names ``NWEM`` (non-weather messages relayed to weather radio).
@@ -175,7 +175,7 @@ def channels(infos: Iterable[Info], sender: str | None = None) -> Channels:
     has_same = any(p.name == "SAME" for i in infos for p in i.event_codes)
     from_nws = (sender or "").lower() == "w-nws.webmaster@noaa.gov"
     return Channels(
-        wea=has_phone_text and "CMAS" not in blocked,
+        wea=has_phone_text and not {"CMAS", "WEA"} & set(blocked),
         eas=has_eas_org and "EAS" not in blocked,
         nwem=has_same and not from_nws and "NWEM" not in blocked,
         public="PUBLIC" not in blocked,
