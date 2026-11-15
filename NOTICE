@@ -10,3 +10,7 @@ docs/sources.md describes where the messages come from and the terms that apply 
 WarnText is an independent research project. It is not made, endorsed or checked by the Federal
 Emergency Management Agency (FEMA), the Department of Homeland Security or any alerting
 authority.
+
+This product uses the Federal Emergency Management Agency’s OpenFEMA API, but is not endorsed by
+FEMA. The Federal Government or FEMA cannot vouch for the data or analyses derived from these
+data after the data have been retrieved from the Agency's website(s).

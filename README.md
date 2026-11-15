@@ -38,6 +38,8 @@ OpenFEMA program. The messages themselves were written by the federal, state, lo
 territorial authorities that sent them. [`docs/sources.md`](docs/sources.md) quotes the terms of
 use and the citation they ask for.
 
+> This product uses the Federal Emergency Management Agency’s OpenFEMA API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for the data or analyses derived from these data after the data have been retrieved from the Agency's website(s).
+
 ## License
 The software in this repository is licensed under the Apache License, Version 2.0 (see
 [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). The terms for the corpus itself will be stated
