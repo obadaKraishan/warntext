@@ -74,7 +74,9 @@ INFO_ES = """
 WEA_TWO_LANGUAGES = alert(HEADER + INFO_EN + INFO_ES)
 
 UPDATE = alert(
-    HEADER.replace("<msgType>Alert</msgType>", "<msgType>Update</msgType>")
+    HEADER.replace("<msgType>Alert</msgType>", "<msgType>Update</msgType>").replace(
+        "EX-0001<", "EX-0002<"
+    )
     + "<references>example-county-oem@example.org,EX-0000,2024-05-01T09:00:00-05:00 "
     "example-county-oem@example.org,EX-0001a,2024-05-01T09:30:00-05:00 broken-entry</references>"
     + "<incidents>INC-1 INC-2</incidents>"
