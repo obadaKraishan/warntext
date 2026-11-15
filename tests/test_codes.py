@@ -305,9 +305,10 @@ def test_road_closures_and_burn_bans_name_their_event():
     assert code("Burn ban in effect for Sampleton County.")["hazard_category"] == "wildfire"
 
 
-def test_an_opener_keeps_its_hazard_words_and_a_jurisdiction_opener_is_a_place():
+def test_an_opener_keeps_its_hazard_words_and_names_the_speaker_not_a_place():
     c = code("Sampleton County Flood Warning: move to higher ground now.")
-    assert c["source_named"] and c["hazard_category"] == "atmospheric" and c["loc_boundary"]
+    # version 2: the speaker's own place is the source, not a location
+    assert c["source_named"] and c["hazard_category"] == "atmospheric" and not c["loc_boundary"]
     c = code("Sampleton County OEM: move to higher ground now.")
     assert c["source_named"] and not c["loc_boundary"]  # an agency's name is not a place
 
@@ -326,3 +327,117 @@ def test_category_cues_and_named_places_in_all_caps():
     )
     assert code("BOIL WATER NOTICE FOR RESIDENTS OF EXAMPLEVILLE.")["loc_boundary"]
     assert not code("STAY INSIDE FOR SAFETY.")["loc_boundary"]
+
+
+# --- version 2: the settled definitions -----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "SCEMA: Shelter in place now.",
+        "EXCO Alert Boil water before drinking.",
+        "Sheriff: Avoid Oak Road.",
+        "SAMPLETON POLICE: Lock doors and stay inside.",
+        "Sampleton has issued a boil order for city water.",
+        "EXTA is suspending bus service until 6 AM.",
+        "Exville911-Gas leak near Oak Road, shelter in place.",
+        "2.1.26 400PM AlertExCo: Shelter in place now.",
+        "Message from Example Ready Alerts: test your plan.",
+        "Example Cnty: residents are clear to return.",
+    ],
+)
+def test_v2_the_speaker_is_named_by_initials_an_agency_word_or_a_speaking_subject(text):
+    assert code(text)["source_named"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "For FEMA assistance call 555-0100.",
+        "Gas leak The fire department has contained the leak.",
+        "The device was removed by the EXPD bomb squad.",
+        "Gas leak reported. Leave the building.",
+        "Info at sampleton.gov",
+        "Oak Road is closed. Use another route.",
+    ],
+)
+def test_v2_an_agency_only_mentioned_or_a_web_address_is_not_the_source(text):
+    assert not code(text)["source_named"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Crash on Oak Road. Merge left.",
+        "Please travel cautiously if you must travel.",
+        "Evac to the invented school.",
+        "Evac Warning north of Oak Road.",
+        "Level 3 Evacuation - Oak Road",
+        "Evacuation Immediate",
+        "MANDATORY Fire Evacuation for Oak Creek.",
+        "Sampleton County burn ban due to dry weather.",
+        "Thru traffic detour at exit 4.",
+        "Bus service ends at 9 PM. Updates www.example.org",
+        "For assistance call 555-0100.",
+        "GAS LEAK OAK RD & ELM FIND AN ALTERNATE ROUTE",
+        "Level 1 BE READY evacuation for Oak Creek.",
+    ],
+)
+def test_v2_guidance_in_any_form(text):
+    assert code(text)["guidance"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Mandatory evacuation order for Oak Road lifted.",
+        "Message from Example Aware and Prepare Alerts:",
+        "Road closed at Oak Road.",
+    ],
+)
+def test_v2_no_guidance_in_an_ended_order_or_a_name(text):
+    assert not code(text)["guidance"]
+
+
+def test_v2_time_kinds():
+    assert code("Immediate evacuation for Oak Creek.")["time_action"]
+    assert code("Avoid travel at this time.")["time_action"]
+    assert not code("At this time there is no threat.")["time"]
+    assert code("Prepare to leave at a moment's notice.")["time_action"]
+    assert code("Flood warning till 3:45 AM.")["time_expiry"]
+    assert not code("Storms approaching Sampleton County.")["time"]
+    assert not code("Shelter within 1/2 mile of Oak Road.")["time"]
+    assert not code("The boil order has been lifted.")["time"]
+    assert code("Rockslide on I-40, one lane opening soon.")["time_impact"]
+
+
+def test_v2_named_places_only():
+    assert code("Crash at SH359 exit ramp.")["loc_road"]
+    assert code("All residents east of M-30 must evacuate.")["loc_road"]
+    assert code("Pine Cove residents shelter in place.")["loc_boundary"]
+    assert code("Please avoid Exampleville until tomorrow.")["loc_boundary"]
+    assert code("Evacuate now if in Level A.")["loc_zone"]
+    assert code("Example burn area evacuations in place.")["loc_boundary"]
+    assert code("Fire near Lincoln Twp. Leave now.")["loc_boundary"]
+    assert not code("Old Trail Fire evacuation message")["loc_road"]
+    assert not code("Tornado warning for the south end of the county.")["location"]
+
+
+def test_v2_hazards_and_their_description():
+    c = code("Diesel fuel release into Oak Creek.")
+    assert c["hazard"] and c["hazard_category"] == "technological" and c["hazard_description"]
+    assert code("I-80 WB closed from exit 67")["hazard_category"] == "public_safety"
+    c = code("SR 73 closed due to downed power pole")
+    assert c["hazard"] and c["hazard_description"]
+    assert not code("Evacuate if you are on the ice at Oak Lake.")["hazard"]
+    assert code("EXTA is suspending bus service until 6 AM.")["hazard"]
+    assert code("COVID19 is a serious threat in Exampleville.")["hazard_description"]
+    assert not code("Shelter for those affected by the power outage.")["hazard_description"]
+    assert not code("Roads unsafe. Shelter in place.")["hazard_description"]
+    assert code("A curfew is in effect. Travel to work is permitted.")["hazard_description"]
+
+
+def test_v2_spanish_and_tests_under_real_codes_are_caught():
+    assert cd.looks_spanish("EXFIRE: ORDEN DE RESGUARDO INMEDIATO humo nocivo en Oak Ave")
+    assert code("EXEM TESTING IPAWS WITH EXAMPLE SUPPORT #1")["about_test"]

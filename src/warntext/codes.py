@@ -36,7 +36,7 @@ from typing import Any
 from warntext import privacy
 from warntext import senders as sd
 
-CODEBOOK_VERSION = "1"
+CODEBOOK_VERSION = "2"
 UNITS = ("wea90", "wea360", "full")
 CATEGORIES = (
     "wildfire",
@@ -62,7 +62,9 @@ def _rx(pattern: str, flags: int = IC) -> re.Pattern[str]:
 _ES = _rx(
     r"\b(el|la|los|las|del|que|por|para|una|est[aá]|se|con|al|su|sus|usted|ustedes|"
     r"evac[uú]e|ahora|zona|condado|ciudad|inmediatamente|alerta|aviso|refugio|lugar|hogar|"
-    r"agua|fuego|incendio|polic[ií]a|n[uú]mero|m[aá]s|informaci[oó]n|hasta|nuevo)\b"
+    r"agua|fuego|incendio|polic[ií]a|n[uú]mero|m[aá]s|informaci[oó]n|hasta|nuevo|orden|"
+    r"resguardo|humo|nocivo|inmediato|suroeste|sureste|noroeste|noreste|evacuaci[oó]n|desalojo|"
+    r"carretera|cerrad[oa]|peligro|tormenta|inundaci[oó]n|calle|avenida|personas|residentes)\b"
 )
 _EN = _rx(
     r"\b(the|and|of|to|in|for|is|are|your|you|this|on|at|be|will|please|area|now|all|"
@@ -110,22 +112,38 @@ _ACRONYM_KNOWN = re.compile(
     r"\b(?:OEM|OES|EMA|EOC|DEM|DES|HSEM|OHSEM|DPS|DOT|DPW|DOH|CHP|NWS|FEMA|USGS|NOAA|DHS|"
     r"FBI|ATF|CDC|EPA|PSPS|CALFIRE|NYCEM|CBP|TSA|USACE|TVA)\b"
 )
-_ACRONYM_ENDING = re.compile(r"\b[A-Z]{1,5}(?:SO|PD|FD|OEM|EMA|DEM|OES|FPD|DPS|EMS)\b")
+_ACRONYM_ENDING = re.compile(r"\b[A-Z]{1,5}(?:SO|PD|FD|OEM|EMA|DEM|OES|FPD|DPS|EMS|EM)\b")
 #: Short agency forms that are only read as a source after a place name ("Sampleton PD") or in
 #: the message's opener or signature, since "SO" is also a word in an all-caps text.
 _ACRONYM_BARE = re.compile(r"\b(?:PD|SO|FD|EMS|EM|DPS|SD|PSO|OEM|EMA)\b")
 _NAME_THEN_BARE = re.compile(r"\b[A-Z][a-z]{2,}\s+(?:PD|SO|FD|EMS|EM|DPS|OEM|EMA)\b")
 _JURISDICTION = _rx(
-    r"\b(?:county|parish|borough|city|town|township|village|state|tribe|tribal|nation|"
-    r"university|campus|base)\b"
+    r"\b(?:county|parish|borough|city|town|township|twp|cnty|village|state|tribe|tribal|nation|"
+    r"university|campus|base)\b|[a-z]County\b"
 )
+#: Agency words that name a speaker when they stand as the opener or the subject ("Sheriff:",
+#: "LEE POLICE:", "Southampton Twp emergency officials recommend ...").
+_AGENCY_HEAD = _rx(
+    r"\b(?:sheriff'?s?|police|fire|rescue|ems|officials|ofc|office|dept|department|authority|"
+    r"government|govt|management|emergency\s+services|dispatch|911)\b|\w+911\b"
+)
+#: Initials: a short all-caps token, or a mixed token with two capitals or more ("RivCo",
+#: "MAGovt", "AlertRivCo", "SRQCounty"), never one tied to a web address.
+_INITIALS = re.compile(r"\b(?:[A-Z]{2,6}[0-9]*|[A-Z][a-z]*[A-Z][A-Za-z0-9]*)\b(?![.]\w)")
 _ALERT_WORDS = _rx(
-    r"\b(?:alert|warning|watch|order|notice|advisory|update|emergency|evacuat\w*|test|"
+    r"\b(?:alert|warning|watch|order|notice|advisory|update|emergency|evacuat\w*|evac|test|"
     r"statement|message|information)\b"
 )
+_LEAD_STAMP = r"^\W*(?:[\d./:-]+\s*(?:[AaPp][Mm])?\s+){0,2}"
 _OPENER = re.compile(
-    r"^\W*([A-Z][\w.'&/-]*(?:\s+[A-Za-z][\w.'&/-]*){0,7})\s*(?::|-{1,2}|\u2013|\u2014)\s"
+    _LEAD_STAMP
+    + r"([A-Z][\w.'&/-]*(?:\s+[A-Za-z][\w.'&/-]*){0,7})\s*(?::|-{1,2}|\u2013|\u2014)(?:\s|$)"
 )
+#: An opener joined to the text by a bare dash: "Ionia911-Lake ...", "GDOT-Road ...".
+_OPENER_TIGHT = re.compile(_LEAD_STAMP + r"([A-Z][A-Za-z]*(?:911|[A-Z]{2,})[A-Za-z0-9]*)[:\-]\S")
+#: Initials or an agency word that starts the text as its speaker: "MAGovt Alert ...",
+#: "NCEM ...", "THE DOUGLAS COUNTY SHERIFFS OFC ADV ...".
+_PREFIX_ALERT = re.compile(_LEAD_STAMP + r"([A-Z][A-Za-z]*[A-Z][A-Za-z0-9]*)\s+(?i:alerts?)\b")
 _SIGNATURE = re.compile(r"(?:^|\s)(?:-{1,2}|\u2013|\u2014|~)\s*([A-Z][\w.'& /-]{2,70}?)\s*\.?\s*$")
 _STATE_OF = _rx(r"\bstate\s+of\s+(?:emergency|disaster)\b")
 _NAME = r"[A-Z][\w.'&-]*(?:\s+(?:of\s+|and\s+|&\s+)?[A-Z][\w.'&-]*){0,6}"
@@ -134,8 +152,21 @@ _SPEAKER = re.compile(
     rf"\b(?i:this\s+is|message\s+from|from|on\s+behalf\s+of)\s+(?:(?i:the)\s+)?({_NAME})"
 )
 _SPEAKER_VERB = re.compile(
-    rf"\b({_NAME})\s+(?i:(?:is\s+|has\s+)?(?:advis|urg|ask|report|issu|announc|recommend|order|"
-    r"request|say|encourag|remind|confirm|warn|declar)\w*)\b"
+    rf"\b({_NAME})\s+(?i:(?:is\s+|has\s+|have\s+)?(?:advis|urg|ask|report|issu|announc|recommend|"
+    r"order|request|say|encourag|remind|confirm|warn|declar)\w*)\b"
+)
+#: The text's own subject speaking: its first words, then a speaker verb ("OTTAWA HAS ISSUED",
+#: "CTA is suspending", "UCPD ordering", "... SHERIFFS OFC ADV").
+_SUBJECT_SPEAKS = re.compile(
+    _LEAD_STAMP + r"(?:(?i:the)\s+)?([A-Z][\w.'&-]*(?:\s+[A-Za-z][\w.'&-]*){0,6}?)\s+"
+    r"(?i:(?:(?:is|are)\s+(?:advis|urg|ask|request|warn|suspend|notify|remind|order|recommend)\w*ing"
+    r"|(?:has|have)\s+(?:issu|order|declar|recommend|request|suspend|announc|advis|urg|ask)\w*"
+    r"|(?:advis|urg|ask|request|suspend|notif|remind|order|recommend|announc|declar)\w*(?:s|ing)"
+    r"|adv|issues))\b"
+)
+_GENERIC_SPEAKER = _rx(
+    r"^(?:police|officials|authorities|deputies|officers|firefighters|crews|residents|everyone|"
+    r"you|we|they|people|the\s+public|emergency\s+officials|all|this|a|an|the)$"
 )
 #: A place name before an agency word, in mixed case: "Exampleville Police".
 _PLACE_AGENCY = re.compile(
@@ -182,8 +213,89 @@ def organization_words(name: str | None) -> list[str]:
     return [w.lower() for w in words if len(w) >= 3 and not _GENERIC_NAME_WORDS.match(w)]
 
 
+def speaker_spans(text: str, ctx: Context) -> list[tuple[int, int]]:
+    """Spans that name the organization speaking: opener, signature, speaker cues, a subject with
+    a speaker verb, initials that start the text, and the authority's own name or initials.
+
+    An agency only mentioned ("FEMA assistance", "the bomb squad removed it") is not the
+    speaker, and a web address alone names no one.
+    """
+    spans: list[tuple[int, int]] = []
+    for rx in (_OPENER, _SIGNATURE):
+        m = rx.search(text)
+        if m and (_names_an_organization(m.group(1), opener=True) or _speaker_head(m.group(1))):
+            spans.append(_organization_part(m.group(1), m.start(1)))
+    for rx in (_OPENER_TIGHT, _PREFIX_ALERT):
+        m = rx.search(text)
+        if m and not _ALERT_WORDS.fullmatch(m.group(1)):
+            spans.append(m.span(1))
+    for rx in (_SPEAKER,):
+        for m in rx.finditer(text):
+            name = m.group(1)
+            if (
+                _names_an_organization(name)
+                or _speaker_head(name)
+                or re.search(r"(?i)\b(?:alerts?|notifications?|system|program)$", name)
+            ):
+                spans.append(_organization_part(name, m.start(1)))
+    m = _SUBJECT_SPEAKS.search(text)
+    if m:
+        subject = m.group(1).strip()
+        if not (
+            _GENERIC_SPEAKER.match(subject)
+            or _ALERT_WORDS.search(subject)
+            or any(rx.search(subject) for rx in HAZARD_WORDS.values())
+            or _ROAD_WORDS.search(subject)
+        ):
+            spans.append(m.span(1))
+    for m in _SPEAKER_VERB.finditer(text):
+        if _names_an_organization(m.group(1)) or _speaker_head(m.group(1)):
+            spans.append(_organization_part(m.group(1), m.start(1)))
+    first = re.match(_LEAD_STAMP + r"(?:(?i:the)\s+)?([^\s:]+(?:\s+[^\s:]+){0,5})", text)
+    if first:
+        head = first.group(1)
+        lead = re.match(r"\S+", head)
+        if lead and (
+            _ACRONYM_KNOWN.fullmatch(lead.group(0)) or _ACRONYM_ENDING.fullmatch(lead.group(0))
+        ):
+            spans.append((first.start(1), first.start(1) + lead.end()))
+        elif re.match(rf"(?:{_AGENCY.pattern})", head, IC | VB):
+            spans.append((first.start(1), first.end(1)))
+    if ctx.organization:
+        full = re.search(re.escape(ctx.organization), text, IC)
+        if full:
+            spans.append(full.span())
+        initials = "".join(
+            w[0] for w in re.findall(r"[A-Za-z]+", ctx.organization) if w[0].isupper()
+        )
+        if len(initials) >= 3:
+            spans += [m.span() for m in re.finditer(rf"\b{re.escape(initials)}\b", text)]
+    return _merge(spans)
+
+
+def _speaker_head(name: str) -> bool:
+    """An opener or subject that names a speaker by an agency word or by initials."""
+    if _STATE_OF.search(name):
+        return False
+    if _AGENCY_HEAD.search(name):
+        return True
+    for w in re.findall(r"[A-Za-z0-9]+", name):
+        if (
+            _INITIALS.fullmatch(w)
+            and w.upper() not in _NOT_ACRONYMS
+            and not _ALERT_WORDS.fullmatch(w)
+            and not any(rx.fullmatch(w) for rx in HAZARD_WORDS.values())
+        ):
+            return True
+    return False
+
+
 def find_source(text: str, ctx: Context) -> list[tuple[int, int]]:
-    """Spans of the text that name the organization giving the message."""
+    """Spans of the text that name any organization: blanked before the other codes read it.
+
+    This is wider than the speaker (:func:`speaker_spans`): an agency only mentioned ("the fire
+    department has contained it") is still not a fire, nor a place.
+    """
     spans: list[tuple[int, int]] = []
     spans += [m.span() for m in _AGENCY.finditer(text)]
     spans += [m.span() for m in _ACRONYM_KNOWN.finditer(text)]
@@ -202,6 +314,7 @@ def find_source(text: str, ctx: Context) -> list[tuple[int, int]]:
     for m in _PLACE_AGENCY.finditer(text):
         if not _NOT_A_PLACE.match(m.group(1).split()[0]):
             spans.append(m.span())
+    spans += speaker_spans(text, ctx)
     words = organization_words(ctx.organization) + sorted(ctx.place_words)
     if ctx.organization:
         full = re.search(re.escape(ctx.organization), text, IC)
@@ -272,8 +385,22 @@ def _organization_part(name: str, start: int) -> tuple[int, int]:
     """
     ends = [
         m.end()
-        for rx in (_AGENCY, _ACRONYM_KNOWN, _ACRONYM_ENDING, _ACRONYM_BARE, _JURISDICTION)
+        for rx in (
+            _AGENCY,
+            _ACRONYM_KNOWN,
+            _ACRONYM_ENDING,
+            _ACRONYM_BARE,
+            _JURISDICTION,
+            _AGENCY_HEAD,
+        )
         for m in rx.finditer(name)
+    ]
+    ends += [
+        m.end()
+        for m in _INITIALS.finditer(name)
+        if m.group(0).upper() not in _NOT_ACRONYMS
+        and not _ALERT_WORDS.fullmatch(m.group(0))
+        and not any(rx.fullmatch(m.group(0)) for rx in HAZARD_WORDS.values())
     ]
     return (start, start + (max(ends) if ends else len(name)))
 
@@ -314,7 +441,8 @@ HAZARD_WORDS: dict[str, re.Pattern[str]] = {
         r"(?:bridge|building|structure)\s+collapse|radiological|radiation|nuclear|"
         r"oil\s+spill|pipeline|carbon\s+monoxide|gas\s+main|power\s+plant\s+(?:incident|"
         r"emergency)|dam\s+(?:release|overtopping|is\s+failing|may\s+fail|failing|emergency)|"
-        r"gas\s+(?:line|odor|smell|release)|propane|fuel\s+(?:leak|spill))\b"
+        r"gas\s+(?:line|odor|smell|release)|propane|fuel\s+(?:leak|spill)|"
+        r"(?:diesel|fuel|oil|gas|chemical|ammonia|chlorine|sewage)\s+(?:release|spill|leak)s?)\b"
     ),
     "law_enforcement": _rx(
         r"\b(?:police\s+(?:activity|situation|incident|operation|presence)|law\s+enforcement\s+"
@@ -346,12 +474,17 @@ HAZARD_WORDS: dict[str, re.Pattern[str]] = {
         r"(?:is\s+|are\s+|will\s+be\s+|have\s+been\s+)?closed\b|\b(?:road|lane|bridge|street|"
         r"highway)\s+closures?\b|\bwater\s+(?:conservation|advisory|notice|alert|quality|leak|"
         r"line|system|break)|\bno\s+water\b|\bpower\s+(?:shut[- ]?offs?|lines?\s+down)|"
-        r"\bdowned\s+power\s+lines\b|\bpsps\b"
+        r"\bdowned\s+(?:power\s+)?(?:lines?|poles?|wires?|trees?)\b|\bpsps\b|"
+        r"\b(?:interstate\s*\d+|i-?\s?\d+|us-?\s?\d+|sr-?\s?\d+|sh\s?-?\d+|hwy\.?\s?-?\d+|"
+        r"highway\s+\d+|route\s+\d+|[a-z]{1,3}-\d{1,4})\b(?:\s+\S+){0,4}?\s+closed\b|"
+        r"\ball\s+lanes\s+(?:are\s+)?(?:closed|blocked)\b|\bsuspend\w*\s+(?:\S+\s+){0,4}?service\b|"
+        r"\bservice\s+(?:is\s+)?(?:suspended|suspension|disruption|interruption)\b"
     ),
     "atmospheric": _rx(
         r"\b(?:flash\s+floods?|floods?|flooding|tornado(?:es)?|thunderstorms?|storms?|"
         r"severe\s+weather|hurricanes?|tropical\s+storms?|typhoons?|storm\s+surge|"
-        r"high\s+winds?|winds?|winter\s+storms?|snow|blizzard|ice|icy|freez\w+|"
+        r"high\s+winds?|winds?|winter\s+storms?|snow|blizzard|ice\s+storms?|black\s+ice|"
+        r"thin\s+ice|ice\s+jams?|icy|freez\w+|"
         r"extreme\s+cold|wind\s+chill|extreme\s+heat|excessive\s+heat|heat\s+wave|heat|"
         r"dust\s+storm|haboob|fog|hail|heavy\s+rain|rain|lightning|tsunami|monsoon|"
         r"rip\s+currents?|high\s+surf|(?:winter|cold|hot|extreme|inclement)\s+weather|"
@@ -452,14 +585,23 @@ _CHARACTERISTICS = _rx(
     r"knots)|gusts?|sustained\s+winds|\d+(?:\.\d+)?\s*(?:inches|inch|feet)\b|magnitude|"
     r"intensity|plume|smoke|flames|large|major|massive|significant|dangerous|extreme|intense|"
     r"strong|deadly|toxic|explosive|flammable|rising|risen|swift(?:ly)?|"
-    r"has\s+(?:started|begun|crossed|jumped|breached|failed))\b"
+    r"has\s+(?:started|begun|crossed|jumped|breached|failed)|serious|severe\s+threat|threat\s+to|"
+    r"poor\s+(?:road\s+)?conditions|worsen\w*|deteriorat\w*|ha(?:s|ve)\s+passed|"
+    r"moved\s+(?:out|away|on|east|west|north|south)|(?:safely\s+)?removed|stage\s+\d|"
+    r"(?:more|additional)\s+(?:rain|rainfall|snow|storms?|showers)|release\s+into|"
+    r"into\s+(?:the\s+)?(?:\w+\s+){0,2}(?:river|creek|lake|bay|stream|waterway|harbor|sewer|"
+    r"storm\s+drains?)s?|"
+    r"(?:is|are)\s+(?:permitted|exempt|allowed|prohibited|banned))\b"
 )
 _IMPACTS = _rx(
     r"\b(?:damage[ds]?|destroy(?:ed|ing)?|injur(?:y|ies|ed)|fatalit(?:y|ies)|deaths?|"
     r"power\s+(?:outages?|shut[- ]?offs?|loss)|without\s+(?:power|water|service|phone)|"
     r"loss\s+of\s+(?:power|water|service|life)|"
-    r"(?:roads?|streets?|highways?|bridges?|lanes?)\s+(?:are\s+|is\s+|will\s+be\s+)?"
-    r"(?:closed|blocked|impassable|flooded|washed\s+out)|closures?|impassable|"
+    r"(?:roads?|roadways?|streets?|highways?|bridges?|lanes?|rd|hwy|ramps?)\s+(?:\S+\s+){0,3}?"
+    r"(?:are\s+|is\s+|will\s+be\s+)?(?:closed|blocked|impassable|flooded|washed\s+out|opening|"
+    r"reopen\w*)|closures?|impassable|closed\s+due\s+to|backups?|may\s+not\s+be\s+able\s+to|"
+    r"(?:interstate\s*\d+|i-?\s?\d+|us-?\s?\d+|sr-?\s?\d+|hwy\.?\s?-?\d+|highway\s+\d+)"
+    r"(?:\s+\S+){0,4}?\s+closed|"
     r"contaminat\w*|unsafe|not\s+safe|downed\s+(?:trees|power\s+lines|lines)|trapped|"
     r"stranded|disrupt\w*|unable\s+to\s+(?:call|reach|dial|connect)|"
     r"cannot\s+(?:call|reach|dial)|(?:may|could|can|will)\s+(?:cause|result|lead|affect|"
@@ -485,7 +627,9 @@ _VERBS = (
     r"head\s+(?:to|inside|indoors)|proceed|relocate|clear\s+(?:the|out)|vacate|exit|"
     r"sign\s+up|register|allow|yield|exercise\s+caution|use\s+caution|drive|slow\s+down|"
     r"remove|charge|stock\s+up|fill|gather|notify|refrain|dispose|discard|"
-    r"throw\s+away|treat|filter|drink|bring\s+in|return|consider|ensure|make\s+sure"
+    r"throw\s+away|treat|filter|drink|bring\s+in|return|consider|ensure|make\s+sure|"
+    r"evac(?=\s+(?:to|now|immediately|the|all|north|south|east|west|if))|merge\s+(?:left|right)|"
+    r"travel\s+(?:cautiously|carefully|slowly|safely|with\s+caution)"
 )
 _VERB = _rx(rf"\b(?:{_VERBS})\b")
 _NOUN_GUIDANCE = _rx(
@@ -494,7 +638,22 @@ _NOUN_GUIDANCE = _rx(
     r"order)|do\s+not\s+drink|stay[- ]at[- ]home\s+order|lockdown\s+order|"
     r"curfew\s+(?:is\s+)?in\s+effect|evacuations?\s+(?:is\s+|are\s+|has\s+been\s+|"
     r"have\s+been\s+)?(?:required|ordered|recommended|advised|mandatory|underway|in\s+effect|"
-    r"in\s+progress)|(?:immediate|precautionary|recommended)\s+evacuations?)\b"
+    r"in\s+progress)|(?:immediate|precautionary|recommended)\s+evacuations?|"
+    r"evac\s+(?:order|warning|notice)s?|(?:mandatory|immediate|voluntary)\s+(?:\w+\s+){1,2}"
+    r"evacuations?|evacuation\s+immediate|level\s*(?:1|2|3|one|two|three)\s*(?:\(?\s*(?:be\s+ready|"
+    r"be\s+set|go)\s*\)?\s*)?evacuations?|burn\s+bans?|fire\s+bans?|no\s+(?:outdoor\s+)?burning|"
+    r"no\s+(?:swimming|entry|parking|fireworks|open\s+(?:fires?|flames?))|"
+    r"(?:water|burn|watering|outdoor\s+water)\s+restrictions?|detours?)\b"
+)
+#: A pointer to more information: a cue word, then a web address in the same clause.
+_INFO_LINK = _rx(
+    r"\b(?:updates?|info(?:rmation)?|details|status|map|maps|visit|see|check|go\s+to|follow|"
+    r"monitor|sign\s+up|register)\b[^.!?]{0,60}?(?:https?://|www\.|\b[\w-]+\.(?:gov|org|com|net|us)\b)"
+)
+#: A clause that ends an order: its order words are not an instruction any more.
+_ENDED = _rx(
+    r"\b(?:lifted|cancel+ed|no\s+longer\s+in\s+effect|has\s+ended|have\s+ended|expired|reduced|"
+    r"downgraded|rescinded|all\s+clear)\b"
 )
 #: Instructions strong enough to count wherever they stand in a clause ("Residents near Oak
 #: Creek evacuate now"): a protective verb with its object or its adverb.
@@ -505,13 +664,17 @@ _STRONG = _rx(
     r"home|in\s+place|sheltered)|lock\s+(?:your\s+)?doors|close\s+(?:your\s+|all\s+)?"
     r"(?:windows|doors)|turn\s+around|move\s+to\s+higher\s+ground|go\s+(?:indoors|inside)|"
     r"get\s+(?:inside|indoors)|conserve\s+water|do\s+not\s+(?:drink|use|enter|travel|drive|go|"
-    r"approach|touch|return)|leave\s+(?:the\s+area|now|immediately|your\s+home))\b"
+    r"approach|touch|return)|leave\s+(?:the\s+area|now|immediately|your\s+home)|"
+    r"(?:find|use|take|seek)\s+(?:an?\s+)?alternate\s+routes?|merge\s+(?:left|right)|"
+    r"call\s+911)\b"
 )
 _AFTER_BEING = _rx(r"\b(?:to\s+be|been|being|was|were|is|are|not)\s*$")
 _LEAD_IN = _rx(
     r"(?:^|please|kindly|should|must|need\s+to|needs\s+to|have\s+to|has\s+to|"
     r"(?:asked|urged|advised|encouraged|ordered|told|requested|required|reminded|directed|"
-    r"instructed|recommended)\s+to|to|and|or|then|also|now|immediately|"
+    r"instructed|recommended)\s+to|to|also|now|immediately|"
+    r"\bfor\s+(?:more\s+)?(?:\w+\s+)?(?:info\w*|assistance|help|questions|updates|details)\b[^.!?]{0,40}|"
+    r"\blevel\s+\w+\s*[(\-:]?|"
     r"\b(?:if|when|while|unless)\b[^.!?]{0,80}|"
     r"\b(?:residents|everyone|people|public|citizens|drivers|motorists|those|anyone|customers|"
     r"students|staff|homeowners|occupants|individuals|visitors|travelers|you|all)\b[^.!?]{0,60})"
@@ -519,7 +682,7 @@ _LEAD_IN = _rx(
 )
 _INFO_VERBS = _rx(
     r"^(?:check|visit|go\s+to|monitor|listen|tune\s+in|tune\s+to|follow|sign\s+up|register|"
-    r"watch|look)\b"
+    r"watch|look|information\s+link)\b"
 )
 _CLAUSE_SPLIT = re.compile(r"(?<=[.!?;:])\s+|\n+|\s+[-\u2013\u2014•|]\s+|^[-\u2013\u2014•]\s*")
 
@@ -542,7 +705,8 @@ def guidance_actions(text: str) -> list[str]:
         last_end = None
         for m in _VERB.finditer(clause):
             before = clause[: m.start()].strip().lower()
-            listed = last_end is not None and clause[last_end : m.start()].strip() in (",", "")
+            between = clause[last_end : m.start()].strip().lower() if last_end is not None else None
+            listed = between is not None and between in (",", "", "and", "or", "then", ", and")
             if before and not listed and not _LEAD_IN.search(before):
                 continue
             last_end = m.end()
@@ -557,10 +721,15 @@ def guidance_actions(text: str) -> list[str]:
         action = " ".join((v.group(0) if v else m.group(0).split()[0]).lower().split())
         if action not in found:
             found.append(action)
-    for m in _NOUN_GUIDANCE.finditer(text):
-        action = " ".join(m.group(0).lower().split())
-        if not any(action.startswith(a) or a.startswith(action) for a in found):
-            found.append(action)
+    for clause in clauses(text):
+        if _ENDED.search(clause):
+            continue
+        for m in _NOUN_GUIDANCE.finditer(clause):
+            action = " ".join(m.group(0).lower().split())
+            if not any(action.startswith(a) or a.startswith(action) for a in found):
+                found.append(action)
+    if _INFO_LINK.search(text) and "visit" not in found and "check" not in found:
+        found.append("information link")
     return found
 
 
@@ -575,8 +744,9 @@ _DAY = _rx(
     r"this\s+(?:morning|afternoon|evening|weekend)|overnight)\b"
 )
 _DATE = _rx(
-    r"\b(?:\d{1,2}/\d{1,2}(?:/\d{2,4})?|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|"
-    r"dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?)\b"
+    r"(?<![\d./])(?:(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?:/\d{2,4})?(?![\d/])"
+    r"(?!\s*(?:mile|mi\b|inch|in\b|of\s+a\s+mile))|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|"
+    r"sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?\b)"
 )
 _DURATION = _rx(
     r"\b(?:for|over|within|in)\s+(?:the\s+)?(?:next\s+)?(?:\d+|one|two|three|several|few)\s*"
@@ -584,23 +754,27 @@ _DURATION = _rx(
     r"\bnext\s+(?:\d+|few|several|one|two)\s+(?:minutes?|hours?|days?)\b"
 )
 _NOW = _rx(
-    r"\b(?:now|immediately|right\s+away|asap|as\s+soon\s+as\s+possible|at\s+once|"
-    r"without\s+delay|effective\s+immediately)\b"
+    r"\b(?:now|immediately|immediate(?!\s+(?:area|vicinity|family|families|surroundings))|"
+    r"right\s+away|asap|as\s+soon\s+as\s+possible|at\s+once|without\s+delay|"
+    r"effective\s+immediately|at\s+a\s+moment'?s\s+notice)\b"
 )
+#: "At this time" is time only as the time of an instruction ("avoid travel at this time").
+_AT_THIS_TIME = _rx(r"\bat\s+this\s+time\b")
 _NOT_NOW = _rx(
     r"\bnow\s+(?:open|opened|closed|lifted|over|contained|clear|safe|reopened|been|in\s+effect|"
     r"available|back|cancel+ed|resolved|restored|expired)\b|\bimmediate\s+(?:area|vicinity)\b"
 )
 _EXPIRY = _rx(
     r"\b(?:expires?|expired|expiration|until\s+further\s+notice|in\s+effect\s+until|"
-    r"remains?\s+in\s+effect|valid\s+(?:until|through)|will\s+be\s+lifted|"
-    r"(?:is|has\s+been|was)\s+lifted|next\s+update|updates?\s+(?:will|at|by|to\s+follow)|"
+    r"remains?\s+in\s+effect\s+(?:until|through|till)|valid\s+(?:until|through)|"
+    r"will\s+be\s+lifted|next\s+update|updates?\s+(?:will|at|by|to\s+follow)|"
     r"more\s+information\s+(?:will|to\s+follow))\b"
 )
-_UNTIL = _rx(r"\buntil\b")
+_UNTIL = _rx(r"\b(?:until|till|til|thru)\b")
 _IMPACT = _rx(
     r"\b(?:expected\s+(?:to|at|by|around|between|within|later|soon|overnight|tonight)|"
-    r"arriv\w+|approaching|imminent|will\s+(?:begin|start|last|continue|end|reach|impact|affect|"
+    r"(?:opening|reopen\w*|clear\w*|expected|end\w*|lift\w*)\s+(?:very\s+)?soon|"
+    r"will\s+(?:begin|start|last|continue|end|reach|impact|affect|"
     r"arrive|move|hit|occur)|begin(?:s|ning)?\s+(?:at|around|by|tonight|today|tomorrow|this|on|"
     r"shortly)|starting\s+(?:at|around|tonight|today|tomorrow|this|on)|"
     r"through\s+(?:tonight|today|tomorrow|the\s+(?:morning|afternoon|evening|weekend|night|day)|"
@@ -625,6 +799,8 @@ def time_kinds(text: str) -> dict[str, bool]:
             or _DATE.search(clause)
             or _DURATION.search(clause)
         )
+        if acts and _AT_THIS_TIME.search(clause):
+            out["time_action"] = True
         if _UNTIL.search(clause):
             if acts and not _EXPIRY.search(clause):
                 out["time_action"] = True
@@ -640,11 +816,21 @@ def time_kinds(text: str) -> dict[str, bool]:
 # --- location ----------------------------------------------------------------------------
 
 _BOUNDARY = _rx(
-    r"\b(?:county|counties|parish(?:es)?|borough|city\s+of|town\s+of|township|village\s+of|"
-    r"city\s+limits|unincorporated|subdivisions?|downtown|neighborhood\s+of|"
-    r"(?:north|south|east|west|northern|southern|eastern|western|central|northeast|northwest|"
-    r"southeast|southwest)\s+(?:part|portion|side|half|end|section|parts)|"
-    r"zip\s+codes?|\d{5}(?:,\s*\d{5})+)\b"
+    r"\b(?:city\s+of\s+\w+|town\s+of\s+\w+|village\s+of\s+\w+|neighborhood\s+of\s+\w+|"
+    r"zip\s+codes?\s+\d|\d{5}(?:,\s*\d{5})+)\b"
+)
+#: A named county, parish, borough or township: a name before the word, never "the county".
+_NAMED_JURISDICTION = _rx(
+    r"\b([a-z][\w.'-]*)\s+(?:county|counties|parish|borough|township|twp|cnty|co\.)(?=\W|$)"
+)
+_JURISDICTION_GENERIC = _rx(
+    r"^(?:the|this|that|your|our|entire|each|every|a|an|all|surrounding|neighboring|nearby|"
+    r"whole|same|other|its|their|in|of|for|and|to|at|on|from)$"
+)
+#: Names before a word that marks a populated place or a named burn area.
+_NAMED_AREA = re.compile(
+    r"\b([A-Z][a-z]+(?:\s+(?:and\s+)?[A-Z][a-z]+){0,3})\s+(?i:residents|area|community|"
+    r"neighborhoods?|subdivisions?|burn\s+(?:area|scar))\b"
 )
 _STATE_NAMES = _rx(r"\b(?:" + "|".join(sorted(sd.STATES.values(), key=len, reverse=True)) + r")\b")
 #: A named road: a word before a road word ("Sampleton Road"), unless that word is generic.
@@ -662,8 +848,10 @@ _ROAD_NUMBERED = _rx(
     r"\b(?:interstate\s*\d+|i-\s?\d+|us-?\s?\d+|u\.s\.\s+\d+|sr-?\s?\d+|state\s+route\s+\d+|"
     r"state\s+road\s+\d+|route\s+\d+|rte\.?\s*\d+|county\s+road\s+\w+|cr\s?-?\d+|"
     r"fm\s?-?\d+|hwy\.?\s?-?\d+|highway\s+\d+|mile\s+marker|mm\s*\d+|exit\s+\d+|"
-    r"intersection|crossroads)\b"
+    r"intersection|crossroads|exit\s+ramp|on-?ramp|off-?ramp)\b"
 )
+#: Numbered roads in other forms: "SH359", "SH 359", "M-30", "I40", "K-10".
+_ROAD_CODE = re.compile(r"\b(?:(?:SH|SR|US|FM|RM|STH|CTH)\s?-?\d{1,4}[A-Z]?|[IMK]-?\d{1,3})\b")
 _ROAD_SUFFIX_MIXED = re.compile(
     r"\b[A-Z][a-z]+\s+(?:St|Dr|Ln|Ct|Cir|Way|Trl|Trail|Pl|Loop|Court|Circle|Place|Lane|"
     r"Drive)\b\.?"
@@ -691,9 +879,14 @@ _ZONE_ID = re.compile(
     r"\b(?!(?:US|SR|FM|CR|COVID|HWY|RT|RTE|EXIT|MM|SARS|PM|AM)-)[A-Z]{2,5}-[A-Z]?\d{1,4}[A-Z]?\b"
 )
 _ZONE_CONTEXT = _rx(r"\bzones?\b|\bevacuat")
+#: A lettered evacuation level or zone: "Level A", "Zone B" (a number is a stage, not a zone).
+_ZONE_LETTER = re.compile(r"\b(?i:level|zone)\s+[A-Z]\b(?![-\w])")
+#: A road-looking name that is a fire's or an incident's name ("Old Trail Fire").
+_NAMED_FIRE = _rx(r"^\s+(?:fire|complex|incident)\b")
 #: A capitalized name after a locative word, in a mixed-case text: "residents of Sampleton".
 _NAMED_PLACE = re.compile(
-    r"\b(?i:in|near|of|around|outside|throughout|across|within|for|from|at|into|toward|towards)"
+    r"\b(?i:in|near|of|around|outside|throughout|across|within|for|from|at|into|toward|towards|"
+    r"avoid|leave|evacuate|enter|entering|visiting)"
     r"\s+(?:(?i:the)\s+)?(?:(?i:north|south|east|west|northern|southern|eastern|western|central|"
     r"downtown|greater|unincorporated|old)\s+)?([A-Z][a-z]{2,}(?:[\s-][A-Z][a-z]{2,}){0,2})\b"
 )
@@ -727,6 +920,16 @@ def location_kinds(text: str, place_words: Iterable[str] = ()) -> dict[str, bool
     mixed = sum(ch.isupper() for ch in text) < 0.6 * max(1, sum(ch.isalpha() for ch in text))
     boundary = bool(_BOUNDARY.search(text) or _STATE_NAMES.search(text))
     if not boundary:
+        boundary = any(
+            not _JURISDICTION_GENERIC.match(m.group(1)) for m in _NAMED_JURISDICTION.finditer(text)
+        )
+    if not boundary and mixed:
+        for m in _NAMED_AREA.finditer(text):
+            first = m.group(1).split()[0]
+            if not _NOT_A_PLACE_NAME.match(first) and not _ALERT_WORDS.fullmatch(first):
+                boundary = True
+                break
+    if not boundary:
         for w in place_words:
             if re.search(rf"\b{re.escape(w)}\b", text, IC):
                 boundary = True
@@ -754,15 +957,23 @@ def location_kinds(text: str, place_words: Iterable[str] = ()) -> dict[str, bool
                 break
     named = any(not _ROAD_GENERIC.match(m.group(1)) for m in _ROAD_NAMED.finditer(text))
     caps_named = any(not _ROAD_GENERIC.match(m.group(1)) for m in _ROAD_SUFFIX_CAPS.finditer(text))
+    suffix = [
+        m for m in _ROAD_SUFFIX_MIXED.finditer(text) if not _NAMED_FIRE.match(text[m.end() :])
+    ]
     road = bool(
         named
         or _ROAD_NUMBERED.search(text)
-        or (_ROAD_SUFFIX_MIXED.search(text) if mixed else caps_named)
+        or _ROAD_CODE.search(text)
+        or (bool(suffix) if mixed else caps_named)
         or _BETWEEN.search(text)
         or _BLOCK_OF.search(text)
     )
     landmark = bool(_LANDMARK.search(text))
-    zone = bool(_ZONE.search(text) or (_ZONE_ID.search(text) and _ZONE_CONTEXT.search(text)))
+    zone = bool(
+        _ZONE.search(text)
+        or (_ZONE_ID.search(text) and _ZONE_CONTEXT.search(text))
+        or (_ZONE_LETTER.search(text) and _ZONE_CONTEXT.search(text))
+    )
     out = {
         "loc_boundary": boundary,
         "loc_road": road,
@@ -1028,7 +1239,9 @@ _MISSING_PERSON = privacy.MISSING_PERSON_EN
 _ABOUT_TEST = _rx(
     r"\bthis\s+is\s+(?:only\s+)?a\s+test\b|\btest(?:ing)?\s+(?:message|alert|of\s+the|only)\b|"
     r"\b(?:a|this)\s+(?:drill|exercise)\b|\bno\s+action\s+(?:is\s+)?(?:required|needed|necessary)\b|"
-    r"\bdisregard\b|\bsent\s+in\s+error\b|\bonly\s+a\s+test\b"
+    r"\bdisregard\b|\bsent\s+in\s+error\b|\bonly\s+a\s+test\b|"
+    r"\btesting\s+(?:ipaws|wea|eas|cmas|the\s+\w+\s+(?:alert|warning|notification)\s+system)\b|"
+    r"\b(?:ipaws|wea|eas|cmas)\s+test(?:ing)?\b|\btest\s+#\s?\d"
 )
 
 
@@ -1103,28 +1316,31 @@ def code_text(text: str, ctx: Context | None = None) -> dict[str, Any]:
             if rx.search(block_rest):
                 category, cat_source = cue_category, "cue_words"
                 break
-    chars = bool(_CHARACTERISTICS.search(rest))
-    impacts = bool(_IMPACTS.search(rest))
+    named_hazard = has_hazard(rest)
+    hazard_spans = [m.span() for rx in HAZARD_WORDS.values() for m in rx.finditer(rest)]
+    distinct = {rest[a:b].lower() for a, b in hazard_spans}
+    # A description is said about a named hazard, beyond its name: the hazard's own name (a
+    # "power outage") is not its impact, unless another hazard is named beside it.
+    described = rest if len(distinct) > 1 else blank(rest, hazard_spans)
+    chars = named_hazard and bool(_CHARACTERISTICS.search(described))
+    impacts = named_hazard and bool(_IMPACTS.search(described))
     actions = guidance_actions(rest)
     protective = [a for a in actions if not _INFO_VERBS.match(a)]
     info = [a for a in actions if _INFO_VERBS.match(a)]
     times = time_kinds(rest)
     places = location_kinds(rest, ctx.place_words | place_words_of([ctx.organization]))
-    if jurisdiction_opener(text):
-        places["loc_boundary"] = places["location"] = True
-        places["loc_vague_or_none"] = False
     links = link_kinds(text)
     n_abbr = abbreviations(text)
     letters = [ch for ch in text if ch.isalpha()]
     caps = sum(ch.isupper() for ch in letters) / len(letters) if letters else 0.0
     out: dict[str, Any] = {
-        "hazard": has_hazard(rest),
+        "hazard": named_hazard,
         "hazard_category": category,
         "hazard_category_source": cat_source,
         "hazard_description": chars or impacts,
         "hazard_characteristics": chars,
         "hazard_impacts": impacts,
-        "source_named": bool(spans),
+        "source_named": bool(speaker_spans(text, ctx)),
         "guidance": bool(actions),
         "n_actions": len(actions),
         "guidance_protective": bool(protective),

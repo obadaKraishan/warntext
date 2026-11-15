@@ -375,7 +375,9 @@ def test_codes_rows_for_real_alerts_only_withheld_ones_too_and_without_text(corp
     assert "r06" in ids  # the child alert is withheld, but its codes are computed
     assert "r09" not in ids  # a test
     assert {r["unit"] for r in rows} <= {"wea90", "wea360", "full"}
-    assert all(r["codebook_version"] == "1" and r["record_id"] for r in rows)
+    from warntext import codes as cd
+
+    assert all(r["codebook_version"] == cd.CODEBOOK_VERSION and r["record_id"] for r in rows)
     texts = {
         v
         for c in corpus.tables["alerts"]["text_other"]
