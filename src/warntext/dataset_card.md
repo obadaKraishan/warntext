@@ -135,17 +135,19 @@ other sources to do so.
 ## Content codes
 The `codes` table codes each real alert's 90-character phone text, 360-character phone text and
 full text (headline, description, instruction) on their own, by rule, codebook version 1
-(`docs/codebook.md`): whether the text names a hazard, a place, a time, a source and an action,
-how many actions, the kinds of place, the hazard category, links and their kinds, abbreviations,
-capitals, evacuation wordings, completeness, and two flags. They are computed for withheld
-messages too, because each is a yes or no, a count, a kind or a category; no code holds words.
-- **Released, trust A:** time, guidance, links and their kinds, evacuation wordings, all caps.
-- **Released, trust B:** hazard, location and boundary location, source, hazard category,
-  abbreviations, number of actions, completeness, the two flags.
-- **Left out as experimental:** hazard description and its two parts, the three kinds of time,
-  road, landmark and zone locations.
-- A hand-coded check of 100 texts against the rules (Krippendorff's alpha against .80) is under
-  way; its result will be reported here.
+(`docs/codebook.md`). Codes are computed for withheld messages too, because each is a yes or no,
+a count, a kind or a category; no code holds words.
+
+**Checked by hand.** A person coded 100 texts (one per text group; real alerts, none withheld;
+about a third of each unit; 40 from before 2020) for six contents, blind to the rules. Agreement
+with the rules, as Krippendorff's alpha against the bar of .80 that Olson et al. (2024) report:
+
+{{code_alpha_table}}
+
+Only codes that reach .80 on the hand sheet, or that it did not measure and that the codebook
+trusts, are in this release:
+- **Released:** {{codes_released}}.
+- **Left out as experimental** (in the codebook, not in this release): {{codes_left_out}}.
 
 **Beside a published study.** With the filters of Olson et al. (2024, *Journal of Contingencies
 and Crisis Management* 32, e12518), this corpus gives 6,755 phone texts against their 6,080 (1,901

@@ -45,7 +45,7 @@ def test_the_pack_holds_the_record_layer_released_codes_and_federal_text_only(pa
     assert "tests/codes.parquet" not in paths  # tests carry no codes
     names = pq.read_schema(pack["dir"] / "alerts" / "codes.parquet").names
     assert not set(names) & set(release.EXPERIMENTAL_CODES)
-    assert "hazard" in names and "guidance" in names
+    assert "hazard" in names and "link" in names and "guidance" not in names
     assert pack["manifest"]["facts"]["real_alerts"] == 3
     assert pack["manifest"]["facts"]["federal_text_alerts"] == 1
 
@@ -125,3 +125,15 @@ def test_the_kaggle_mirror_holds_the_record_layer_and_codes_only(pack, tmp_path)
     assert any("holds no text" in f for f in release.check_kaggle(out))
     with pytest.raises(SystemExit, match="not empty"):
         release.build_kaggle(pack["dir"], out)
+
+
+def test_code_status_covers_every_code_and_fills_the_card():
+    status = release.code_status()
+    from warntext.codes import CODE_FIELDS
+
+    assert set(status) == set(CODE_FIELDS)
+    assert status["hazard"]["status"] == "released"
+    assert status["complete"]["status"] == "experimental"
+    tables = release.code_tables()
+    assert "| `hazard` | 0.86 |" in tables["code_alpha_table"]
+    assert "`complete`" in tables["codes_left_out"] and "`hazard`" in tables["codes_released"]

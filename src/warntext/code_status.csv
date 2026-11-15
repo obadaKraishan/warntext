@@ -1,0 +1,36 @@
+code,trust,hand_sheet_alpha,hand_sheet_agreement,status,reason
+hazard,B,0.86,0.94,released,alpha .80 or above on the hand sheet
+hazard_category,B,,,released,not on the hand sheet; trust B
+hazard_category_source,B,,,released,goes with hazard_category
+hazard_description,C,0.52,0.80,experimental,trust C; alpha under .80 on the hand sheet
+hazard_characteristics,C,,,experimental,trust C; a part of hazard_description
+hazard_impacts,C,,,experimental,trust C; a part of hazard_description
+source_named,B,0.41,0.74,experimental,alpha under .80 on the hand sheet
+guidance,A,0.63,0.83,experimental,alpha under .80 on the hand sheet
+n_actions,B,,,experimental,counts what guidance finds; guidance is under .80
+guidance_protective,B,,,experimental,a part of guidance; guidance is under .80
+guidance_information,B,,,experimental,a part of guidance; guidance is under .80
+time,A,0.72,0.88,experimental,alpha under .80 on the hand sheet
+time_impact,C,,,experimental,trust C; a kind of time
+time_action,C,,,experimental,trust C; a kind of time
+time_expiry,C,,,experimental,trust C; a kind of time
+location,B,0.73,0.90,experimental,alpha under .80 on the hand sheet
+loc_boundary,B,,,experimental,a kind of location; location is under .80
+loc_road,C,,,experimental,trust C; a kind of location
+loc_landmark,C,,,experimental,trust C; a kind of location
+loc_zone,C,,,experimental,trust C; a kind of location
+loc_vague_or_none,B,,,experimental,the opposite of location; location is under .80
+link,A,,,released,not on the hand sheet; trust A
+link_kinds,A,,,released,not on the hand sheet; trust A
+abbreviations,B,,,released,not on the hand sheet; trust B
+n_abbreviations,B,,,released,not on the hand sheet; trust B
+all_caps,A,,,released,not on the hand sheet; trust A
+evac_terms,A,,,released,not on the hand sheet; trust A
+evac_warning_order,A,,,released,not on the hand sheet; trust A
+evac_levels,A,,,released,not on the hand sheet; trust A
+evac_ready_set_go,A,,,released,not on the hand sheet; trust A
+evac_voluntary_mandatory,A,,,released,not on the hand sheet; trust A
+evac_pre_evacuation,A,,,released,not on the hand sheet; trust A
+complete,B,,,experimental,follows its five parts; four of them are under .80
+about_missing_person,B,,,released,not on the hand sheet; trust B
+about_test,B,,,released,not on the hand sheet; trust B

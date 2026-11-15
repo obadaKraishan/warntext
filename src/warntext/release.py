@@ -32,18 +32,31 @@ from warntext.tables import CONFIGS, RECORD_TABLES
 
 #: The tables of the first release, in each configuration's folder.
 RELEASED_TABLES = (*RECORD_TABLES, "text_federal")
-#: Codes the codebook marks experimental (trust level C): left out of the release.
-EXPERIMENTAL_CODES = (
-    "hazard_description",
-    "hazard_characteristics",
-    "hazard_impacts",
-    "time_impact",
-    "time_action",
-    "time_expiry",
-    "loc_road",
-    "loc_landmark",
-    "loc_zone",
-)
+CODE_STATUS_FILE = "code_status.csv"
+
+
+def code_status() -> dict[str, dict[str, str]]:
+    """Each content code's trust level, hand-sheet alpha and release status (tracked file)."""
+    import csv
+    import io
+
+    text = resources.files("warntext").joinpath(CODE_STATUS_FILE).read_text(encoding="utf-8")
+    rows = {r["code"]: r for r in csv.DictReader(io.StringIO(text))}
+    from warntext.codes import CODE_FIELDS
+
+    missing = sorted(set(CODE_FIELDS) - set(rows))
+    unknown = sorted(set(rows) - set(CODE_FIELDS))
+    bad = sorted(c for c, r in rows.items() if r["status"] not in ("released", "experimental"))
+    if missing or unknown or bad:
+        raise ValueError(
+            f"{CODE_STATUS_FILE}: give every code one row with status released or experimental "
+            f"(missing {missing}, unknown {unknown}, bad status {bad})."
+        )
+    return rows
+
+
+#: Codes marked experimental (trust C, or under .80 on the hand sheet): left out of the release.
+EXPERIMENTAL_CODES = tuple(c for c, r in code_status().items() if r["status"] == "experimental")
 ALLOWED_FILES = {"README.md", "manifest.json"}
 TERMS_URL = "https://www.fema.gov/about/openfema/terms-conditions"
 CARD_TEMPLATE = "dataset_card.md"
@@ -140,11 +153,31 @@ def card(manifest: Mapping[str, Any]) -> str:
     }
     for key, n in manifest.get("facts", {}).items():
         values[key] = f"{n:,}"
+    values.update(code_tables())
     for path, f in by.items():
         key = path.replace("/", "_").replace(".parquet", "")
         values[f"{key}_rows"] = f"{f['rows']:,}"
         values[f"{key}_mb"] = _mb(f["bytes"])
     return re.sub(r"\{\{(\w+)\}\}", lambda m: values.get(m.group(1), m.group(0)), template)
+
+
+def code_tables() -> dict[str, str]:
+    """The card's code sections, from the tracked status file."""
+    status = code_status()
+    sheet = [
+        f"| `{c}` | {r['hand_sheet_alpha']} | {r['hand_sheet_agreement']} | {r['status']} |"
+        for c, r in status.items()
+        if r["hand_sheet_alpha"]
+    ]
+    released = [f"`{c}`" for c, r in status.items() if r["status"] == "released"]
+    left = [f"`{c}`" for c, r in status.items() if r["status"] == "experimental"]
+    return {
+        "code_alpha_table": "\n".join(
+            ["| code | alpha | agreement | in this release |", "|---|---:|---:|---|", *sheet]
+        ),
+        "codes_released": ", ".join(released),
+        "codes_left_out": ", ".join(left),
+    }
 
 
 def card_metadata_problems(text: str) -> list[str]:
