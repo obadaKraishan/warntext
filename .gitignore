@@ -1,0 +1,44 @@
+# Development notes are kept outside this repository.
+prompts/
+reports/
+CLAUDE.md
+.claude/
+docs/session-log.md
+docs/roadmap.md
+
+# Data. data/raw is a symlink to an external drive and is never committed; data/interim/ holds
+# working tables. Tracked in data/: the request log (call metadata only, never message text).
+data/raw
+data/raw/
+data/interim/
+data/release/
+
+# Secrets
+*.env
+.env
+.env.*
+!.env.example
+kaggle.json
+access_token
+secrets/
+
+# Publishing gate: created by the maintainer only, never committed
+RELEASE_APPROVED
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.coverage
+coverage.xml
+htmlcov/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
