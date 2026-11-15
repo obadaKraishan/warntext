@@ -22,6 +22,7 @@ from warntext import olson as ol
 from warntext import probe as pr
 from warntext import profile as pf
 from warntext import rebuild as rb
+from warntext import release as rl
 from warntext import sample as sm
 from warntext import sheet as sh
 from warntext import tables as tb
@@ -371,6 +372,33 @@ def cmd_update(args: argparse.Namespace) -> int:
     return 0 if not failures else 1
 
 
+def cmd_release_build(args: argparse.Namespace) -> int:
+    """Build the release pack (record layer, released codes, text_federal) from the tables."""
+    state = json.loads(Path(args.state).read_text(encoding="utf-8"))
+    m = rl.build_pack(args.tables, args.out, args.version, state["until"], args.retrieved)
+    print(
+        f"Pack {args.version} in {args.out}: {len(m['files'])} files, {m['rows']:,} rows, "
+        f"{m['bytes'] / 1_000_000:.1f} MB; records sent before {state['until']}."
+    )
+    return 0
+
+
+def cmd_release_check(args: argparse.Namespace) -> int:
+    """The pack's own check: its files, its card, and the release check of its tables."""
+    state = json.loads(Path(args.state).read_text(encoding="utf-8"))
+    counts = {int(y): n for y, n in state["year_counts"].items()}
+    failures = rl.check_pack(
+        args.pack, ck.read_sender_values(args.private), ck.read_identifiers(args.private), counts
+    )
+    if failures:
+        print(f"RELEASE PACK CHECK FAILED: {len(failures)} problem(s).")
+        for f in failures:
+            print(f"  FAIL {f}")
+        return 1
+    print("Release pack check passed: files, manifest, card, and the release check of its tables.")
+    return 0
+
+
 def _client_options(
     p: argparse.ArgumentParser,
     since_required: bool = True,
@@ -505,6 +533,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--counts", nargs="*", help="with --init: backfill-counts files")
     _client_options(p, since_required=False, max_calls=30, max_bytes=100_000_000)
     p.set_defaults(func=cmd_update)
+
+    p = sub.add_parser("release", help="the release pack: build it, or check it")
+    rsub = p.add_subparsers(dest="release_command", required=True)
+    q = rsub.add_parser("build", help="write the pack: record layer, released codes, text_federal")
+    q.add_argument("--tables", default="data/interim/tables")
+    q.add_argument("--state", default="data/raw/update-state.json", help="for the records' end")
+    q.add_argument("--out", required=True, help="a new folder under data/release/")
+    q.add_argument("--version", required=True)
+    q.add_argument("--retrieved", required=True, help="the access date to cite (YYYY-MM-DD)")
+    q.set_defaults(func=cmd_release_build)
+    q = rsub.add_parser("check", help="the pack's own check (exits 1 on any failure)")
+    q.add_argument("--pack", required=True)
+    q.add_argument("--private", default="data/interim/private")
+    q.add_argument("--state", default="data/raw/update-state.json", help="for the year counts")
+    q.set_defaults(func=cmd_release_check)
 
     p = sub.add_parser("profile", help="aggregate the sample (no text)")
     p.add_argument("--plan", required=True)
