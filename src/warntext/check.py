@@ -8,7 +8,11 @@ It fails, loudly, when:
 - a raw CAP identifier appears anywhere, as a cell or inside one (rows are keyed by FEMA's
   record ids instead);
 - a message with a people code (or a reference or thread that touches one) carries a time
+  finer than the hour, in a time field or in its EAS header;
+- a message about a missing person (or a reference or thread that touches one) carries a time
   finer than the hour;
+- a message with a people code or about a missing person carries a part-of-county digit in an
+  area code (SAME or FIPS6, in `messages`, `areas` or its EAS header);
 - a cell of the record layer matches a personal-detail pattern (the record layer holds no text,
   so such a match means text has leaked into it);
 - a text table holds a message of the wrong sender kind, or a message that does not exist;
@@ -193,36 +197,26 @@ def check(
                 if hits:
                     fail.append(f"{c}/{name}: {hits} cell(s) hold a raw CAP identifier.")
 
-    # Messages with a people code carry no time finer than the hour, nor do the references and
-    # threads that touch them.
+    # Messages with a people code, and messages about a missing person, carry no time finer than
+    # the hour (nor do the references and threads that touch them), and keep the county only.
     people = {r["message_id"] for r in messages if r["text_withheld"] == "people_code"}
-    people_threads = {r["thread_id"] for r in messages if r["message_id"] in people}
+    missing = {r["message_id"] for r in messages if r.get("about_missing_person")}
+    for label, ids in (("people-code", people), ("missing-person", missing)):
+        threads = {r["thread_id"] for r in messages if r["message_id"] in ids}
+        for c in CONFIGS:
+            exact = _exact_times(tables[c], ids, threads)
+            if exact:
+                fail.append(
+                    f"{c}: {label} rows hold times finer than the hour: {dict(exact)}. "
+                    "Rebuild the tables; the exact times belong in the private table only."
+                )
+    coarse = people | missing
     for c in CONFIGS:
-        exact: Counter = Counter()
-        fields = (
-            ("messages", ("sent", "sent_utc"), lambda r: r["message_id"] in people),
-            ("infos", ("effective", "onset", "expires"), lambda r: r["message_id"] in people),
-            (
-                "references",
-                ("ref_sent",),
-                lambda r: r["message_id"] in people or r["ref_message_id"] in people,
-            ),
-            (
-                "threads",
-                ("first_sent_utc", "last_sent_utc"),
-                lambda r: r["thread_id"] in people_threads,
-            ),
-        )
-        for name, columns, touches in fields:
-            for r in tables[c][name]:
-                if touches(r):
-                    for col in columns:
-                        if privacy.finer_than_hour(r.get(col)):
-                            exact[f"{name}.{col}"] += 1
-        if exact:
+        parts = _part_digits(tables[c], coarse)
+        if parts:
             fail.append(
-                f"{c}: people-code rows hold times finer than the hour: {dict(exact)}. "
-                "Rebuild the tables; the exact times belong in the private table only."
+                f"{c}: people-code or missing-person rows hold a part-of-county digit: "
+                f"{dict(parts)}. Rebuild the tables; these rows keep the county only."
             )
 
     # The record layer holds no text: no cell may match a personal-detail pattern. WarnText's own
@@ -303,6 +297,56 @@ def check(
             if bad:
                 fail.append(f"{c}/{name}: {bad} row(s) without a source or a record id.")
     return fail
+
+
+def _exact_times(
+    tables: Mapping[str, list[dict[str, Any]]], ids: set[str], threads: set[str]
+) -> Counter:
+    """Time cells finer than the hour on the rows that touch ``ids``, by table and column."""
+    exact: Counter = Counter()
+    fields = (
+        ("messages", ("sent", "sent_utc"), lambda r: r["message_id"] in ids),
+        ("infos", ("effective", "onset", "expires"), lambda r: r["message_id"] in ids),
+        (
+            "references",
+            ("ref_sent",),
+            lambda r: r["message_id"] in ids or r["ref_message_id"] in ids,
+        ),
+        ("threads", ("first_sent_utc", "last_sent_utc"), lambda r: r["thread_id"] in threads),
+    )
+    for name, columns, touches in fields:
+        for r in tables[name]:
+            if touches(r):
+                for col in columns:
+                    if privacy.finer_than_hour(r.get(col)):
+                        exact[f"{name}.{col}"] += 1
+    for r in tables["infos"]:
+        if r["message_id"] in ids:
+            for n, v in zip(r["parameter_names"], r["parameter_values"], strict=True):
+                if n == "EASHeader" and privacy.eas_header_finer(v)[1]:
+                    exact["infos.EASHeader"] += 1
+    return exact
+
+
+def _part_digits(tables: Mapping[str, list[dict[str, Any]]], ids: set[str]) -> Counter:
+    """Area codes with a part-of-county digit on the rows of ``ids``, by where they are."""
+    found: Counter = Counter()
+    for r in tables["messages"]:
+        if r["message_id"] in ids:
+            found["messages.same_geocodes"] += sum(
+                privacy.has_part_digit(g) for g in r["same_geocodes"]
+            )
+    for r in tables["areas"]:
+        if r["message_id"] in ids:
+            for n, v in zip(r["geocode_names"], r["geocode_values"], strict=True):
+                if n.strip().upper() in privacy.PART_DIGIT_GEOCODES and privacy.has_part_digit(v):
+                    found["areas.geocode_values"] += 1
+    for r in tables["infos"]:
+        if r["message_id"] in ids:
+            for n, v in zip(r["parameter_names"], r["parameter_values"], strict=True):
+                if n == "EASHeader" and privacy.eas_header_finer(v)[0]:
+                    found["infos.EASHeader"] += 1
+    return +found
 
 
 def sender_sets(values: Iterable[str]) -> tuple[set[str], set[str]]:

@@ -277,3 +277,25 @@ def test_an_exact_people_code_time_fails(built):
 def test_the_check_command_needs_the_private_identifier_file(tmp_path):
     with pytest.raises(SystemExit, match=r"identifiers\.json is missing"):
         check.read_identifiers(tmp_path)
+
+
+def test_a_part_digit_or_an_exact_time_on_a_people_or_missing_person_row_fails(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    child = next(r for r in t["alerts"]["messages"] if r["message_id"] == "r02")
+    child["same_geocodes"] = ["348201"]
+    out = check.check(t, senders, None)
+    assert any("hold a part-of-county digit" in f and "messages.same_geocodes" in f for f in out)
+    t = copy.deepcopy(built[0])
+    hazard = next(r for r in t["alerts"]["messages"] if r["message_id"] == "r01")
+    assert check.check(t, senders, None) == []  # an ordinary alert keeps its exact time
+    hazard["about_missing_person"] = True
+    out = check.check(t, senders, None)
+    assert any("missing-person rows hold times finer than the hour" in f for f in out)
+    t = copy.deepcopy(built[0])
+    info = next(r for r in t["alerts"]["infos"] if r["message_id"] == "r02")
+    info["parameter_names"] = [*info["parameter_names"], "EASHeader"]
+    info["parameter_values"] = [*info["parameter_values"], "ZCZC-CIV-CAE-348201+0100-1221547-X-"]
+    out = check.check(t, senders, None)
+    assert any("'infos.EASHeader': 1" in f and "finer than the hour" in f for f in out)
+    assert any("'infos.EASHeader': 1" in f and "part-of-county" in f for f in out)
