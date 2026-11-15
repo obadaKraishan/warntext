@@ -9,9 +9,12 @@
   2020; 2020 and later) and by unit (about a third each: 90-character, 360-character, full text);
 - full texts longer than ``MAX_FULL`` characters are left out so the sheet stays near two hours.
 
-The workbook holds only the row number, the text and six empty cells with a yes or no list:
-hazard, hazard description, source, guidance, time, location. No rule output is on it. The key
-(row number to message, block and unit, with the stratum) is a separate file.
+The workbook's first sheet holds only the row number, the text and six empty cells with a yes or
+no list: hazard, hazard description, source, guidance, time, location. Its second sheet holds the
+settled definitions and three edge cases, and a plain-text copy of them sits next to it. No rule
+output is on it. The key (row number to message, block and unit, with the stratum) is a separate
+file. A later sheet leaves out every text group and text an earlier sheet used (``used_by``,
+``without_used``).
 
 ``check`` reads the filled workbook and the key, and compares the person's codes with the rules'
 for each of the six, with Krippendorff's alpha (nominal, two coders) against the published bar
@@ -50,6 +53,79 @@ _HEAD = xlsx.Style(bold=True, fill="E8E8E8", align="center", direction="ltr")
 _TEXT = xlsx.Style(align="left", direction="ltr")
 _OPEN = xlsx.Style(fill="FFF4CC", align="center", direction="ltr", locked=False)
 _NOTE = xlsx.Style(fill="FFF4CC", direction="ltr", locked=False)
+_BOLD = xlsx.Style(bold=True, align="left", direction="ltr")
+
+#: The guide's first line, on the definitions sheet and in the plain-text guide.
+GUIDE_FIRST_LINE = "Judge only the words in the text. About a minute per row."
+#: The settled definitions, in the sheet's column order: (column heading, definition, an
+#: invented text that is yes, an invented text that is no). Codebook, version 2.
+DEFINITIONS = (
+    (
+        "Hazard",
+        'The threat or event is named. A generic label alone ("emergency", "alert") is not a '
+        "hazard. An action alone is not a hazard.",
+        "Gas leak on Oak Road. Avoid the area.",
+        "Emergency alert: leave Zone B now.",
+    ),
+    (
+        "Hazard description",
+        "Anything said about the hazard beyond its name: what it is doing, how big, how fast, "
+        "where it is heading, how dangerous, what it can cause.",
+        "Fast-moving brush fire, 200 acres, heading east.",
+        "Brush fire near Oak Road. Leave now.",
+    ),
+    (
+        "Source",
+        "The organization that speaks is named, in words or by its usual initials (a police "
+        "department's or an emergency office's initials count). A web address alone does not "
+        "name the source. A place name counts only when it is written as the speaker (an opener "
+        'such as "City of X:", or "from X County").',
+        "Sampleton County OEM: boil water before use.",
+        "Police activity near Oak Road. Avoid the area.",
+    ),
+    (
+        "Guidance",
+        'Any instruction or prohibition to the public, in any form: a command, "residents '
+        'should", "you must", "no burning", "do not travel", "evacuation is mandatory", and also '
+        "telling people where to get information.",
+        "Residents should stay indoors tonight.",
+        "Residents were evacuated last night.",
+    ),
+    (
+        "Time",
+        'When the danger comes, when to act (including "now" and "immediately"), until when it '
+        'lasts (including "until further notice"), or for how long. The time at which something '
+        "already happened does not count.",
+        "Oak Road is closed until further notice.",
+        "At 2 PM a brush fire started near Oak Road.",
+    ),
+    (
+        "Location",
+        "A named place at any level: a city, county, neighborhood, road, intersection, landmark, "
+        'zone. A generic word ("the area", "your area") is not a location.',
+        "Crash on I-55 at exit 12. Use another route.",
+        "Police activity in your area. Stay inside.",
+    ),
+)
+#: Three invented edge cases: (text, the column it is about, the answer and why).
+EDGE_CASES = (
+    (
+        "SCSO: Oak Road closed at Elm St.",
+        "Source",
+        "yes: a sheriff's office's usual initials, written as the speaker.",
+    ),
+    (
+        "Updates at sampletoncounty.gov.",
+        "Source",
+        "no: a web address alone does not name the source (Guidance is yes: it says where to "
+        "get information).",
+    ),
+    (
+        "No burning in Sampleton County until further notice.",
+        "Guidance",
+        "yes: a prohibition is an instruction (Time and Location are yes too).",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -237,12 +313,96 @@ def workbook(chosen: Sequence[Item]) -> xlsx.Sheet:
     )
 
 
-def write(chosen: Sequence[Item], out_dir: Path | str) -> dict[str, Path]:
-    """Write the blind workbook and its key (two files, side by side)."""
+def definitions_sheet() -> xlsx.Sheet:
+    """The second visible worksheet: the settled definitions and the edge cases, read-only."""
+    head = [(h, _HEAD) for h in ("Column", "Yes when the text says ...", "Yes", "No")]
+    rows: list[list[tuple[str, xlsx.Style]]] = [[(GUIDE_FIRST_LINE, _BOLD)], head]
+    for heading, definition, yes, no in DEFINITIONS:
+        rows.append([(heading, _BOLD), (definition, _TEXT), (yes, _TEXT), (no, _TEXT)])
+    rows.append([])
+    rows.append([(h, _HEAD) for h in ("Edge case", "Text (invented)", "Answer", "")])
+    for n, (text, column, answer) in enumerate(EDGE_CASES, start=1):
+        rows.append([(f"{n}. {column}", _BOLD), (text, _TEXT), (answer, _TEXT)])
+    rows.append([])
+    rows.append(
+        [
+            (
+                "Every example is invented. A text in Spanish should not be on the sheet; if "
+                "one is, leave its row empty and say so in the Note.",
+                _TEXT,
+            )
+        ]
+    )
+    return xlsx.Sheet(
+        name="Definitions", rows=rows, widths=(20, 70, 40, 40), freeze_first_row=False
+    )
+
+
+def guide_text() -> str:
+    """The guide as plain text, to open with a double click next to the sheet."""
+    lines = [GUIDE_FIRST_LINE, ""]
+    lines.append(
+        "For each row, read the text and choose yes or no in each of the six columns. Leave a "
+        "cell empty only when you cannot decide, and use the Note column for anything odd. The "
+        "definitions are also on the workbook's second sheet, Definitions. Every example is "
+        "invented."
+    )
+    for heading, definition, yes, no in DEFINITIONS:
+        lines += ["", heading.upper(), definition, f'  Yes: "{yes}"', f'  No:  "{no}"']
+    lines += ["", "EDGE CASES"]
+    for n, (text, column, answer) in enumerate(EDGE_CASES, start=1):
+        lines.append(f'{n}. {column}. "{text}" {answer}')
+    lines += [
+        "",
+        "A text in Spanish should not be on the sheet; if one is, leave its row empty and say so "
+        "in the Note. When done, save the workbook under its own name and send it back as it is.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def used_by(
+    keys: Iterable[Mapping[str, Any]],
+    groups: Mapping[str, str | None],
+    texts: Iterable[Mapping[str, Any]],
+) -> tuple[set[str], set[str]]:
+    """The text groups and the texts (normalized) of the rows of earlier sheets' keys."""
+    keys = list(keys)
+    want = {(k["message_id"], int(k["info_index"])): k["unit"] for k in keys}
+    used_groups = {groups.get(k["message_id"]) or k["message_id"] for k in keys}
+    used_texts = set()
+    for t in texts:
+        unit = want.get((t["message_id"], t["info_index"]))
+        if unit:
+            used_texts.add(" ".join(unit_text(unit, t).lower().split()))
+    return used_groups, used_texts
+
+
+def without_used(
+    items: Sequence[Item],
+    groups: Mapping[str, str | None],
+    used_groups: set[str],
+    used_texts: set[str],
+) -> list[Item]:
+    """The items of no text group, and with no text, that an earlier sheet used."""
+    return [
+        i
+        for i in items
+        if (groups.get(i.message_id) or i.message_id) not in used_groups
+        and " ".join(i.text.lower().split()) not in used_texts
+    ]
+
+
+def write(chosen: Sequence[Item], out_dir: Path | str, name: str = "hand_sheet") -> dict[str, Path]:
+    """Write the blind workbook (the sheet, then the definitions), its key and the plain-text
+    guide, side by side: ``<name>.xlsx``, ``<name>_key.csv`` and ``<name>_guide.txt``."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    book = xlsx.write_workbook(out_dir / "hand_sheet.xlsx", workbook(chosen))
-    key = out_dir / "hand_sheet_key.csv"
+    book = xlsx.write_workbook(
+        out_dir / f"{name}.xlsx", workbook(chosen), extra=(definitions_sheet(),)
+    )
+    guide = out_dir / f"{name}_guide.txt"
+    guide.write_text(guide_text(), encoding="utf-8")
+    key = out_dir / f"{name}_key.csv"
     with key.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(KEY_COLUMNS)
@@ -250,7 +410,7 @@ def write(chosen: Sequence[Item], out_dir: Path | str) -> dict[str, Path]:
             w.writerow(
                 [n, it.message_id, it.info_index, it.unit, it.record_id, it.category, it.period]
             )
-    return {"workbook": book, "key": key}
+    return {"workbook": book, "key": key, "guide": guide}
 
 
 def strata(chosen: Sequence[Item]) -> dict[str, Any]:

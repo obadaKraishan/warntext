@@ -1,6 +1,7 @@
 """Tests for warntext.xlsx: the workbook the hand sheet goes out in, and reading back what
 Excel, Google Sheets, Numbers or LibreOffice save. Synthetic text only."""
 
+import dataclasses
 import zipfile
 from xml.etree import ElementTree
 
@@ -317,3 +318,28 @@ def test_a_reserved_name_and_a_sheet_without_a_frozen_row(tmp_path):
     assert root.find("m:sheetViews/m:sheetView/m:pane", NS) is None
     assert root.find("m:sheetProtection", NS) is None
     assert root.find("m:sheetViews/m:sheetView/m:selection", NS).get("activeCell") == "A1"
+
+
+def test_extra_sheets_follow_the_first_and_the_choices_stay_hidden_last(tmp_path):
+    more = Sheet("More", [[("A synthetic definition", LTR)]], freeze_first_row=False)
+    path = write_workbook(tmp_path / "r01.xlsx", sheet(), extra=(more,))
+    read = read_workbook(path)
+    assert [(s.name, s.hidden) for s in read] == [
+        ("r01", False),
+        ("More", False),
+        (xlsx.CHOICES_SHEET, True),
+    ]
+    assert read[1].rows == ((1, ("A synthetic definition",)),)
+    views = [
+        part(path, f"xl/worksheets/sheet{n}.xml").find("m:sheetViews/m:sheetView", NS)
+        for n in (1, 2)
+    ]
+    assert [v.get("tabSelected") for v in views] == ["1", None]
+    with pytest.raises(ValueError, match="only the first sheet"):
+        write_workbook(
+            tmp_path / "x.xlsx", sheet(), extra=(dataclasses.replace(sheet(), name="r02"),)
+        )
+    with pytest.raises(ValueError, match="share a name"):
+        write_workbook(tmp_path / "y.xlsx", sheet(), extra=(Sheet("r01", [[("x", LTR)]]),))
+    with pytest.raises(ValueError, match="hidden sheet"):
+        write_workbook(tmp_path / "z.xlsx", sheet(), extra=(Sheet(xlsx.CHOICES_SHEET, []),))

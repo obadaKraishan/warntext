@@ -5,7 +5,8 @@ column, and offers the codes in a dropdown, in Excel, Google Sheets or Numbers, 
 phone. ``write_workbook`` writes what the sheet needs:
 
 - one visible sheet of text cells, each with a ``Style``: bold, a fill colour, wrapped, aligned,
-  right to left or left to right, and locked or open for typing;
+  right to left or left to right, and locked or open for typing; further visible sheets after it
+  (``extra``), such as the definitions a coder keeps at hand;
 - column widths and a frozen first row;
 - sheet protection without a password, so locked cells can't be changed by mistake (columns and
   rows can still be resized, and the protection can be lifted without a password);
@@ -184,7 +185,7 @@ _MARGINS = (
 )
 
 
-def _sheet_xml(sheet: Sheet, parts: _Parts, choices_at: list[str]) -> str:
+def _sheet_xml(sheet: Sheet, parts: _Parts, choices_at: list[str], selected: bool = True) -> str:
     rows = []
     width = max((len(row) for row in sheet.rows), default=1)
     for number, row in enumerate(sheet.rows, start=1):
@@ -194,7 +195,8 @@ def _sheet_xml(sheet: Sheet, parts: _Parts, choices_at: list[str]) -> str:
         )
         rows.append(f'<row r="{number}">{cells}</row>')
     last = f"{column_name(width - 1)}{max(len(sheet.rows), 1)}"
-    view = '<sheetView tabSelected="1" workbookViewId="0">'
+    tab = ' tabSelected="1"' if selected else ""
+    view = f'<sheetView{tab} workbookViewId="0">'
     active = sheet.active_cell or ("A2" if sheet.freeze_first_row else "A1")
     if sheet.freeze_first_row:
         view += '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>'
@@ -245,11 +247,21 @@ def _choices_xml(choices: list[str], parts: _Parts) -> str:
     )
 
 
-def write_workbook(path: str | Path, sheet: Sheet) -> Path:
-    """Write ``sheet`` as an .xlsx file, with a hidden sheet for the dropdowns' choices."""
-    _check_name(sheet.name)
-    if sheet.name.casefold() == CHOICES_SHEET.casefold():
-        raise ValueError(f"{sheet.name!r} is the name of the hidden sheet.")
+def write_workbook(path: str | Path, sheet: Sheet, extra: tuple[Sheet, ...] = ()) -> Path:
+    """Write ``sheet`` as an .xlsx file, with a hidden sheet for the dropdowns' choices.
+
+    ``sheet`` is the first sheet and the one that opens; the ``extra`` sheets follow it, visible,
+    in order. Only the first sheet may hold dropdowns.
+    """
+    names = [s.name for s in (sheet, *extra)]
+    for name in names:
+        _check_name(name)
+        if name.casefold() == CHOICES_SHEET.casefold():
+            raise ValueError(f"{name!r} is the name of the hidden sheet.")
+    if len({n.casefold() for n in names}) != len(names):
+        raise ValueError(f"two sheets share a name: {names}.")
+    if any(s.dropdowns for s in extra):
+        raise ValueError("only the first sheet may hold dropdowns.")
     parts = _Parts()
     choices, sources = [], []
     for dropdown in sheet.dropdowns:
@@ -259,11 +271,12 @@ def write_workbook(path: str | Path, sheet: Sheet) -> Path:
         choices += dropdown.choices
         sources.append(f"'{CHOICES_SHEET}'!$A${first}:$A${len(choices)}")
     main = _sheet_xml(sheet, parts, sources)
+    more = [_sheet_xml(s, parts, [], selected=False) for s in extra]
     hidden = _choices_xml(choices, parts) if choices else None
     shared = "".join(
         f'<si><t xml:space="preserve">{escape(text)}</t></si>' for text in parts.strings
     )
-    sheets = [main, *([hidden] if hidden else [])]
+    sheets = [main, *more, *([hidden] if hidden else [])]
     overrides = "".join(
         f'<Override PartName="/xl/worksheets/sheet{n}.xml" ContentType="{_CONTENT}.worksheet+xml"/>'
         for n in range(1, len(sheets) + 1)
@@ -288,9 +301,13 @@ def write_workbook(path: str | Path, sheet: Sheet) -> Path:
         "xl/workbook.xml": (
             f'<workbook xmlns="{MAIN}" xmlns:r="{_REL}"><bookViews>'
             '<workbookView activeTab="0"/></bookViews><sheets>'
-            f'<sheet name={quoteattr(sheet.name)} sheetId="1" r:id="rId1"/>'
+            + "".join(
+                f'<sheet name={quoteattr(name)} sheetId="{n}" r:id="rId{n}"/>'
+                for n, name in enumerate(names, start=1)
+            )
             + (
-                f'<sheet name={quoteattr(CHOICES_SHEET)} sheetId="2" state="hidden" r:id="rId2"/>'
+                f'<sheet name={quoteattr(CHOICES_SHEET)} sheetId="{len(names) + 1}" '
+                f'state="hidden" r:id="rId{len(names) + 1}"/>'
                 if hidden
                 else ""
             )

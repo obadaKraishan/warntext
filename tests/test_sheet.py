@@ -128,6 +128,51 @@ def test_the_workbook_is_blind_and_the_key_is_apart(tmp_path):
     assert set(key) == set(range(1, 7))
 
 
+def test_the_workbook_carries_the_settled_definitions_and_a_plain_text_guide(tmp_path):
+    messages, codes, texts = corpus(24)
+    chosen = sh.draw(sh.candidates(messages, codes, texts), seed=3, total=6)
+    paths = sh.write(chosen, tmp_path, "hand_sheet_2")
+    assert [p.name for p in paths.values()] == [
+        "hand_sheet_2.xlsx",
+        "hand_sheet_2_key.csv",
+        "hand_sheet_2_guide.txt",
+    ]
+    read = xlsx.read_workbook(paths["workbook"])
+    assert [(s.name, s.hidden) for s in read] == [
+        ("Hand sheet", False),
+        ("Definitions", False),
+        (xlsx.CHOICES_SHEET, True),
+    ]
+    definitions = read[1].rows
+    assert definitions[0][1] == (sh.GUIDE_FIRST_LINE,)
+    cells = {c for _, row in definitions for c in row}
+    assert [h for h, *_ in sh.DEFINITIONS] == [h for h, _ in sh.CODES]
+    assert all(d in cells for _, d, _, _ in sh.DEFINITIONS)
+    assert sum(text in cells for text, _, _ in sh.EDGE_CASES) == 3
+    guide = paths["guide"].read_text(encoding="utf-8")
+    assert guide.splitlines()[0] == "Judge only the words in the text. About a minute per row."
+    assert all(d in guide for _, d, _, _ in sh.DEFINITIONS)
+    # The settled definitions, word for word.
+    assert sh.DEFINITIONS[2][1].endswith('(an opener such as "City of X:", or "from X County").')
+    assert sh.DEFINITIONS[3][1].startswith("Any instruction or prohibition to the public, in any")
+    # sheet-check reads the first sheet, whatever follows it.
+    assert sh.read_filled(paths["workbook"]) == {n: dict.fromkeys(CODE_FIELDS) for n in range(1, 7)}
+
+
+def test_a_later_sheet_leaves_out_the_text_groups_and_texts_already_used(tmp_path):
+    messages, codes, texts = corpus(40)
+    messages[1]["text_group"] = "m000"  # a re-send of m000
+    texts[2]["wea_short"] = texts[0]["wea_short"]  # m002 repeats m000's text
+    groups = {m["message_id"]: m["text_group"] for m in messages}
+    key = [{"message_id": "m000", "info_index": "0", "unit": "wea90"}]
+    used_groups, used_texts = sh.used_by(key, groups, texts)
+    assert used_groups == {"m000"} and used_texts == {"invented short m000."}
+    items = sh.without_used(sh.candidates(messages, codes, texts), groups, used_groups, used_texts)
+    assert not any(i.message_id in ("m000", "m001") for i in items)
+    assert not any(i.message_id == "m002" and i.unit == "wea90" for i in items)
+    assert any(i.message_id == "m002" and i.unit == "full" for i in items)
+
+
 def filled_sheet(path, values):
     head = [("Row", sh._HEAD), ("Text", sh._HEAD)] + [(h, sh._HEAD) for h, _ in sh.CODES]
     rows = [head]

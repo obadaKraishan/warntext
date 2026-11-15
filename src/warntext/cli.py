@@ -309,16 +309,31 @@ def cmd_sheet(args: argparse.Namespace) -> int:
         texts += pq.read_table(tables / f"{name}.parquet").to_pylist()
     items = sh.candidates(messages, codes, texts)
     groups = {m["message_id"]: m["text_group"] for m in messages}
+    left_out = 0
+    if args.exclude_key:
+        keys = [row for path in args.exclude_key for row in sh.read_key(path).values()]
+        used_groups, used_texts = sh.used_by(keys, groups, texts)
+        before = len(items)
+        items = sh.without_used(items, groups, used_groups, used_texts)
+        left_out = before - len(items)
     items = sh.one_per_text_group(items, groups, args.seed)
     chosen = sh.draw(items, args.seed, args.rows)
-    paths = sh.write(chosen, args.out)
-    made = {"seed": args.seed, "candidates": len(items), **sh.strata(chosen)}
-    (Path(args.out) / "hand_sheet_strata.json").write_text(
+    paths = sh.write(chosen, args.out, args.name)
+    made = {
+        "seed": args.seed,
+        "candidates": len(items),
+        "earlier_keys": len(args.exclude_key or []),
+        "units_left_out_as_used": left_out,
+        **sh.strata(chosen),
+    }
+    (Path(args.out) / f"{args.name}_strata.json").write_text(
         json.dumps(made, indent=1) + "\n", encoding="utf-8"
     )
     print(
-        f"{made['rows']} texts on the sheet from {len(items):,} candidates; by unit "
-        f"{made['by_unit']}; workbook {paths['workbook']}, key {paths['key']}."
+        f"{made['rows']} texts on the sheet from {len(items):,} candidates "
+        f"({left_out:,} units left out as used by an earlier sheet); by unit "
+        f"{made['by_unit']}; workbook {paths['workbook']}, key {paths['key']}, "
+        f"guide {paths['guide']}."
     )
     return 0
 
@@ -536,6 +551,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True, help="a folder under data/interim (never tracked)")
     p.add_argument("--seed", type=int, required=True)
     p.add_argument("--rows", type=int, default=sh.ROWS)
+    p.add_argument("--name", default="hand_sheet", help="file names: NAME.xlsx, NAME_key.csv ...")
+    p.add_argument(
+        "--exclude-key",
+        action="append",
+        help="an earlier sheet's key: its text groups and texts are left out (repeatable)",
+    )
     p.set_defaults(func=cmd_sheet)
 
     p = sub.add_parser("sheet-check", help="alpha per code between a filled sheet and the rules")
