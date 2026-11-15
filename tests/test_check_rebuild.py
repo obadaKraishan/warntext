@@ -219,3 +219,16 @@ def test_sender_sets_split_addresses_and_names():
     addresses, named = check.sender_sets(["A@Example.org", "12345", "AB-1", "Example1", ""])
     assert addresses == {"a@example.org"}
     assert named == {"example1"}
+
+
+def test_own_vocabulary_and_program_names_are_not_leaks(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    m = t["alerts"]["messages"][0]
+    m["hazard"] = "missing_person"
+    m["wea_handling"] = "AMBER Alert"
+    m["organization"] = "Example Center for Missing Children"
+    assert check.check(t, senders, None) == []
+    m["organization"] = "Example Center 555-555-0123"
+    out = check.check(t, senders, None)
+    assert any("{'phone': 1}" in f for f in out)

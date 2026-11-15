@@ -293,6 +293,13 @@ _LOCAL_US = re.compile(
 _STATE_US = re.compile(r"(^|\.)state\.([a-z]{2})\.us$")
 
 
+#: Generic top-level domains seen among senders, or likely; any two letters is a country's.
+_GENERIC_TLDS = frozenset(
+    {"gov", "com", "org", "net", "edu", "mil", "info", "biz", "int", "pro", "app", "cloud"}
+    | {"online", "site", "tech", "email", "alert", "alerts", "io", "systems", "services"}
+)
+
+
 def domain_of(sender: str | None) -> str | None:
     """The lower-case internet domain of a sender value, or None when it has none."""
     if not sender:
@@ -304,6 +311,9 @@ def domain_of(sender: str | None) -> str | None:
         return None
     if re.fullmatch(r"[0-9.]+", host):
         return None  # an IP address names a machine, not an organization
+    tld = host.rsplit(".", 1)[1]
+    if not (tld in _GENERIC_TLDS or re.fullmatch(r"[a-z]{2}", tld)):
+        return None  # no known top-level domain: a dotted user name, not a host
     return host
 
 
@@ -490,7 +500,8 @@ _INITIAL_NAME = re.compile(r"^[a-z][._-]?[a-z]{3,}\d{0,3}$", re.IGNORECASE)
 def address_shape(sender: str | None) -> str:
     """Describe a sender value by its form, never returning any part of it.
 
-    - ``not_address``: no ``@``;
+    - ``not_address``: no ``@`` (except a bare ``first.last`` user name, which is
+      ``first_last``);
     - ``role``: the part before ``@`` holds a role or system word (alerts, ema, dispatch,
       noreply, a vendor name ...);
     - ``first_last``: two or three words joined by a dot, dash or underscore, none of them a
@@ -499,7 +510,13 @@ def address_shape(sender: str | None) -> str:
       named employee's address, sometimes not;
     - ``other_address``: anything else with ``@``.
     """
-    if not sender or "@" not in sender:
+    if not sender:
+        return "not_address"
+    if "@" not in sender:
+        # A user name written without a domain ("first.last") is still a person's.
+        value = sender.strip()
+        if _FIRST_LAST.match(value) and not _ROLE_WORDS.search(value) and not domain_of(value):
+            return "first_last"
         return "not_address"
     local = sender.strip().rsplit("@", 1)[0]
     if _ROLE_WORDS.search(local):

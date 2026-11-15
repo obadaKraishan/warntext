@@ -43,6 +43,7 @@ def test_kind_from_name(name, kind):
         ("Alerts@Example.GOV", "example.gov"),
         ("example.gov", "example.gov"),
         ("COG 12345", None),
+        ("jane.q-doe", None),
         ("someone@", None),
         (None, None),
     ],
@@ -119,6 +120,10 @@ def test_pool_gives_each_authority_its_majority_kind():
         ("jdoe@example.gov", "initial_name"),
         ("x1@example.gov", "other_address"),
         ("Example Sender", "not_address"),
+        ("jane.doe", "first_last"),
+        ("jane.q-doe", "first_last"),
+        ("county.alerts", "not_address"),
+        ("example.gov", "not_address"),
         (None, "not_address"),
     ],
 )

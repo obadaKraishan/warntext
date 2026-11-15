@@ -29,6 +29,25 @@ from warntext import patterns, privacy
 from warntext.tables import CONFIGS, RECORD_TABLES, TEXT_TABLES
 
 _EMAIL = patterns.PATTERNS["email"]
+#: Columns whose values are WarnText's own fixed words, never message text.
+VOCABULARY = frozenset(
+    {
+        "config",
+        "sender_kind",
+        "sender_kind_source",
+        "event_group",
+        "hazard",
+        "text_withheld",
+        "withheld_patterns",
+        "shape",
+        "resolved_by",
+        "parse_problems",
+        "crosscheck_mismatches",
+    }
+)
+#: Columns of names and allow-listed codes, where words about a person can be an
+#: organization's own name or a standard class.
+NAMES_AND_CODES = frozenset({"organization", "wea_handling", "parameter_values"})
 
 
 def load(tables_dir: Path | str) -> dict[str, dict[str, list[dict[str, Any]]]]:
@@ -136,15 +155,26 @@ def check(
             if hits:
                 fail.append(f"{c}/{name}: {hits} cell(s) hold a raw sender value.")
 
-    # The record layer holds no text: no cell may match a personal-detail pattern.
+    # The record layer holds no text: no cell may match a personal-detail pattern. WarnText's own
+    # vocabulary (``missing_person``) is not scanned, and the words about a person are not
+    # looked for in organization names or allow-listed codes ("AMBER Alert" is a phone-alert
+    # class, and child-alert programs name themselves so); the detail patterns still are.
     for c in CONFIGS:
         for name in RECORD_TABLES:
             found: Counter = Counter()
             for row in tables[c][name]:
-                for cell in _cells(row):
-                    for pattern, hit in patterns.present(cell).items():
-                        if hit:
-                            found[pattern] += 1
+                for column, value in row.items():
+                    if column in VOCABULARY:
+                        continue
+                    values = value if isinstance(value, list) else [value]
+                    for cell in values:
+                        if not isinstance(cell, str):
+                            continue
+                        for pattern, hit in patterns.present(cell).items():
+                            if hit and not (
+                                pattern == "person_words" and column in NAMES_AND_CODES
+                            ):
+                                found[pattern] += 1
             if found:
                 fail.append(f"{c}/{name}: cells match personal-detail patterns: {dict(found)}")
 
