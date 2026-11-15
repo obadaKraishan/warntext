@@ -100,8 +100,8 @@ takes the kind its footprint suggests (nine in ten messages on one county: local
 whole state: state), the least sure step, which never gives federal. `sender_kind_source` says
 which step decided. Unknown is treated as not federal everywhere.
 
-How sure: the name and the domain agree for AGREE_SHARE of the messages where both speak, and
-a message's own evidence matches its authority's kind for OWN_MATCH_SHARE (section 10).
+How sure: the name and the domain agree for 88.0% of the messages where both speak, and a
+message's own evidence matches its authority's kind for 97.1% (section 10).
 
 **Identity.** The release names the organization, not a person: `cog_id` and `organization`,
 the authority's most common `senderName` that passes four checks (3 to 120 characters; no email
@@ -167,7 +167,94 @@ and counties named by the SAME area codes (`PSSCCC`: part of county, state FIPS,
 `SS000` is a whole state).
 
 ## 10. Numbers from the build of 2026-11-15
-NUMBERS_TO_FOLLOW
+Counts from the server (2026-11-15) and from the tables built from the snapshot.
+
+**Records and messages.** 83,851 records sent before 2026-11-14T00:00Z by 1,329 alerting
+authorities; the count per year matches the server's before and after the backfill in all 16
+years (2011 to 2026). Every record parses, and the XML agrees with OpenFEMA's own fields on all
+83,851 (identifier, sender, status, type, scope, sent time, event codes, number of language
+blocks). No record is an archive copy of another, so there are 83,851 messages. All are sent as
+`Actual`.
+
+| Configuration | Messages | Authorities |
+|---|---:|---:|
+| `alerts` (real alerts) | 34,665 | 1,260 |
+| `tests` (tests and demonstrations) | 49,186 | 69 send only tests |
+
+Real alerts by group: non-weather hazards 20,137; about people 8,859 (CAE 4,927; LEW 3,274;
+MEP 503; BLU 155); administrative 1,681; no event code 3,980 (all without a language block);
+weather codes 8. The commonest hazards: local area emergency 9,783, civil emergency 3,834,
+evacuation 2,285, fire 2,186, shelter in place 819, telephone outage 408, civil danger 380,
+hazardous materials 205, earthquake 182. Real alerts per year grow from 244 (2013) to 6,872
+(2026, to mid-November); tests are more common than real alerts every year until 2024.
+
+**Duplicates.** Re-sends: 43,056 messages share their text with another message from the same
+sender, in 5,006 groups (36,955 of them tests; 3,141 hazard alerts; 2,588 about people; 370
+administrative); the largest group holds 3,694 sends of one test. No sender reuses an
+identifier with another sent time.
+
+**Threads.** 8,538 references in 8,537 messages; 8,295 resolve (7,256 exactly, 72 by the same
+time written another way, 967 by sender and identifier), 243 name a message that is not in the
+archive, and 44 entries are not in `sender,identifier,sent` form. 75,557 threads; those that
+start with a real alert: 19,142 alert only, 6,141 alert and cancel, 830 alert and updates, 288
+alert, updates and cancel, 208 without their alert, 7 several linked alerts. The longest thread
+has 9 messages; 146 threads mix the two configurations.
+
+**Sender kinds** (real alerts; authorities in brackets): local 23,414 (1,134), state 7,409
+(79), unknown 3,251 (32), territorial 303 (2), federal 220 (7), tribal 56 (4), other 12 (2).
+What decided the kind, over all messages: the name 65,274; the domain 8,751; the footprint
+2,998; the weaker name reading 2,876; nothing 3,220; a tie 9; too few federal votes 723. Where
+both the name and the domain speak (19,362 messages) they agree on 88.0%; the commonest
+disagreements are a state name with a local domain (1,351) and a local name with a state domain
+(676), and 268 state names come with a `.mil` address (state National Guard staff). A message's
+own evidence matches its authority's kind for 97.1% of the messages that have any. One case is
+known to be off: the national clearinghouse that relays AMBER alerts for local police is read
+as local, because its messages carry the police agencies' names; all its messages are withheld
+under the people rule, so no text depends on it.
+
+**Senders' identities.** 7,411 distinct sender values: 2,103 have an `@`, and 5,308 do not
+(most of these are numbers: some sending systems put each message's own number in the field).
+By shape, 1,755 distinct values (30,765 messages) look like a named person's: 721 first and
+last name, 1,034 an initial and a name or one longer word. 710 authorities use more than one
+sender value; 74 values appear under more than one authority. 1,142 of 1,328 authorities have
+an organization name that passes the checks; candidate names were refused because they equal a
+sender value (214), hold no organization word (161), are shaped like a person's name (5), hold
+an address or number (2), or are too short or long (2). 123 identifiers are withheld.
+
+**The people rule.** Real alerts withheld: 8,859 by people code and 4,897 by pattern, 13,756 of
+34,665 (39.7%). By pattern, of the 20,137 non-weather hazard alerts 3,820 (19.0%) lose their
+text: local area emergencies 22%, civil emergency messages 26%, telephone outages 55%, civil
+danger 20%, fire 8%, shelter in place 8%, evacuations 6%, hazardous materials 3%, earthquakes
+under 1%; and 1,077 of 1,681 administrative messages. Among all 5,936 messages withheld by
+pattern (1,039 of them tests), the patterns found: words about a person 4,293, a phone number
+2,242, "last seen" 2,265, an age 1,993, a height or weight 1,787, a plate 134, an email address
+47. A phone number alone withholds 1,323 and words about a person alone 1,522. 5,976 messages
+lose their area shapes.
+
+**Parameters.** Kept: `BLOCKCHANNEL` 172,420; `EAS-ORG` 77,004; `timezone` 47,132;
+`WEAHandling` 37,021; `EASHeader` 9,924; `EAS-STN-ID` 6,664; `EAS-Must-Carry` 1. To the text
+layer: `CMAMtext` 43,664 and `CMAMlongtext` 28,864 (and 54 in other letter cases), `EASText`
+11,121, `ShortText` 8,329, `EASDescription` 180. Dropped, the largest: one vendor's set of ten
+(`UserName`, `AssignedAddress`, `StationID`, `OriginatingSystem` and six settings) in 9,924
+messages each, `EMnet Nodes` 1,199, `Email To` 606, empty `BLOCKCHANNEL` 578, `USGSMsgType`
+331; also `Email` 41, `SMS` 42, `AccountName` and `AccountPassword` 13 each,
+`UserAuthentication` 4. `contact` is dropped from 913 messages, `note` from 491, `source` from
+66,205, `addresses` from 13,132.
+
+**Text and measures** (real alerts, 35,426 language blocks). 25,943 messages are in English
+only and 4,741 in English and Spanish. A 90-character phone text is in 88.6% of blocks (median
+83 characters; 19 messages over 90) and a 360-character one in 63.0% (median 229; 11 over 360).
+Headline in 80.8% (median 25), description 53.2% (median 185), instruction 32.9% (median 97).
+36.2% of blocks hold a link and 12.2% a phone number; the median share of capital letters is
+0.13, and 2,490 blocks are written almost all in capitals. Channels asked for: phones 26,801,
+broadcast 8,653, weather radio 1,474, the public feed 30,724. Nearly every real alert names one
+state (30,534); 142 name two or more; 55 states and territories appear. 15,648 real alerts carry
+a polygon and 3,662 a circle.
+
+**The two layers.** Text rows exist for 16,929 real alerts: 183 from federal senders (168 of
+them earthquake warnings) in `text_federal`, and 16,746 in `text_other` (local 13,575, state
+1,572, unknown 1,365, territorial 213, tribal 12, other 9). The other 17,736 real alerts have
+no text row: 13,756 are withheld and 3,980 have no language block.
 
 ## 11. The release check
 `warntext check` fails, loudly, when a year's count of records differs from the server's; a

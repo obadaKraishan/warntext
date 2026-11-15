@@ -7,7 +7,7 @@ weekly update.
 ## What WarnText is
 A research corpus of the public alert messages that US federal, state, local, tribal and
 territorial alerting authorities sent through the Integrated Public Alert and Warning System
-(IPAWS) from 2011 to 2026, read from FEMA's OpenFEMA dataset "IPAWS Archived Alerts" (version
+(IPAWS) from 2011 to 2026 (five messages in 2011), read from FEMA's OpenFEMA dataset "IPAWS Archived Alerts" (version
 1). One row per message, with its alerting authority, time, place, event codes, the channels it
 asked for (phones, broadcast, weather radio, the public feed), the updates and cancellations
 that followed it, and measures of its text. It is built for communication, journalism and risk
@@ -16,8 +16,8 @@ and crisis communication research that reads, counts and codes official warnings
 **The honest size.** The archive holds about 4.9 million records, but 98% of them are National
 Weather Service products, which this first release leaves out (they are archived more fully
 elsewhere, and in this archive they stop in July 2023 except for phone alerts). What is left is
-SIZE_MESSAGES messages from SIZE_AUTHORITIES alerting authorities: SIZE_REAL real alerts and
-SIZE_TESTS tests and demonstrations. Most authorities send few messages; tests are the most
+83,851 messages from 1,329 alerting authorities: about 34,700 real alerts (34,665) from 1,260
+authorities, and about 49,200 tests and demonstrations (49,186). Most authorities send few messages; tests are the most
 common message of all.
 
 ## What it is not
@@ -64,8 +64,8 @@ their rows and withholds their text, by code and with no hand review:
   can mark one address); its counts, codes, times, counties, lengths and flags stay, with the
   reason in `text_withheld`.
 
-In this build: WITHHELD_CODE messages withheld by code and WITHHELD_PATTERN by pattern
-(WITHHELD_HAZARD of the HAZARD_TOTAL non-weather hazard alerts). Researchers lose the words of
+In this build, of the 34,665 real alerts: 8,859 withheld by code and 4,897 by pattern (3,820 of
+the 20,137 non-weather hazard alerts), 13,756 in all (39.7%). Researchers lose the words of
 these messages, and with them any content coding of alerts about people; they keep everything
 needed to count them, place them, time them and follow their threads.
 
@@ -122,14 +122,18 @@ Each row's `retrieved_at` gives the exact time its message was read.
 ## Configurations and tables
 | Configuration | Messages | Record layer | Text layer |
 |---|---:|---|---|
-| `alerts` (real alerts) | SIZE_REAL | messages, infos, areas, references, threads | text_federal (TEXT_FED_REAL messages), text_other (TEXT_OTHER_REAL, not released for now) |
-| `tests` (tests and demonstrations) | SIZE_TESTS | the same | text_federal (TEXT_FED_TESTS), text_other (TEXT_OTHER_TESTS, not released for now) |
+| `alerts` (real alerts) | 34,665 | messages, infos, areas, references, threads | text_federal (183 messages), text_other (16,746, not released for now) |
+| `tests` (tests and demonstrations) | 49,186 | the same | text_federal (3,866), text_other (44,281, not released for now) |
 
 The field list is in `schema.md`, and how each field is derived in `method.md`.
 
 ## Known limits
-- Years before 2016 are thin; most authorities joined IPAWS later.
-- Sender kinds rest on names and email domains; KIND_UNKNOWN messages have an unknown kind.
+- Years before 2016 are thin (244 real alerts in 2013, 6,872 in 2026 to mid-November); most
+  authorities joined IPAWS later.
+- Only 183 real alerts come from federal senders, most of them earthquake warnings; the
+  released text is therefore small until the rights question for the other senders is
+  settled.
+- Sender kinds rest on names and email domains; 3,251 real alerts have an unknown kind.
 - References often give a different sent time from the referenced message's; they are matched
   by the sender's identifier, which is unique in the archive.
 - The people patterns over-withhold by design and can still miss a detail written in an unusual

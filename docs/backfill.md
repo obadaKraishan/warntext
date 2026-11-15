@@ -1,8 +1,8 @@
-# Backfill estimate
+# Backfill
 
-How the full archive could be read in the next step, by each route, with its size and time.
-Measured on 2026-11-15. Nothing was downloaded in bulk: the bulk files were asked for their
-headers only (HEAD).
+The estimate made before the backfill, and in the last section what the backfill did. The
+estimate was measured on 2026-11-15. Nothing was downloaded in bulk: the bulk files were asked
+for their headers only (HEAD).
 
 ## What there is to read
 | Part | Records | Bytes per record as served (sample, weighted by year) | Size as served (est.) |
@@ -51,3 +51,29 @@ that.
 - If the scope is **(A)** or **(B)** in full: **route 3** for the weather service's records
   (one request, about 48 GB uncompressed, approval needed), with route 1 for the other senders
   so their part is checked against the server's counts, then the API for weekly updates.
+
+## What the backfill did (2026-11-15)
+Route 1 was taken: the API, every sender except the National Weather Service, records sent
+before `2026-11-14T00:00:00Z`.
+
+- **Counts before:** the server's count per year for these senders. The direct count
+  (`sender ne` the weather service) answered for 11 years; for 2014, 2019 and 2021 to 2023 it
+  passed the server's 60-second limit (HTTP 503), and those years were counted as every sender
+  minus the weather service's sender. Every year matched the counts of the previous step.
+- **Paging:** year by year, `sent` then `id`, 500 records a page, each page starting at the last
+  `sent` read and skipping only the records already read at that time. A first version paged by
+  a deep `$skip`, which makes the server count from the start of the year; it was replaced before
+  most pages were read.
+- **The run:** 177 pages, 83,851 records, 1.51 GB as served (1,513,046,831 bytes), 39.5
+  minutes of wall time (14:56 to 15:36 UTC), no page retried and no error. Server time per page ranged from about 1 to 110 seconds; the
+  heaviest years (2018 to 2019, when the weather service sent about 500,000 records a year)
+  were the slowest.
+- **Size:** 18,044 bytes a record as served on average, against the estimate of 14,413. Pages from 2014 to 2017 ran 30 to 90
+  KB a record (embedded audio), about three times the sample's estimate for those years.
+- **Raw files:** one JSON file per page on the external data drive, written once, flushed,
+  made read-only and checked against its SHA-256, with a manifest of the page's cursor, record
+  count, size, hash, first and last `sent` and the time it was read.
+- **Counts after:** taken again the same way; every year matched (the method's section 10).
+- **Calls:** 234 in all for counts, pages and checks (36 for the counts before, 15 of them
+  timed-out answers; 177 pages; 21 for the counts after), well inside the dataset's limit of
+  100 requests in 5 minutes.
