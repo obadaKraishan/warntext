@@ -94,6 +94,7 @@ def test_people_codes_and_patterns_are_counts_only():
         "height_weight": 0.0,
         "email": 0.0,
         "last_seen": 1.0,
+        "person_words": 0.0,
     }
     assert "ABC1234" not in repr(p)
     assert p["patterns"]["non_nws_other_codes"]["sample_messages"] == 3
