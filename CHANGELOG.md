@@ -102,4 +102,20 @@ All notable changes to this project are recorded here. The format follows
   `organization_source` `sender_name_refused` or `sender_name_unreviewed`.
 - `warntext update --rebuild`: both layers again from the state's raw folders, with no request.
 - `docs/sources.md` points to FEMA's contact page instead of spelling out its addresses.
+- The content rules, version 2 (`CODEBOOK_VERSION` 2), on the settled definitions of the six
+  codes on the hand sheet: the source is the organization that speaks (an opener, a signature, a
+  speaker verb, its usual initials), never an organization only mentioned, a web address alone or
+  a place not written as the speaker; guidance is any instruction or prohibition, and where to
+  get information; time leaves out what already happened and promised updates; locations are
+  named places, never generic words; a hazard description needs a named hazard. Release 0.1.0
+  keeps version 1's codes; `release build` refuses codes of another version than its status
+  file's (`--codebook-version`).
+- The codebook, version 2 (draft): the settled definitions, version 2 on the first hand sheet as
+  a development figure (not a check), the shares beside Olson et al. for the first rules,
+  version 1 and version 2, and each change with its reason.
+- The hand sheet guide, version 2: one page with the settled definitions, two invented examples
+  each and three invented edge cases.
+- `warntext sheet --name` and `--exclude-key`: a later sheet with its own file names that leaves
+  out every text group and text an earlier sheet used. A sheet's workbook now carries the
+  definitions on a second visible worksheet, and a plain-text guide sits beside it.
 
