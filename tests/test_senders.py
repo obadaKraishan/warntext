@@ -55,7 +55,7 @@ def test_domain_of(sender, domain):
 @pytest.mark.parametrize(
     ("domain", "kind"),
     [
-        ("district.usace.army.mil", "federal"),
+        ("example-district.usace.army.mil", "federal"),
         ("examplebase.af.mil", "federal"),
         ("ops.usgs.gov", "federal"),
         ("example-nsn.gov", "tribal"),
@@ -82,7 +82,7 @@ def test_kind_from_domain(domain, kind):
 def test_the_name_wins_over_the_domain():
     ev = sd.evidence("alerts@vendor-example.com", [None, "Example County EMA"])
     assert (ev.by_name, ev.by_domain, ev.kind, ev.source) == ("local", None, "local", "name")
-    ev = sd.evidence("alerts@district.usace.army.mil", ["Sampleton"])
+    ev = sd.evidence("alerts@example-district.usace.army.mil", ["Sampleton"])
     assert (ev.kind, ev.source) == ("federal", "domain")
     assert sd.evidence(None, []).source == "none"
 
