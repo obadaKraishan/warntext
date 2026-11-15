@@ -171,6 +171,9 @@ NUMBERS_TO_FOLLOW
 ## 11. The release check
 `warntext check` fails, loudly, when a year's count of records differs from the server's; a
 withheld message has text in a text table or shapes in `areas`; a parameter outside the
-allow-list (or a value outside its form) appears; a raw sender value appears in any cell of any
-table; a text table holds a message of the wrong sender kind, or one that is not in the tables;
+allow-list (or a value outside its form) appears; a raw sender value appears (an address in any
+cell of any table, even inside a text; a value with four letters or more in any record-layer
+cell outside the station-code parameters; values of digits only are not checked, because some
+sending systems put the message's own number in the sender field); a record-layer cell matches
+a personal-detail pattern; a text table holds a message of the wrong sender kind, or one that is not in the tables;
 an id is duplicated; or a row lacks its source or record id.
