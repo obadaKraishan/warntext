@@ -75,7 +75,9 @@ def test_fema_type_and_name_come_first_and_the_rule_kind_stays_beside_them():
     assert rows["f2"]["organization"] == "Example Proving Ground"  # official: no word needed
     assert rows["f3"]["sender_kind_source"] != "fema_list"
     assert rows["f3"]["authority_type"] is None
-    assert rows["f3"]["organization_source"] == "sender_name"
+    # a name from the sender, not reviewed, is released blank
+    assert rows["f3"]["organization_source"] == "sender_name_unreviewed"
+    assert rows["f3"]["organization"] is None
     s = b.summary["fema_list"]
     assert s["archive_authorities_listed"] == 2
     assert s["kind_agrees_authorities"] == 0
@@ -89,3 +91,32 @@ def test_an_official_name_still_fails_the_person_and_address_checks():
     assert tables.org_name_check("Example Proving Ground", set()) == "no_organization_word"
     assert tables.org_name_check("Jane Doe", set(), official=True) == "person_shaped"
     assert tables.org_name_check("x@example.org", set(), official=True) == "address_or_number"
+
+
+def test_reviewed_sender_names_are_released_only_when_marked_ok():
+    name = "Example County Office of Emergency Management"
+    msg = invented(identifier="EX-N1", sender=COUNTY, sender_name=name)
+
+    def build(verdict):
+        review = {(101, tables.name_hash(name)): verdict} if verdict else {}
+        b = tables.build(
+            tables.parse_records((Line(), r) for r in [record(msg, "n1", cog=101)]),
+            overrides={},
+            fema={},
+            name_review=review,
+        )
+        return b.tables["alerts"]["messages"][0]
+
+    ok = build("ok")
+    assert (ok["organization"], ok["organization_source"]) == (name, "sender_name")
+    no = build("no")
+    assert (no["organization"], no["organization_source"]) == (None, "sender_name_refused")
+    none = build(None)
+    assert none["organization_source"] == "sender_name_unreviewed"
+    assert tables.name_hash("  Example  county ") == tables.name_hash("example COUNTY")
+
+
+def test_the_tracked_name_review_reads_and_holds_no_name():
+    review = tables.load_name_review()
+    assert review and set(review.values()) <= {"ok", "no", "unreviewed"}
+    assert all(len(h) == 64 for _, h in review)

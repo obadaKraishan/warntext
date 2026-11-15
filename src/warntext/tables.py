@@ -570,6 +570,33 @@ def text_row(u: Unit, i: Info, index: int) -> dict[str, Any]:
     }
 
 
+NAME_REVIEW_FILE = "name_review.csv"
+
+
+def name_hash(name: str | None) -> str:
+    """The key of an organization name in the review file: SHA-256 of the name, case-folded."""
+    return hashlib.sha256(" ".join((name or "").split()).casefold().encode()).hexdigest()
+
+
+def load_name_review() -> dict[tuple[int | None, str], str]:
+    """The maintainer's verdicts on names not from FEMA's list: (cog id, name hash) -> verdict.
+
+    Only names marked ``ok`` are released; a name marked ``no``, or not reviewed, is released
+    blank. The file holds no name, only its hash, so a refused name is never in the repository.
+    """
+    import csv
+    import io
+    from importlib import resources
+
+    text = resources.files("warntext").joinpath(NAME_REVIEW_FILE).read_text(encoding="utf-8")
+    out = {}
+    for r in csv.DictReader(io.StringIO(text)):
+        if r["verdict"] not in ("ok", "no", "unreviewed"):
+            raise ValueError(f"{NAME_REVIEW_FILE}: verdict must be ok, no or unreviewed.")
+        out[(int(r["cog_id"]), r["name_sha256"])] = r["verdict"]
+    return out
+
+
 def fema_summary(units: list[Unit], fema: Mapping[int, au.Authority]) -> dict[str, Any]:
     """How the archive's authorities meet FEMA's list, and how often the two kinds agree."""
     first: dict[int, Unit] = {}
@@ -725,6 +752,7 @@ def build(
     parsed: list[Parsed],
     overrides: Mapping[int, sd.Override] | None = None,
     fema: Mapping[int, au.Authority] | None = None,
+    name_review: Mapping[tuple[int | None, str], str] | None = None,
 ) -> Build:
     """Apply every rule to the parsed records and return the rows of every table.
 
@@ -734,6 +762,7 @@ def build(
     """
     overrides = sd.load_overrides() if overrides is None else overrides
     fema = au.load() if fema is None else fema
+    name_review = load_name_review() if name_review is None else name_review
     summary: dict[str, Any] = {"records": len(parsed)}
 
     # Parse errors and the cross-check, per record.
@@ -856,6 +885,13 @@ def build(
                 u.organization, u.organization_source = listed.name, "fema_list"
             else:
                 official_refused[reason] += 1
+        if u.organization_source == "sender_name":
+            verdict = name_review.get((u.first.cog_id, name_hash(u.organization)), "unreviewed")
+            if verdict != "ok":
+                u.organization = None
+                u.organization_source = (
+                    "sender_name_refused" if verdict == "no" else "sender_name_unreviewed"
+                )
         o = overrides.get(u.first.cog_id) if u.first.cog_id is not None else None
         if o is not None and o.organization:
             reason = org_name_check(o.organization, raw_sender_set)
