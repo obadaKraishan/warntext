@@ -1,5 +1,8 @@
 # Codebook (DRAFT)
 
+> **Superseded by [codebook.md](codebook.md), version 1.** This first draft is kept for its
+> reading notes and its list of style variables, which version 1 does not code yet.
+
 **DRAFT for review. Nothing has been coded.** This lists the content and style variables that
 warning research codes in public alert messages, defined from the primary sources, with a first
 view of which ones simple rules could code. Definitions are paraphrased; short quotes give page
