@@ -114,30 +114,43 @@ def cmd_backfill_counts(args: argparse.Namespace) -> int:
     """The server's count per year of records from senders other than the weather service."""
     c = _client(args)
     years = bf.years_until(args.first, args.until)
-    plan = [(f"other:{y}", bf.window_filter(y, args.until)) for y in years]
-    counts = pr.run_counts(c, plan, save_to=args.out, run_at=cl.now_utc(), until=args.until)
+    if args.years:
+        years = [y for y in years if y in {int(x) for x in args.years.split(",")}]
+    plan = bf.count_plan(years, args.until, args.method)
+    counts = pr.run_counts(
+        c, plan, save_to=args.out, run_at=cl.now_utc(), until=args.until, method=args.method
+    )
     failed = [x.name for x in counts if x.count is None]
-    total = sum(x.count or 0 for x in counts)
-    print(f"{len(counts) - len(failed)} yearly counts ({total:,} records) saved to {args.out}.")
+    print(f"{len(counts) - len(failed)} counts saved to {args.out}; {c.budget.calls} calls so far.")
     if failed:
-        print(f"Not answered: {', '.join(failed)}. Run again later for these.")
+        print(f"Not answered: {', '.join(failed)}. Try --method difference for these years.")
     return 1 if failed else 0
 
 
-def read_year_counts(path: Path | str) -> tuple[dict[int, int], str]:
-    """The yearly counts and the ``until`` bound from a ``backfill-counts`` file."""
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    counts = {}
-    for c in data["counts"]:
-        if c["count"] is None:
-            raise SystemExit(f"{path}: {c['name']} has no count; run `warntext backfill-counts`.")
-        counts[int(c["name"].split(":")[1])] = c["count"]
-    return counts, data["facts"]["until"]
+def read_year_counts(paths: Sequence[Path | str]) -> tuple[dict[int, tuple[int, str]], str]:
+    """The other senders' count per year (and how it was taken) and the ``until`` bound.
+
+    Reads one or more ``backfill-counts`` files; they must share the same ``until``.
+    """
+    entries: list[dict] = []
+    untils = set()
+    for path in paths:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        entries += data["counts"]
+        untils.add(data["facts"]["until"])
+    if len(untils) != 1:
+        raise SystemExit(f"The count files use different --until bounds ({sorted(untils)}).")
+    return bf.year_counts(entries), untils.pop()
 
 
 def cmd_backfill(args: argparse.Namespace) -> int:
     """Read every page of the other senders' records to the raw folder (resumable)."""
-    expected, until = read_year_counts(args.counts)
+    counts, until = read_year_counts(args.counts)
+    years = bf.years_until(args.first, until)
+    missing = [y for y in years if y not in counts]
+    if missing:
+        raise SystemExit(f"No count for {missing}; run `warntext backfill-counts` for them.")
+    expected = {y: counts[y][0] for y in years}
     c = _client(args)
     raw = Path(args.raw)
     done = bf.read_manifest(raw / "manifest.csv")
@@ -209,12 +222,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--first", type=int, default=2011)
     p.add_argument("--until", required=True, help="exclusive UTC bound (ISO time)")
+    p.add_argument("--years", help="only these years, comma-separated")
+    p.add_argument("--method", choices=["direct", "difference"], default="direct")
     p.add_argument("--out", required=True)
     _client_options(p)
     p.set_defaults(func=cmd_backfill_counts)
 
     p = sub.add_parser("backfill", help="read the other senders' records to the raw folder")
-    p.add_argument("--counts", required=True, help="a backfill-counts file taken before the run")
+    p.add_argument(
+        "--counts", required=True, nargs="+", help="backfill-counts files taken before the run"
+    )
+    p.add_argument("--first", type=int, default=2011)
     p.add_argument("--raw", required=True)
     p.add_argument("--reserve", type=int, default=20, help="calls kept for the checks after it")
     p.add_argument("--max-response-mb", type=float, default=100.0)

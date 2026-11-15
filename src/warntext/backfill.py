@@ -1,14 +1,20 @@
 """Read every record from senders other than the National Weather Service, once, to the drive.
 
 The archive is read year by year (UTC), ordered by ``sent`` and ``id``, in pages of ``top``
-records (``$skip`` and ``$top``). Records sent at or after ``until`` are left for the weekly
-update, so the backfill is a fixed snapshot whose counts can be checked against the server's.
+records. Records sent at or after ``until`` are left for the weekly update, so the backfill is
+a fixed snapshot whose counts can be checked against the server's.
+
+Pages are cut by a cursor rather than a deep ``$skip``: each page starts at the ``sent`` time
+of the last record read (``sent ge``) and skips only the records already read at that same
+time. The server then reads forward from that time instead of counting from the start of the
+year, which matters here because the weather service's records, which the filter leaves out,
+are 98% of every year until 2023.
 
 Each answer is written once to the raw folder, flushed and checked on disk, and a manifest line
-records its year, offset, size, record count, SHA-256 and the time it was read. The manifest
-holds no message text. A stopped run starts again from the first page that is not in the
-manifest, so nothing is downloaded twice. A page whose answer is larger than the client's
-per-answer guard is read again as smaller pages at the same offset.
+records its year, cursor, size, record count, SHA-256 and the time it was read. The manifest
+holds no message text. A stopped run starts again after the last page in the manifest, so
+nothing is downloaded twice. A page whose answer is larger than the client's per-answer guard
+is read again as a smaller page at the same cursor.
 """
 
 from __future__ import annotations
@@ -32,15 +38,70 @@ SMALL_PAGE = 100
 OTHER_SENDERS = f"sender ne '{NWS_SENDER}'"
 
 
-def window_filter(year: int, until: str) -> str:
-    """Records sent in ``year`` (UTC) and before ``until``."""
-    start = f"{year}-01-01T00:00:00.000Z"
-    end = min(f"{year + 1}-01-01T00:00:00.000Z", until)
-    return f"(sent ge '{start}' and sent lt '{end}') and ({OTHER_SENDERS})"
+def year_bounds(year: int, until: str) -> tuple[str, str]:
+    """The first instant of ``year`` and the earlier of the next year's and ``until``."""
+    return f"{year}-01-01T00:00:00.000Z", min(f"{year + 1}-01-01T00:00:00.000Z", until)
+
+
+def window_filter(
+    year: int, until: str, start: str | None = None, senders: str | None = OTHER_SENDERS
+) -> str:
+    """Records sent in ``year`` (UTC), from ``start`` and before ``until``, by ``senders``.
+
+    ``senders`` is the other senders by default; None gives every sender.
+    """
+    first, end = year_bounds(year, until)
+    window = f"(sent ge '{start or first}' and sent lt '{end}')"
+    return f"{window} and ({senders})" if senders else window
+
+
+NWS_ONLY = f"sender eq '{NWS_SENDER}'"
+
+
+def count_plan(years: Iterable[int], until: str, method: str) -> list[tuple[str, str]]:
+    """Named counts for each year: ``other:<y>`` directly, or ``all:<y>`` and ``nws:<y>``.
+
+    The direct count filters on ``sender ne``, which the server must check record by record;
+    in the years when the weather service sent about 400,000 records it can pass the server's
+    60-second limit. The difference uses two indexed counts instead: every sender, and the
+    weather service's sender alone.
+    """
+    if method == "direct":
+        return [(f"other:{y}", window_filter(y, until)) for y in years]
+    if method == "difference":
+        out = []
+        for y in years:
+            out.append((f"all:{y}", window_filter(y, until, senders=None)))
+            out.append((f"nws:{y}", window_filter(y, until, senders=NWS_ONLY)))
+        return out
+    raise ValueError(f"Unknown count method {method!r}; use direct or difference.")
+
+
+def year_counts(entries: Iterable[dict[str, Any]]) -> dict[int, tuple[int, str]]:
+    """The other senders' count per year, and how it was taken, from saved count entries.
+
+    A direct count is used where there is one; otherwise every sender's count minus the
+    weather service's. Years with neither are left out.
+    """
+    direct: dict[int, int] = {}
+    parts: dict[tuple[str, int], int] = {}
+    for e in entries:
+        if e.get("count") is None:
+            continue
+        kind, year = e["name"].split(":")
+        if kind == "other":
+            direct[int(year)] = e["count"]
+        else:
+            parts[(kind, int(year))] = e["count"]
+    out = {y: (n, "direct") for y, n in direct.items()}
+    for (kind, y), n in parts.items():
+        if kind == "all" and y not in out and ("nws", y) in parts:
+            out[y] = (n - parts[("nws", y)], "difference")
+    return dict(sorted(out.items()))
 
 
 def years_until(first: int, until: str) -> list[int]:
-    """The years from ``first`` to the year that holds ``until`` (exclusive bound)."""
+    """The years from ``first`` to the year that holds ``until`` (an exclusive bound)."""
     last = int(until[:4])
     if until[4:] <= "-01-01T00:00:00.000Z":
         last -= 1
@@ -49,10 +110,17 @@ def years_until(first: int, until: str) -> list[int]:
 
 @dataclass(frozen=True)
 class PageLine:
-    """One manifest line. No message text."""
+    """One manifest line. No message text.
+
+    ``cursor_sent`` and ``cursor_skip`` say where the page started; ``last_sent`` is the
+    newest ``sent`` in the page and ``last_seen`` how many records at that time have been read
+    so far in the year, which is where the next page starts.
+    """
 
     year: int
-    skip: int
+    page: int
+    cursor_sent: str
+    cursor_skip: int
     top: int
     records: int
     bytes: int
@@ -62,10 +130,11 @@ class PageLine:
     seconds: float
     first_sent: str
     last_sent: str
+    last_seen: int
 
 
-def page_name(year: int, skip: int, top: int) -> str:
-    return f"other-{year}-skip{skip:06d}-top{top:04d}.json"
+def page_name(year: int, page: int, top: int) -> str:
+    return f"other-{year}-p{page:03d}-top{top:04d}.json"
 
 
 def read_manifest(path: Path | str) -> list[PageLine]:
@@ -97,47 +166,56 @@ def append_manifest(path: Path | str, line: PageLine) -> None:
         durable.flush_file(fh)
 
 
-def next_skip(lines: Iterable[PageLine], year: int) -> int:
-    """The first offset in ``year`` that no complete page covers yet.
+@dataclass(frozen=True)
+class Cursor:
+    """Where the next page of a year starts, and how much of the year is read."""
 
-    Pages are read in order, so the covered records form one run from offset 0; a page that
-    held fewer records than asked for ends the year.
-    """
-    covered = 0
-    for line in sorted((x for x in lines if x.year == year), key=lambda x: x.skip):
-        if line.skip != covered:
-            break
-        covered += line.records
-        if line.records < line.top:
-            break
-    return covered
+    page: int
+    sent: str
+    skip: int
+    read: int
+    finished: bool
 
 
-def year_done(lines: Iterable[PageLine], year: int, expected: int) -> bool:
-    return next_skip(lines, year) >= expected
+def cursor(lines: Iterable[PageLine], year: int, until: str) -> Cursor:
+    """The next page of ``year`` after the pages already in the manifest."""
+    mine = sorted((x for x in lines if x.year == year), key=lambda x: x.page)
+    read = sum(x.records for x in mine)
+    if not mine:
+        return Cursor(0, year_bounds(year, until)[0], 0, 0, False)
+    last = mine[-1]
+    if last.records < last.top:
+        return Cursor(last.page + 1, last.last_sent, last.last_seen, read, True)
+    return Cursor(last.page + 1, last.last_sent, last.last_seen, read, False)
 
 
-def fetch_page(client: Any, year: int, skip: int, top: int, until: str, raw_dir: Path) -> PageLine:
+def fetch_page(client: Any, year: int, at: Cursor, top: int, until: str, raw_dir: Path) -> PageLine:
     """Read one page and write the answer, exactly as it came, to ``raw_dir``."""
     params = {
-        "$filter": window_filter(year, until),
+        "$filter": window_filter(year, until, at.sent),
         "$orderby": ORDERBY,
-        "$skip": skip,
+        "$skip": at.skip,
         "$top": top,
     }
     resp = client.get(ENDPOINT, params)
     if resp.status != 200:
         raise RuntimeError(
-            f"Year {year}, offset {skip}: the server answered HTTP {resp.status}. Nothing was "
+            f"Year {year}, page {at.page}: the server answered HTTP {resp.status}. Nothing was "
             "saved; run the backfill again later and it resumes here."
         )
     records = json.loads(resp.content)[ENTITY]
-    name = page_name(year, skip, top)
+    name = page_name(year, at.page, top)
     digest = durable.write_once(raw_dir / name, resp.content)
     sents = [r.get("sent") or "" for r in records]
+    last = max(sents) if sents else at.sent
+    seen = sum(1 for s in sents if s == last)
+    if last == at.sent:
+        seen += at.skip
     return PageLine(
         year=year,
-        skip=skip,
+        page=at.page,
+        cursor_sent=at.sent,
+        cursor_skip=at.skip,
         top=top,
         records=len(records),
         bytes=len(resp.content),
@@ -146,7 +224,8 @@ def fetch_page(client: Any, year: int, skip: int, top: int, until: str, raw_dir:
         fetched_at=client.clock(),
         seconds=round(resp.seconds, 3),
         first_sent=min(sents) if sents else "",
-        last_sent=max(sents) if sents else "",
+        last_sent=last,
+        last_seen=seen,
     )
 
 
@@ -161,8 +240,8 @@ def run(
 ) -> list[PageLine]:
     """Read every page not yet in the manifest, year by year. Returns the new manifest lines.
 
-    ``expected`` holds the server's count per year, taken before the run; a year is read until
-    a page comes back short or the expected count is covered. Each new line is added to the
+    ``expected`` holds the server's count per year, taken before the run. A year is read until
+    a page comes back short or the expected count is read. Each new line is added to the
     manifest as soon as its page is safe on disk.
     """
     raw_dir = Path(raw_dir)
@@ -170,37 +249,31 @@ def run(
     lines = read_manifest(manifest)
     new: list[PageLine] = []
     for year in sorted(expected):
-        skip = next_skip(lines, year)
         while True:
-            done_short = any(
-                x.year == year and x.records < x.top and x.skip + x.records == skip for x in lines
-            )
-            if done_short or (skip >= expected[year] and skip > 0) or expected[year] == 0:
+            at = cursor(lines, year, until)
+            if at.finished or at.read >= expected[year]:
                 break
             try:
-                line = fetch_page(client, year, skip, top, until, raw_dir)
+                line = fetch_page(client, year, at, top, until, raw_dir)
             except ResponseTooLarge:
-                line = fetch_page(client, year, skip, small, until, raw_dir)
+                line = fetch_page(client, year, at, small, until, raw_dir)
             append_manifest(manifest, line)
             lines.append(line)
             new.append(line)
             if on_page is not None:
                 on_page(line)
-            skip += line.records
-            if line.records < line.top:
-                break
     return new
 
 
 def planned_calls(expected: dict[int, int], top: int = PAGE_SIZE) -> int:
-    """Calls the backfill needs if no page is too large: one per page, at least one per year."""
-    return sum(max(1, math.ceil(n / top)) for n in expected.values() if n > 0)
+    """Calls the backfill needs if no page is too large: one per page."""
+    return sum(math.ceil(n / top) for n in expected.values() if n > 0)
 
 
 def iter_records(raw_dir: Path | str) -> Iterable[tuple[PageLine, dict]]:
     """Every record in the backfill with its page's manifest line, checked against its SHA-256."""
     raw_dir = Path(raw_dir)
-    for line in sorted(read_manifest(raw_dir / "manifest.csv"), key=lambda x: (x.year, x.skip)):
+    for line in sorted(read_manifest(raw_dir / "manifest.csv"), key=lambda x: (x.year, x.page)):
         data = (raw_dir / line.file).read_bytes()
         if durable.sha256_bytes(data) != line.sha256:
             raise durable.WriteCheckFailed(

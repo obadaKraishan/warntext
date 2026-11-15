@@ -148,3 +148,53 @@ def test_client_reads_the_caps_from_the_log(tmp_path):
     c = cli._client(args)
     assert (c.budget.calls, c.budget.nbytes) == (1, 10)
     assert c.min_interval == 3.5
+
+
+def backfill_counts_file(tmp_path, name, counts, until="2013-01-01T00:00:00.000Z"):
+    path = tmp_path / name
+    path.write_text(json.dumps({"facts": {"until": until}, "counts": counts}))
+    return path
+
+
+def test_read_year_counts_merges_files_and_refuses_mixed_bounds(tmp_path):
+    a = backfill_counts_file(tmp_path, "a.json", [{"name": "other:2011", "count": 5}])
+    b = backfill_counts_file(
+        tmp_path, "b.json", [{"name": "all:2012", "count": 9}, {"name": "nws:2012", "count": 4}]
+    )
+    counts, until = cli.read_year_counts([a, b])
+    assert counts == {2011: (5, "direct"), 2012: (5, "difference")}
+    assert until == "2013-01-01T00:00:00.000Z"
+    c = backfill_counts_file(tmp_path, "c.json", [], until="2014-01-01T00:00:00.000Z")
+    with pytest.raises(SystemExit, match="different --until"):
+        cli.read_year_counts([a, c])
+
+
+def test_backfill_refuses_to_start_without_every_years_count(tmp_path):
+    a = backfill_counts_file(tmp_path, "a.json", [{"name": "other:2012", "count": 5}])
+    args = ["backfill", "--counts", str(a), "--raw", str(tmp_path / "raw"), "--since", "x"]
+    with pytest.raises(SystemExit, match="No count for"):
+        cli.main([*args, "--first", "2011", "--log", str(tmp_path / "log.csv")])
+
+
+def test_backfill_stops_before_a_call_when_the_cap_is_too_small(tmp_path, capsys):
+    a = backfill_counts_file(tmp_path, "a.json", [{"name": "other:2012", "count": 5000}])
+    code = cli.main(
+        [
+            "backfill",
+            "--counts",
+            str(a),
+            "--first",
+            "2012",
+            "--raw",
+            str(tmp_path / "raw"),
+            "--since",
+            "2026-01-01T00:00:00.000Z",
+            "--log",
+            str(tmp_path / "log.csv"),
+            "--max-calls",
+            "15",
+        ]
+    )
+    assert code == 2
+    assert "Nothing was fetched" in capsys.readouterr().out
+    assert not (tmp_path / "raw").exists()
