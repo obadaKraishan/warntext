@@ -253,3 +253,127 @@ and NOTICE say that WarnText is not made, endorsed or checked by FEMA or DHS.
   (`OpenFEMA@fema.dhs.gov`, and `IPAWS@fema.dhs.gov` for IPAWS questions). A short written
   question to them on redistribution, citation and the alerts about people would settle the
   FEMA side; it would not settle the state and local authors' rights.
+
+## 6. The API: paging, filters, rates and bulk files
+
+Pages: "OpenFEMA API Documentation" (<https://www.fema.gov/about/openfema/api>, "Last updated
+November 13, 2026"), "Getting Started" (<https://www.fema.gov/about/openfema/api/getting-started>),
+"Working with Large Data Sets" (<https://www.fema.gov/about/openfema/working-with-large-data-sets>)
+and FEMA's IPAWS query examples on GitHub
+(<https://github.com/FEMA/openfema-samples/blob/master/dataset-samples/ipaws_archived_alerts.md>,
+last changed 2022-12-13).
+
+**Access.** "Use of the API requires no registration [...]" and "As the OpenFEMA API is free for
+public use, authentication is not necessary."
+
+**User-Agent.** "Although not required, for those who use the API regularly or who have
+integrated it into their own products, we recommend including a descriptive “user-agent” header
+(such as a custom application name and contact email)." WarnText sends
+`warntext/<version> (https://github.com/obadaKraishan) python-requests/<version>`: the project
+name and a contact URL rather than an email address.
+
+**Rate limits.**
+
+> 200 requests/5-minute window per IP address
+> No more than 2 concurrent requests per IP address
+> For the following datasets, rate limits are reduced to 100 requests/5-minute window with the
+> same 2 concurrent requests as stated above. [...] IPAWS Archived Alerts [...]
+> Requests exceeding an applicable limit will receive an HTTP 429 (Too Many Requests) response.
+> Repeated violations may result in an IP being blocked.
+
+WarnText sends one request at a time, at least 3.5 seconds apart (at most about 86 in 5
+minutes).
+
+**Paging.**
+
+> For performance reasons, only 1,000 records are returned per API endpoint call by default
+> (i.e., if no value is set for $top). The maximum number of records that can be returned per
+> call is 10,000 (i.e., $top=10000). If more than 10,000 records exist for the specified filter,
+> it will be necessary to page through the data, using the $skip and $inlinecount parameters to
+> retrieve every record.
+
+> An alternative to paging is to use the $allrecords parameter. [...] Use this parameter wisely.
+> If the OpenFEMA servers are adversely impacted, we may limit the use of this parameter.
+
+**Query options used:** `$filter` (OData: `eq`, `ne`, `ge`, `lt`, `and`, `contains`,
+`startswith`, `geo.intersects`), `$select`, `$orderby` (two keys work: `sent asc, id asc`),
+`$skip`, `$top`, `$inlinecount=allpages` (version 1; `$count=true` is the newer form).
+
+**The IPAWS dataset is harder to query.** From "Getting Started":
+
+> The Integrated Public Alert and Warning System (IPAWS) Archived Alerts data set is unique among
+> OpenFEMA datasets in that the information is hierarchical in nature. Performing searches
+> through the API can be challenging and the ability to filter, search, and sort IPAWS data is
+> limited. In most cases it will be necessary to first download a subset based on a filter to
+> limit data to a region or date, and then post-process offline with external tools.
+
+FEMA's examples filter event codes and geocodes inside the nesting, for example
+`contains(infos/eventCode/value,'CAE')` and `startswith(infos/areas/geocode/value,'006')`.
+
+**Searchable fields.** The dataset page marks each field "Is Searchable". Searchable: `id`,
+`identifier`, `sender`, `sent`, `status`, `msgType`, `source`, `scope`, `restriction`,
+`addresses`, `searchGeometry`, `info`, `cogId`, `eventCode`, `info.eventCode`, `info.effective`,
+`info.expires`, `info.resource.uri`, `info.area.geocode`. Not searchable: `originalMessage`,
+`code`, `note`, `references`, `incidents`, and inside each info block `language`, `category`,
+`event`, `responseType`, `urgency`, `severity`, `certainty`, `audience`, `onset`, `senderName`,
+`headline`, `description`, `instruction`, `web`, `contact`, `parameter` (where the channels and
+the phone texts are), and the area's `areaDesc`, `polygon` and `circle`. These come from the
+records themselves.
+
+**What we found on 2026-11-15** (each request is in the usage log):
+- `$top=0` is ignored by version 1: the call returned 1,000 records. Counts use `$top=1` with
+  `$select=id`.
+- The unfiltered count (4,870,228) is lower than the sum of the counts by year (4,887,686) and
+  than the metadata record's `recordCount` (4,887,710); the unfiltered count looks stale.
+- A count of `status eq 'Actual'` over the whole archive ran 60 seconds and ended in HTTP 503
+  (the gateway's timeout), and four retries also answered 503. The same filter inside one year
+  answered in 0.1 seconds. Counts of fields that are not indexed therefore go year by year, or
+  come from the sample.
+- `sender` filters work over the whole archive (3 to 10 seconds).
+- The JSON form of each record does not carry the CAP `references`; they are read from
+  `originalMessage`.
+
+**Bulk files.** The dataset page lists three full-data formats (`json`, `jsona`, `jsonl`) at
+`https://www.fema.gov/api/open/v1/IpawsArchivedAlerts.<format>`, each with 4,887,710 records and
+an "Approximate File Size" of "large (500MB - 10GB)"; the metadata record says
+"x-large (> 10GB)" for each. "Working with Large Data Sets" says: "Although the full source file
+is uncompressed, data should be compressed by GZIP during transmission [...]".
+
+## 7. CAP v1.2 and the IPAWS profile
+
+- CAP v1.2, OASIS Standard (<https://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2-os.html>),
+  the data dictionary the dataset page names. Of `references`: "The extended message
+  identifier(s) (in the form sender,identifier,sent) of an earlier CAP message or messages
+  referenced by this one." and "If multiple messages are referenced, they SHALL be separated by
+  whitespace."
+- CAP v1.2 USA IPAWS Profile v1.0, OASIS Committee Specification 01, 2009
+  (<https://docs.oasis-open.org/emergency/cap/v1.2/ipaws-profile/v1.0/cs01/cap-v1.2-ipaws-profile-cs01.html>).
+  Rules that matter for the corpus:
+  - status: "A value of "Actual" SHALL be used for messages intended for dissemination to the
+    public, including test messages intended for delivery to the public." (So required weekly
+    and monthly tests are `Actual`.)
+  - references: "All related messages that have not yet expired MUST be referenced for “Update”
+    and “Cancel” messages."
+  - info: "Multiple <info> blocks may be used to deliver content in different languages."
+  - eventCode: messages for EAS, CMAS (the earlier name of Wireless Emergency Alerts) and
+    HazCollect "MUST include one and only one instance of this with a <valueName> of "SAME"".
+  - expires: "REQUIRED"; effective and onset: "Ignored if present."
+  - parameter: messages for EAS or HazCollect "MUST include an instance of <parameter> with a
+    <valueName> of "EAS-ORG""; "Messages intended for CMAS dissemination MAY include an instance
+    of <parameter> with a <valueName> of "CMAMtext" and a <value> containing free form text
+    limited in length to 90 English characters."
+  - resourceDesc: "A value of “EAS Broadcast Content” SHALL be used to indicate that the elements
+    of a <resource> block are intended for EAS broadcast."
+  - geocode: "At least one instance of <geocode> with a <valueName> of “SAME” and a value of a
+    SAME 6-digit location (extended FIPS) SHOULD be used." and "A SAME value of “000000” refers
+    to ALL United States territory or territories."
+- The 2009 profile does not define the 360-character phone text or the `BLOCKCHANNEL`
+  parameter; both appear in the records (see `method.md` for what the sample shows).
+- FEMA's "Event Code Descriptions for Use with IPAWS" (February 2021,
+  <https://www.fema.gov/sites/default/files/documents/fema_event-codes-glossary_02-01-2021.pdf>)
+  defines the non-weather SAME event codes.
+- FCC rules that change what a phone message can hold (47 CFR part 10, read on eCFR): §10.430
+  ("a maximum of 360 characters", in the version dated 2019-05-01; 90 before it, and still 90 on
+  network parts "technically incapable" of 360); §10.480 (Spanish, in the version dated
+  2018-11-01; more languages from 2028-06-12); §10.400 (the classes of alert, with the Public
+  Safety Message in the version dated 2019-05-01, and "National Alert" since 2021).
