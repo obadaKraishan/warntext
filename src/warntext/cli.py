@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from warntext import __version__
+from warntext import backfill as bf
 from warntext import client as cl
 from warntext import probe as pr
 from warntext import profile as pf
@@ -25,8 +26,11 @@ def _client(args: argparse.Namespace) -> cl.OpenFemaClient:
     budget = cl.Budget.from_log(
         log.rows(), since=args.since, max_calls=args.max_calls, max_bytes=args.max_bytes
     )
+    extra = {}
+    if getattr(args, "max_response_mb", None):
+        extra["max_response_bytes"] = int(args.max_response_mb * 1_000_000)
     return cl.OpenFemaClient(
-        log=log, budget=budget, min_interval=args.min_interval, max_retries=args.retries
+        log=log, budget=budget, min_interval=args.min_interval, max_retries=args.retries, **extra
     )
 
 
@@ -106,6 +110,60 @@ def cmd_profile(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_backfill_counts(args: argparse.Namespace) -> int:
+    """The server's count per year of records from senders other than the weather service."""
+    c = _client(args)
+    years = bf.years_until(args.first, args.until)
+    plan = [(f"other:{y}", bf.window_filter(y, args.until)) for y in years]
+    counts = pr.run_counts(c, plan, save_to=args.out, run_at=cl.now_utc(), until=args.until)
+    failed = [x.name for x in counts if x.count is None]
+    total = sum(x.count or 0 for x in counts)
+    print(f"{len(counts) - len(failed)} yearly counts ({total:,} records) saved to {args.out}.")
+    if failed:
+        print(f"Not answered: {', '.join(failed)}. Run again later for these.")
+    return 1 if failed else 0
+
+
+def read_year_counts(path: Path | str) -> tuple[dict[int, int], str]:
+    """The yearly counts and the ``until`` bound from a ``backfill-counts`` file."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    counts = {}
+    for c in data["counts"]:
+        if c["count"] is None:
+            raise SystemExit(f"{path}: {c['name']} has no count; run `warntext backfill-counts`.")
+        counts[int(c["name"].split(":")[1])] = c["count"]
+    return counts, data["facts"]["until"]
+
+
+def cmd_backfill(args: argparse.Namespace) -> int:
+    """Read every page of the other senders' records to the raw folder (resumable)."""
+    expected, until = read_year_counts(args.counts)
+    c = _client(args)
+    raw = Path(args.raw)
+    done = bf.read_manifest(raw / "manifest.csv")
+    need = bf.planned_calls(expected) - len(done)
+    left = c.budget.max_calls - c.budget.calls
+    if need + args.reserve > left:
+        print(
+            f"The backfill needs about {need} more calls and {args.reserve} are kept for the "
+            f"checks after it, but only {left} are left under the cap. Nothing was fetched."
+        )
+        return 2
+
+    def show(line: bf.PageLine) -> None:
+        print(
+            f"{line.year} skip {line.skip}: {line.records} records, {line.bytes:,} bytes, "
+            f"{line.seconds:.1f} s; {c.budget.calls} calls, {c.budget.nbytes:,} bytes so far",
+            flush=True,
+        )
+
+    new = bf.run(c, expected, until, raw, on_page=show)
+    lines = bf.read_manifest(raw / "manifest.csv")
+    got = sum(x.records for x in lines)
+    print(f"{len(new)} pages fetched now; {len(lines)} pages and {got:,} records in all.")
+    return 0
+
+
 def _client_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("--log", default="data/usage_log.csv", help="request log (CSV)")
     p.add_argument("--since", required=True, help="UTC start of the session, for the caps")
@@ -145,6 +203,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--raw", required=True)
     _client_options(p)
     p.set_defaults(func=cmd_sample)
+
+    p = sub.add_parser(
+        "backfill-counts", help="count the other senders' records per year, up to --until"
+    )
+    p.add_argument("--first", type=int, default=2011)
+    p.add_argument("--until", required=True, help="exclusive UTC bound (ISO time)")
+    p.add_argument("--out", required=True)
+    _client_options(p)
+    p.set_defaults(func=cmd_backfill_counts)
+
+    p = sub.add_parser("backfill", help="read the other senders' records to the raw folder")
+    p.add_argument("--counts", required=True, help="a backfill-counts file taken before the run")
+    p.add_argument("--raw", required=True)
+    p.add_argument("--reserve", type=int, default=20, help="calls kept for the checks after it")
+    p.add_argument("--max-response-mb", type=float, default=100.0)
+    _client_options(p)
+    p.set_defaults(func=cmd_backfill)
 
     p = sub.add_parser("profile", help="aggregate the sample (no text)")
     p.add_argument("--plan", required=True)
