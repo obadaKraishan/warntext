@@ -24,3 +24,17 @@ All notable changes to this project are recorded here. The format follows
   addresses, last-seen phrases) that never return a match.
 - Documentation: sources and terms, prior art, and drafts of the schema, method, codebook,
   backfill estimate and weekly update.
+- `warntext backfill-counts` and `warntext backfill`: the server's yearly counts for every
+  sender other than the National Weather Service (directly, or as every sender minus the
+  weather service where the direct count passes the server's time limit), and a resumable
+  backfill of those records in pages of 500, cut by cursor, written once and checked on disk.
+- Sender kinds by rule (federal, state, local, tribal, territorial, other, unknown), from the
+  organization name and the sender's internet domain, pooled by alerting authority.
+- The privacy rules, applied by code: people codes and personal-detail patterns withhold a
+  message's text; parameters are allow-listed; `contact` and other free fields are dropped.
+- Measures that need no model: lengths, presence, link and phone flags, capital share, phone
+  text limits, states and counties from the area codes, and a finer hazard list.
+- The table builder: the record layer (`messages`, `infos`, `areas`, `references`,
+  `threads`) and the text layer (`text_federal`, `text_other`), each for real alerts and for
+  tests, as Parquet. New runtime dependency: pyarrow, to write and read Parquet, the format
+  the release uses.
