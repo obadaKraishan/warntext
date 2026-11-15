@@ -43,6 +43,12 @@ VOCABULARY = frozenset(
         "sender_kind_rule",
         "authority_type",
         "organization_source",
+        "unit",
+        "codebook_version",
+        "not_coded_reason",
+        "hazard_category",
+        "hazard_category_source",
+        "link_kinds",
         "event_group",
         "hazard",
         "text_withheld",
@@ -273,6 +279,11 @@ def check(
             (r["message_id"], r["ref_index"]) for c in CONFIGS for r in tables[c]["references"]
         ],
         "threads": [r["thread_id"] for c in CONFIGS for r in tables[c]["threads"]],
+        "codes": [
+            (r["message_id"], r["info_index"], r["unit"])
+            for c in CONFIGS
+            for r in tables[c].get("codes", [])
+        ],
         "text rows": [
             (r["message_id"], r["info_index"])
             for c in CONFIGS

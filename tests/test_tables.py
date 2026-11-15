@@ -366,3 +366,25 @@ def test_people_code_rows_keep_only_the_hour_and_the_exact_time_stays_private(tm
     assert len(private) == len(b.people_times)
     released = pq.read_table(tmp_path / "t" / "alerts" / "messages.parquet").to_pylist()
     assert "2024-05-01T10:47:12-05:00" not in {r["sent"] for r in released if r["times_rounded"]}
+
+
+def test_codes_rows_for_real_alerts_only_withheld_ones_too_and_without_text(corpus):
+    rows = corpus.tables["alerts"]["codes"]
+    assert corpus.tables["tests"]["codes"] == []
+    ids = {r["message_id"] for r in rows}
+    assert "r06" in ids  # the child alert is withheld, but its codes are computed
+    assert "r09" not in ids  # a test
+    assert {r["unit"] for r in rows} <= {"wea90", "wea360", "full"}
+    assert all(r["codebook_version"] == "1" and r["record_id"] for r in rows)
+    texts = {
+        v
+        for c in corpus.tables["alerts"]["text_other"]
+        for k, v in c.items()
+        if k in ("headline", "description", "instruction") and v
+    }
+    cells = {v for r in rows for v in r.values() if isinstance(v, str)} | {
+        x for r in rows for x in (r["link_kinds"] or [])
+    }
+    assert not cells & texts
+    full = next(r for r in rows if r["message_id"] == "r01" and r["unit"] == "full")
+    assert full["coded"] is True and isinstance(full["guidance"], bool)

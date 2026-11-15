@@ -36,13 +36,14 @@ import pyarrow.parquet as pq
 
 from warntext import authorities as au
 from warntext import backfill, cap, measures, patterns, privacy
+from warntext import codes as cd
 from warntext import senders as sd
 from warntext.probe import ENDPOINT
 from warntext.sample import NWS_SENDER
 from warntext.schema import Info, Message
 
 CONFIGS = ("alerts", "tests")
-RECORD_TABLES = ("messages", "infos", "areas", "references", "threads")
+RECORD_TABLES = ("messages", "infos", "areas", "references", "threads", "codes")
 TEXT_TABLES = ("text_federal", "text_other")
 #: Fields of a language block measured for length and presence.
 LENGTH_FIELDS = ("event", "headline", "description", "instruction", "web", "wea_short", "wea_long")
@@ -217,6 +218,24 @@ SCHEMAS: dict[str, pa.Schema] = {
         ]
     ),
 }
+_CODE_TYPES = {"n_actions": INT, "n_abbreviations": INT, "link_kinds": LS}
+_CODE_TYPES.update({"hazard_category": S, "hazard_category_source": S})
+SCHEMAS["codes"] = pa.schema(
+    [
+        ("message_id", S),
+        ("info_index", INT),
+        ("unit", S),
+        ("record_id", S),
+        ("source", S),
+        ("codebook_version", S),
+        ("language", S),
+        ("coded", B),
+        ("not_coded_reason", S),
+        ("length", INT),
+        ("same_as_wea90", B),
+    ]
+    + [(f, _CODE_TYPES.get(f, B)) for f in cd.CODE_FIELDS]
+)
 _TEXT_SCHEMA = pa.schema(
     [
         ("message_id", S),
@@ -609,6 +628,52 @@ def _info_times(u: Unit, k: int, i: Info, people_times: list[dict]) -> dict[str,
             value = privacy.hour_floor(value)
         out[name] = value
     return out
+
+
+def _norm(text: str | None) -> str:
+    return " ".join((text or "").lower().split())
+
+
+def code_rows(u: Unit, i: Info, k: int) -> list[dict[str, Any]]:
+    """The codes of one language block's units (record layer: codes only, never text).
+
+    Units are the 90-character phone text, the 360-character phone text and the full text
+    (headline, description, instruction); a unit the block does not have gets no row.
+    """
+    ctx = cd.Context(
+        organization=u.organization,
+        place_words=cd.place_words_of(a.description for a in i.areas),
+        event_codes=tuple(u.codes),
+    )
+    spanish = i.language.lower().startswith("es")
+    texts = {
+        "wea90": i.wea_short,
+        "wea360": i.wea_long,
+        "full": cd.full_text(i.headline, i.description, i.instruction),
+    }
+    rows = []
+    for unit, text in texts.items():
+        if not text or not text.strip():
+            continue
+        c = cd.code_unit(unit, text, ctx, spanish=spanish)
+        row = {
+            "message_id": u.message_id,
+            "info_index": k,
+            "unit": unit,
+            "record_id": u.first.record_id,
+            "source": ENDPOINT,
+            "codebook_version": cd.CODEBOOK_VERSION,
+            "language": i.language,
+            "coded": c.coded,
+            "not_coded_reason": c.not_coded_reason,
+            "length": c.length,
+            "same_as_wea90": (
+                _norm(text) == _norm(i.wea_short) if unit == "wea360" and i.wea_short else None
+            ),
+        }
+        row.update({f: c.values.get(f) for f in cd.CODE_FIELDS})
+        rows.append(row)
+    return rows
 
 
 def text_table_for(kind: str) -> str:
@@ -1013,6 +1078,8 @@ def build(
                 )
             if not withheld:
                 t[text_table_for(u.kind)].append(text_row(u, i, k))
+            if u.config == "alerts":
+                t["codes"].extend(code_rows(u, i, k))
         same_geos = sorted(set(geos))
         states, counties = measures.places(same_geos)
         p = _primary(m) if m else None
