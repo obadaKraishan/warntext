@@ -7,7 +7,7 @@ import pytest
 
 from cap_samples import invented
 from test_tables import BASE, COUNTY, record, run
-from warntext import check, cli, probe, rebuild, tables
+from warntext import check, cli, privacy, probe, rebuild, tables
 
 
 @pytest.fixture()
@@ -232,3 +232,48 @@ def test_own_vocabulary_and_program_names_are_not_leaks(built):
     m["organization"] = "Example Center 555-555-0123"
     out = check.check(t, senders, None)
     assert any("{'phone': 1}" in f for f in out)
+
+
+def test_a_raw_identifier_in_any_cell_fails(built):
+    t, senders = built
+    ids = ["EX-1", "EX-2", "EX-3", "EX-4"]
+    assert check.check(t, senders, None, ids) == []
+    t = copy.deepcopy(t)
+    t["alerts"]["messages"][0]["event_codes"] = ["EX-3"]
+    t["alerts"]["text_other"][0]["web"] = "https://example.gov/alert?id=ex-4&x=1"
+    out = check.check(t, senders, None, ids)
+    assert any("alerts/messages: 1 cell(s) hold a raw CAP identifier" in f for f in out)
+    assert any("alerts/text_other: 1 cell(s) hold a raw CAP identifier" in f for f in out)
+
+
+def test_an_exact_people_code_time_fails(built):
+    from datetime import datetime, timezone
+
+    t, senders = built
+    t = copy.deepcopy(t)
+    child = next(r for r in t["alerts"]["messages"] if r["message_id"] == "r02")
+    assert child["text_withheld"] == "people_code" and child["times_rounded"]
+    assert check.check(t, senders, None) == []
+    child["sent"] = "2024-05-01T10:15:00-05:00"
+    child["sent_utc"] = datetime(2024, 5, 1, 15, 15, tzinfo=timezone.utc)
+    info = next(r for r in t["alerts"]["infos"] if r["message_id"] == "r02")
+    info["expires"] = "2024-05-01T11:15:00-05:00"
+    thread = next(r for r in t["alerts"]["threads"] if r["thread_id"] == child["thread_id"])
+    thread["first_sent_utc"] = child["sent_utc"]
+    out = check.check(t, senders, None)
+    assert any(
+        "people-code rows hold times finer than the hour" in f
+        and "'messages.sent': 1" in f
+        and "'messages.sent_utc': 1" in f
+        and "'infos.expires': 1" in f
+        and "'threads.first_sent_utc': 1" in f
+        for f in out
+    )
+    # a hazard alert keeps its exact time
+    other = next(r for r in t["alerts"]["messages"] if r["message_id"] == "r01")
+    assert privacy.finer_than_hour(other["sent"])
+
+
+def test_the_check_command_needs_the_private_identifier_file(tmp_path):
+    with pytest.raises(SystemExit, match=r"identifiers\.json is missing"):
+        check.read_identifiers(tmp_path)

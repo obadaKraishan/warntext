@@ -203,15 +203,20 @@ def cmd_check(args: argparse.Namespace) -> int:
     if args.counts:
         counts, _ = read_year_counts(args.counts)
         server = {y: n for y, (n, _how) in counts.items()}
-    failures = ck.check(ck.load(args.tables), ck.read_sender_values(args.private), server)
+    failures = ck.check(
+        ck.load(args.tables),
+        ck.read_sender_values(args.private),
+        server,
+        ck.read_identifiers(args.private),
+    )
     if failures:
         print(f"RELEASE CHECK FAILED: {len(failures)} problem(s).")
         for f in failures:
             print(f"  FAIL {f}")
         return 1
     print(
-        "Release check passed: counts, withheld text, parameters, sender values, sender "
-        "kinds, ids, sources."
+        "Release check passed: counts, withheld text, parameters, sender values, raw "
+        "identifiers, people-code times, sender kinds, ids, sources."
     )
     return 0
 

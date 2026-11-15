@@ -5,6 +5,10 @@ It fails, loudly, when:
 - a withheld message has text in any text table, or area shapes in the area table;
 - a parameter that is not on the allow-list (or a value not in its allowed form) appears;
 - a raw sender value appears: an address anywhere, or an account name in the record layer;
+- a raw CAP identifier appears anywhere, as a cell or inside one (rows are keyed by FEMA's
+  record ids instead);
+- a message with a people code (or a reference or thread that touches one) carries a time
+  finer than the hour;
 - a cell of the record layer matches a personal-detail pattern (the record layer holds no text,
   so such a match means text has leaked into it);
 - a text table holds a message of the wrong sender kind, or a message that does not exist;
@@ -18,6 +22,7 @@ Failures name the table, the rule and the ids or counts involved, never a cell's
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -76,12 +81,21 @@ def _cells(row: Mapping[str, Any]) -> Iterable[str]:
             yield value
 
 
+#: What splits a cell into tokens when looking for a raw identifier inside it (spaces, and the
+#: separators of links and lists). Identifiers themselves hold letters, digits, ``.-_:``.
+_TOKEN_SPLIT = re.compile(r"[\s/?&=#,;\"'<>()\[\]{}|]+")
+
+
 def check(
     tables: Mapping[str, Mapping[str, list[dict[str, Any]]]],
     sender_values: Iterable[str],
     server_counts: Mapping[int, int] | None,
+    identifiers: Iterable[str] = (),
 ) -> list[str]:
-    """Run every rule; return the failures (empty when the tables pass)."""
+    """Run every rule; return the failures (empty when the tables pass).
+
+    ``identifiers`` are the raw CAP identifiers from the private file; none may appear.
+    """
     fail: list[str] = []
     messages = [r for c in CONFIGS for r in tables[c]["messages"]]
     by_id = {r["message_id"]: r for r in messages}
@@ -131,8 +145,9 @@ def check(
     # Raw sender values. An address (with "@") may appear nowhere, not even inside a text. A
     # value with four letters or more (an account or user name) may appear nowhere in the
     # record layer, except in the station-code parameters, which some senders also use as
-    # their sender value. Values of digits only are left out: some sending systems put the
-    # message's own number in the sender field, so they equal its released identifier.
+    # their sender value. Values of digits only are left out here: some sending systems put
+    # the message's own number in the sender field, and those numbers are raw identifiers,
+    # which the identifier rule below covers.
     addresses, named = sender_sets(sender_values)
     station = {"EAS-STN-ID", "EASHeader"}
     for c in CONFIGS:
@@ -154,6 +169,52 @@ def check(
                     hits += bad
             if hits:
                 fail.append(f"{c}/{name}: {hits} cell(s) hold a raw sender value.")
+
+    # Raw CAP identifiers: none may appear, as a whole cell or as a token inside one.
+    ids = {i.strip().casefold() for i in identifiers if i and i.strip()}
+    if ids:
+        for c in CONFIGS:
+            for name in RECORD_TABLES + TEXT_TABLES:
+                hits = 0
+                for row in tables[c][name]:
+                    for cell in _cells(row):
+                        folded = cell.strip().casefold()
+                        if folded in ids or any(t in ids for t in _TOKEN_SPLIT.split(folded)):
+                            hits += 1
+                if hits:
+                    fail.append(f"{c}/{name}: {hits} cell(s) hold a raw CAP identifier.")
+
+    # Messages with a people code carry no time finer than the hour, nor do the references and
+    # threads that touch them.
+    people = {r["message_id"] for r in messages if r["text_withheld"] == "people_code"}
+    people_threads = {r["thread_id"] for r in messages if r["message_id"] in people}
+    for c in CONFIGS:
+        exact: Counter = Counter()
+        fields = (
+            ("messages", ("sent", "sent_utc"), lambda r: r["message_id"] in people),
+            ("infos", ("effective", "onset", "expires"), lambda r: r["message_id"] in people),
+            (
+                "references",
+                ("ref_sent",),
+                lambda r: r["message_id"] in people or r["ref_message_id"] in people,
+            ),
+            (
+                "threads",
+                ("first_sent_utc", "last_sent_utc"),
+                lambda r: r["thread_id"] in people_threads,
+            ),
+        )
+        for name, columns, touches in fields:
+            for r in tables[c][name]:
+                if touches(r):
+                    for col in columns:
+                        if privacy.finer_than_hour(r.get(col)):
+                            exact[f"{name}.{col}"] += 1
+        if exact:
+            fail.append(
+                f"{c}: people-code rows hold times finer than the hour: {dict(exact)}. "
+                "Rebuild the tables; the exact times belong in the private table only."
+            )
 
     # The record layer holds no text: no cell may match a personal-detail pattern. WarnText's own
     # vocabulary (``missing_person``) is not scanned, and the words about a person are not
@@ -247,3 +308,14 @@ def sender_sets(values: Iterable[str]) -> tuple[set[str], set[str]]:
 def read_sender_values(private_dir: Path | str) -> list[str]:
     path = Path(private_dir) / "sender_values.json"
     return [x["sender"] for x in json.loads(path.read_text(encoding="utf-8"))]
+
+
+def read_identifiers(private_dir: Path | str) -> list[str]:
+    """The raw CAP identifiers the build kept privately. A build always writes the file."""
+    path = Path(private_dir) / "identifiers.json"
+    if not path.exists():
+        raise SystemExit(
+            f"{path} is missing, so raw identifiers cannot be checked. Run `warntext build` "
+            "again; it writes this private file next to the tables."
+        )
+    return list(json.loads(path.read_text(encoding="utf-8")))
