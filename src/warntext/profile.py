@@ -29,6 +29,12 @@ PEOPLE_CODES = {
 #: Codes whose messages may be about people, depending on the case.
 MAYBE_PEOPLE_CODES = {"LAE": "Local Area Emergency", "CEM": "Civil Emergency Message"}
 NWS_CUTOVER = "2023-08-01"
+#: Vendor parameters that may name the sending agency's staff or their addresses.
+STAFF_PARAMETERS = frozenset(
+    {"UserName", "Email", "Email To", "SMS", "AssignedAddress", "DA Page Customer ID"}
+)
+#: Character limits of the two phone texts (47 CFR 10.430).
+WEA_LIMITS = {"wea_short": 90, "wea_long": 360}
 
 
 @dataclass(frozen=True)
@@ -125,6 +131,7 @@ def text_fields(rows: list[Row]) -> dict[str, Any]:
         for field in TEXT_FIELDS:
             missing_w = empty_w = 0.0
             lengths = []
+            over_w = 0.0
             for r in part:
                 values = _texts(r.message, field)
                 present = [v for v in values if v is not None]
@@ -133,12 +140,69 @@ def text_fields(rows: list[Row]) -> dict[str, Any]:
                 elif not any(v.strip() for v in present):
                     empty_w += r.weight
                 else:
-                    lengths.append(max(len(v.strip()) for v in present if v.strip()))
+                    longest = max(len(v.strip()) for v in present if v.strip())
+                    lengths.append(longest)
+                    if field in WEA_LIMITS and longest > WEA_LIMITS[field]:
+                        over_w += r.weight
             out[kind][field] = {
                 "missing_share": round(missing_w / total_w, 4) if total_w else None,
                 "empty_share": round(empty_w / total_w, 4) if total_w else None,
                 "length_chars": _lengths(lengths),
             }
+            if field in WEA_LIMITS:
+                out[kind][field]["over_limit_share"] = (
+                    round(over_w / total_w, 4) if total_w else None
+                )
+    return out
+
+
+def contacts(rows: list[Row]) -> dict[str, Any]:
+    """Details about the senders' own staff: shapes and shares only, never the values."""
+    out: dict[str, Any] = {}
+    for kind in ("nws", "other"):
+        part = [r for r in rows if r.message and r.kind == kind]
+        total_w = sum(r.weight for r in part)
+        tld: Counter = Counter()
+        staff_w = contact_w = contact_detail_w = param_detail_w = 0.0
+        email_like = 0.0
+        for r in part:
+            m = r.message
+            sender = (m.sender or "").strip()
+            if patterns.PATTERNS["email"].fullmatch(sender):
+                email_like += r.weight
+                tld[sender.rsplit(".", 1)[-1].lower()] += r.weight
+            names = {p.name for i in m.infos for p in i.parameters}
+            if names & STAFF_PARAMETERS:
+                staff_w += r.weight
+            other_values = " ".join(
+                p.value
+                for i in m.infos
+                for p in i.parameters
+                if p.name not in (cap.WEA_SHORT, cap.WEA_LONG)
+            )
+            found = patterns.count(other_values)
+            if found["email"] or found["phone"]:
+                param_detail_w += r.weight
+            contact = " ".join(i.contact for i in m.infos if i.contact)
+            if contact.strip():
+                contact_w += r.weight
+                found = patterns.count(contact)
+                if found["email"] or found["phone"]:
+                    contact_detail_w += r.weight
+
+        def share(w: float, total: float = total_w) -> float | None:
+            return round(w / total, 4) if total else None
+
+        out[kind] = {
+            "distinct_senders_in_sample": len({r.message.sender for r in part}),
+            "distinct_cog_ids_in_sample": len({r.message.cog_id for r in part}),
+            "sender_email_like_share": share(email_like),
+            "sender_tld_share": _share(tld, email_like) if email_like else {},
+            "staff_parameter_share": share(staff_w),
+            "parameter_with_email_or_phone_share": share(param_detail_w),
+            "contact_present_share": share(contact_w),
+            "contact_with_email_or_phone_share": share(contact_detail_w),
+        }
     return out
 
 
@@ -309,6 +373,7 @@ def summarize(rows: list[Row]) -> dict[str, Any]:
         "event_code_top30": {},
         "text_fields": text_fields(rows),
         "duplicates": duplicates(rows),
+        "contacts": contacts(rows),
         "chains": chains(rows),
         "people": people(rows),
         "structure": structure(rows),

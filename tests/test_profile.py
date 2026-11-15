@@ -22,7 +22,9 @@ PEOPLE_ALERT = alert(
 <eventCode><valueName>SAME</valueName><value>CAE</value></eventCode>
 <description>Invented case: a 9-year-old, last seen near an invented park, plate ABC1234.
 Call 202-555-0100.</description>
+<contact>Invented desk, 202-555-0199</contact>
 <parameter><valueName>CMAMtext</valueName><value>Invented short text.</value></parameter>
+<parameter><valueName>UserName</valueName><value>invented.user@example.org</value></parameter>
 <area><areaDesc>Example State</areaDesc></area></info>
 """
 )
@@ -90,6 +92,7 @@ def test_people_codes_and_patterns_are_counts_only():
         "plate": 1.0,
         "age": 1.0,
         "height_weight": 0.0,
+        "email": 0.0,
         "last_seen": 1.0,
     }
     assert "ABC1234" not in repr(p)
@@ -111,3 +114,20 @@ def test_summarize_holds_every_section_and_no_text():
     assert out["channels_other"]["sample_count"]["wea+eas+nwem"] == 3
     assert out["languages"]["sample_count"]["en-US+es-US"] == 2
     assert "Invented" not in repr(out)
+
+
+def test_contacts_are_shapes_and_shares_only():
+    c = profile.contacts(rows())["other"]
+    assert c["sender_email_like_share"] == 1.0
+    assert c["sender_tld_share"] == {"org": 1.0}
+    assert c["staff_parameter_share"] == 0.25
+    assert c["parameter_with_email_or_phone_share"] == 0.25
+    assert c["contact_present_share"] == 0.25
+    assert c["contact_with_email_or_phone_share"] == 0.25
+    assert c["distinct_senders_in_sample"] == 2
+    assert "invented.user" not in repr(c)
+
+
+def test_phone_texts_over_their_limit_are_counted():
+    t = profile.text_fields(rows())["other"]
+    assert t["wea_short"]["over_limit_share"] == 0.0

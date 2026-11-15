@@ -33,6 +33,8 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"\b\d\s*'\s*\d{1,2}\b|\b\d\s*(?:ft|feet|foot)\b|\b\d{2,3}\s*(?:lbs?|pounds)\b",
         re.IGNORECASE,
     ),
+    # Email addresses.
+    "email": re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
     # The phrase missing-person messages use for a last known place or time.
     "last_seen": re.compile(r"\blast\s+(?:seen|known|heard)\b", re.IGNORECASE),
 }

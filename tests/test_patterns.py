@@ -40,6 +40,7 @@ def test_empty_text_counts_zero_and_present_is_boolean():
         "plate": False,
         "age": False,
         "height_weight": False,
+        "email": False,
         "last_seen": False,
     }
 
@@ -48,3 +49,8 @@ def test_results_never_hold_the_matched_text():
     result = patterns.count("Call 202-555-0100, plate ABC1234.")
     assert all(isinstance(v, int) for v in result.values())
     assert "ABC1234" not in repr(result)
+
+
+def test_email_addresses():
+    assert patterns.count("Write to someone@example.org or a.b@example.co.uk.")["email"] == 2
+    assert patterns.count("Meet at 5 @ the park.")["email"] == 0
