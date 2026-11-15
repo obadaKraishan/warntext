@@ -501,7 +501,8 @@ and a Spanish text under an English label. Version 2's test flag and language ch
 source is the speaker only (an opener, a signature, a speaker verb, initials as a speaker), and
 an organization only mentioned, a web address or a place not written as the speaker is not;
 orders and prohibitions as nouns are guidance; "immediate", "at this time" with an instruction,
-"till" and "til" are times, while a past event, a promised update and "before use" are not;
+"till" and "til" are times, while a past event, a promised update without an hour and "before
+use" are not;
 generic words are not places, and named communities, townships and road codes are; a description
 needs a named hazard and is not the hazard's own name.
 
@@ -558,3 +559,51 @@ used (1,208 units left out for that). It is the same workbook, blind, with the s
 definitions on a second visible sheet and a plain-text guide beside it; the key is in its own
 file. It is not read until it comes back filled, no rule changes after it is scored, and a code at
 .80 or above on it is released with version 2's rules.
+
+## 16. Where WarnText's coding parts from Olson et al.'s
+
+The settled definitions (codebook, sections 2 and 3.1) say no in five kinds of text where a coder
+reading Olson et al.'s (2024) categories more broadly could say yes. **These are choices of
+definition, not rule faults.** They are made on purpose and stated in the codebook, and because of
+them **the published shares cannot be reproduced exactly**, whatever the rules. Olson et al.
+publish shares, not their coders' answers on single texts, so which of these cases their coders
+counted is not known; the gaps in section 15 suggest that some were counted.
+
+The counts are over all 71,408 coded units of version 2's tables, each read where the build codes it: the build was run again from the raw pages, in memory, and gave the same six codes as the tables on every unit. Each case is found with patterns, so the counts are close, not exact. A unit can fall in more than one case. Counts only.
+
+| case | the settled reading | 90 characters | 360 characters | full text | all |
+|---|---|---:|---:|---:|---:|
+| coded units | | 26,907 | 18,069 | 26,432 | 71,408 |
+| The event's own name is the only impact wording (a closure or an outage that is the event) | no description | 773 (2.9%) | 384 (2.1%) | 331 (1.3%) | 1,488 (2.1%) |
+| Description wording, but no hazard is named | no description | 616 (2.3%) | 1,141 (6.3%) | 1,972 (7.5%) | 3,729 (5.2%) |
+| A place written as the speaker, as an opener alone ("Sampleton County: ...") | no location | 167 (0.6%) | 50 (0.3%) | 74 (0.3%) | 291 (0.4%) |
+| A place in another speaker form: inside an agency's name or after "from" ("Sampleton County OEM: ...", "Message from Sampleton County") | no location | 811 (3.0%) | 447 (2.5%) | 622 (2.4%) | 1,880 (2.6%) |
+| A place only inside an organization the text mentions ("call Sampleton PD") | no location | 343 (1.3%) | 293 (1.6%) | 400 (1.5%) | 1,036 (1.5%) |
+| A promised update is the only time-like wording ("updates to follow") | no time | 7 (<0.1%) | 121 (0.7%) | 64 (0.2%) | 192 (0.3%) |
+| No hazard named, only a generic label ("emergency", "alert", "warning", "advisory", "notice", "incident", "situation") | no hazard | 6,706 (24.9%) | 2,940 (16.3%) | 9,937 (37.6%) | 19,583 (27.4%) |
+| No hazard named and no label, only an instruction | no hazard | 4,539 (16.9%) | 3,255 (18.0%) | 2,505 (9.5%) | 10,299 (14.4%) |
+
+| known miss of version 2 | 90 characters | 360 characters | full text | all |
+|---|---:|---:|---:|---:|
+| A "City of X:" opener read as a location (codebook 2.2) | 23 | 10 | 5 | 38 |
+| A clock time in a promised update read as time (codebook 2.3) | 1 | 3 | 2 | 6 |
+
+- **The hazard description.** The first two cases hold 1,389 coded 90-character units
+  (5.2%). They are among the reasons version 2's description share at
+  90 characters is 7.5% against Olson et al.'s 16.7% (on their filtered texts, not on all units).
+  The codebook (3.1) gives the reasons for the first: a name is not a characteristic of itself;
+  counted both ways, every closure or outage alert would carry a description by default; and
+  version 1, which counted these, still stood at 10.1%. Section 15's 588 units count something
+  narrower: the 90-character units whose description version 1 had found from impact words only
+  and version 2 dropped.
+- **The location.** A place that names who speaks is not where (codebook 2.2 and 2.4); so is a
+  place inside the name of an organization the text only mentions.
+- **The time.** A promised update says when the next message comes, not when the danger comes,
+  when to act or until when it lasts (codebook 2.3). The expiry share is where it would show
+  (6.7% at 90 characters against 14.5%).
+- **The hazard.** A generic label alone or an action alone is not a hazard (codebook 2.1). These
+  are the largest cases by far, and the hazard share at 90 characters is 60.2% against 70.3%.
+
+The two known misses are not choices of definition: there version 2 does not do what the settled
+definitions say. The rules are frozen for the second hand sheet, which measures them as misses
+if such texts are on it; a later version would fix them and need a new blind sheet.

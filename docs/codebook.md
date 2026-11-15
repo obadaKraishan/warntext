@@ -119,8 +119,8 @@ Emergency Alert; a message that has all five is **complete**.
   names Oak Road.
 - **Known miss of version 2.** For an opener of the form "City of X:" (or town, village,
   borough, township) the rule blanks only the first word as the speaker, so "of X" is read as a
-  place. About 35 of the 71,408 coded units take their location from such an opener alone (an
-  approximate count, from version 2's tables). The rules are frozen for the second hand sheet,
+  place. 38 of the 71,408 coded units take their location from such an opener alone (section
+  8). The rules are frozen for the second hand sheet,
   which measures this as a miss; a later version would fix it and need a new blind sheet.
 - **Rule.** Patterns per kind; place names from the message's own area descriptions and the
   authority's name, counted only when they appear in the text; in mixed-case texts, a capitalized
@@ -156,8 +156,8 @@ Emergency Alert; a message that has all five is **complete**.
   5 PM" is time.
 - **Known miss of version 2.** The rule leaves out a promised update without an hour, but a clock
   time in one ("Next update at 5 PM") is still read as impact time, as any clock time outside an
-  action is. About 3 of the 71,408 coded units take their time from such an update alone (an
-  approximate count, from version 2's tables). The rules are frozen for the second hand sheet,
+  action is. 6 of the 71,408 coded units take their time from such an update alone (section
+  8). The rules are frozen for the second hand sheet,
   which measures this as a miss; a later version would fix it and need a new blind sheet.
 - **Rule.** Patterns, clause by clause. **Trust A for `time`; C for the three kinds.**
 - **Limit.** "Until 5 PM" can mean the end of the hazard, of the action or of the message
@@ -491,7 +491,34 @@ tests on invented messages:
 | A description needs a named hazard and is not the hazard's own words; more words for state, size, direction and impact | 3.1: anything said about the hazard beyond its name |
 | More Spanish words for the language check; more test wordings for the test flag | 1 and 3.6: Spanish is not coded; tests are removed |
 
-## 8. References
+## 8. Where these definitions part from Olson et al.'s
+
+The settled definitions say no in five kinds of text where a coder reading Olson et al.'s (2024)
+categories more broadly could say yes. These are choices of definition, made on purpose and
+stated above (2.1, 2.2, 2.3, 3.1), not rule faults; because of them the published shares cannot
+be reproduced exactly, whatever the rules. The method (section 16) says how each bears on the
+published shares.
+
+The counts are over all 71,408 coded units of version 2's tables, each read where the build codes it: the build was run again from the raw pages, in memory, and gave the same six codes as the tables on every unit. Each case is found with patterns, so the counts are close, not exact. A unit can fall in more than one case. Counts only.
+
+| case | the settled reading | 90 characters | 360 characters | full text | all |
+|---|---|---:|---:|---:|---:|
+| coded units | | 26,907 | 18,069 | 26,432 | 71,408 |
+| The event's own name is the only impact wording (a closure or an outage that is the event) | no description | 773 (2.9%) | 384 (2.1%) | 331 (1.3%) | 1,488 (2.1%) |
+| Description wording, but no hazard is named | no description | 616 (2.3%) | 1,141 (6.3%) | 1,972 (7.5%) | 3,729 (5.2%) |
+| A place written as the speaker, as an opener alone ("Sampleton County: ...") | no location | 167 (0.6%) | 50 (0.3%) | 74 (0.3%) | 291 (0.4%) |
+| A place in another speaker form: inside an agency's name or after "from" ("Sampleton County OEM: ...", "Message from Sampleton County") | no location | 811 (3.0%) | 447 (2.5%) | 622 (2.4%) | 1,880 (2.6%) |
+| A place only inside an organization the text mentions ("call Sampleton PD") | no location | 343 (1.3%) | 293 (1.6%) | 400 (1.5%) | 1,036 (1.5%) |
+| A promised update is the only time-like wording ("updates to follow") | no time | 7 (<0.1%) | 121 (0.7%) | 64 (0.2%) | 192 (0.3%) |
+| No hazard named, only a generic label ("emergency", "alert", "warning", "advisory", "notice", "incident", "situation") | no hazard | 6,706 (24.9%) | 2,940 (16.3%) | 9,937 (37.6%) | 19,583 (27.4%) |
+| No hazard named and no label, only an instruction | no hazard | 4,539 (16.9%) | 3,255 (18.0%) | 2,505 (9.5%) | 10,299 (14.4%) |
+
+| known miss of version 2 | 90 characters | 360 characters | full text | all |
+|---|---:|---:|---:|---:|
+| A "City of X:" opener read as a location (codebook 2.2) | 23 | 10 | 5 | 38 |
+| A clock time in a promised update read as time (codebook 2.3) | 1 | 3 | 2 | 6 |
+
+## 9. References
 
 - Kuligowski, E. D., Waugh, N. A., Sutton, J., & Cova, T. J. (2023). Ember alerts: Assessing
   wireless emergency alert messages in wildfires using the warning response model. *Natural
