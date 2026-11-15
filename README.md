@@ -9,16 +9,27 @@ communication research that treats official warnings as text to be read, counted
 **Status: in development. Nothing has been released yet.** The plan, the source terms and the
 drafts are in [`docs/`](docs/).
 
-## What it holds (planned)
-- One row per alert message, with its sender, the time it was sent, its status and type, the
-  places it was meant for (place names, geographic codes and polygons), the channels it went to,
-  and its full text in each language it was sent in: headline, description, instruction, and the
-  short and long texts written for phones.
-- Updates and cancellations linked to the alert they follow, so a warning can be read as it
-  changed over time.
-- Later, content variables from the warning literature (source, hazard, location, guidance and
-  time), coded by rules where rules are enough.
-- New messages added every week, with versioned, citable releases.
+## What it holds (first build, not yet released)
+- **About 34,700 real alerts from about 1,260 alerting authorities, plus about 49,200 tests and
+  demonstrations**, from 2011 to November 2026: every message in FEMA's public archive from
+  senders other than the National Weather Service. The archive's headline count of about 4.9
+  million records is 98% weather service products, which this first release leaves out.
+- One row per message, with its alerting authority (FEMA's identifier for it and the
+  organization's name, never a person), the kind of sender (federal, state, local, tribal,
+  territorial, other), its time, status and type, event codes, places (area codes, states,
+  counties and shapes), the channels it asked for, text lengths and simple measures.
+- Updates and cancellations linked to the alert they follow, as threads, and repeated sends of
+  the same text grouped.
+- The text of each message in a separate table: federal senders' text in one, everyone else's
+  in another. The second is not released for now; anyone can build it on their own machine
+  from FEMA's API with `warntext text`.
+- Alerts about people (child abductions, missing persons, Blue Alerts, law enforcement
+  warnings), and any message with a personal detail, keep their row but not their text.
+- Later: content variables from the warning literature (source, hazard, location, guidance and
+  time), coded by rules where rules are enough, and a weekly update.
+
+See [`docs/data-card.md`](docs/data-card.md) (draft), [`docs/schema.md`](docs/schema.md) and
+[`docs/method.md`](docs/method.md).
 
 ## What it is not
 - **Not an alerting service.** WarnText is a research record. It runs at least a day behind the
@@ -44,6 +55,15 @@ use and the citation they ask for.
 The software in this repository is licensed under the Apache License, Version 2.0 (see
 [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). The terms for the corpus itself will be stated
 with its first release.
+
+## Rebuilding the text on your own machine
+Given the record layer, `warntext text` reads each message again from FEMA's API by its record
+id (twenty ids a request, one request at a time, at least 3.5 seconds apart), applies the same
+privacy rules and writes the text tables locally:
+
+```bash
+uv run warntext text --records path/to/alerts --out my-text --kinds state,local
+```
 
 ## Development
 ```bash

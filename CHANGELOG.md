@@ -38,3 +38,12 @@ All notable changes to this project are recorded here. The format follows
   `threads`) and the text layer (`text_federal`, `text_other`), each for real alerts and for
   tests, as Parquet. New runtime dependency: pyarrow, to write and read Parquet, the format
   the release uses.
+- `warntext build`, `warntext check` and `warntext text`: build both layers from the
+  backfill with a summary of aggregates; the release check (counts against the server,
+  withheld text and shapes, the parameter allow-list, raw sender values, record-layer leaks,
+  sender kinds of the text tables, duplicated ids, sources); and the rebuild of the text layer
+  from the record layer through FEMA's API.
+- A word pattern for messages about a person (missing, abducted, wanted, suspect, described
+  as, wearing, the named alert programs), used by the people rule.
+- Documentation: the schema and the method as built, the data card (draft), and what the
+  backfill did.
