@@ -42,10 +42,13 @@ def both(*filters: str | None) -> str | None:
 
 @dataclass(frozen=True)
 class Count:
+    """One count. ``count`` is None and ``error`` says why when the server could not answer."""
+
     name: str
     filter: str | None
-    count: int
+    count: int | None
     seconds: float
+    error: str | None = None
 
 
 def count(client: Any, filter_: str | None = None) -> tuple[int, float]:
@@ -72,12 +75,35 @@ def edge_sent(client: Any, newest: bool = False) -> str:
     return records[0]["sent"]
 
 
-def run_counts(client: Any, plan: Iterable[tuple[str, str | None]]) -> list[Count]:
-    """Run each named count in ``plan`` in turn."""
-    out = []
+def run_counts(
+    client: Any,
+    plan: Iterable[tuple[str, str | None]],
+    save_to: Path | str | None = None,
+    **facts: Any,
+) -> list[Count]:
+    """Run each named count in ``plan`` in turn, saving after each one when ``save_to`` is set.
+
+    A count the server cannot answer (for example a 503 after its 60-second timeout on a field
+    it cannot search quickly) is recorded with its error and the run goes on; a block (403) or
+    a cap still stops the run.
+    """
+    from warntext.client import CapReached, SourceBlocked
+
+    out: list[Count] = []
     for name, filter_ in plan:
-        n, seconds = count(client, filter_)
-        out.append(Count(name, filter_, n, round(seconds, 3)))
+        try:
+            n, seconds = count(client, filter_)
+            out.append(Count(name, filter_, n, round(seconds, 3)))
+        except SourceBlocked as exc:
+            if exc.status == 403:
+                raise
+            out.append(Count(name, filter_, None, 0.0, f"HTTP {exc.status}"))
+        except RuntimeError as exc:
+            if isinstance(exc, CapReached):
+                raise
+            out.append(Count(name, filter_, None, 0.0, str(exc)))
+        if save_to is not None:
+            save(save_to, out, **facts)
     return out
 
 

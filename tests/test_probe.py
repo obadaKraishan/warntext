@@ -89,3 +89,36 @@ def test_run_counts_and_save(tmp_path):
     saved = json.loads(out.read_text())
     assert saved["facts"] == {"total": 7}
     assert saved["counts"][1]["name"] == "year:2013"
+
+
+class Raises:
+    def __init__(self, exc):
+        self.exc = exc
+
+    def get(self, url, params):
+        raise self.exc
+
+
+def test_run_counts_records_a_timeout_and_goes_on(tmp_path):
+    from warntext.client import SourceBlocked
+
+    out = tmp_path / "p.json"
+    counts = probe.run_counts(Raises(SourceBlocked(503, "slow")), [("status:Actual", "x")], out)
+    assert counts[0].count is None
+    assert counts[0].error == "HTTP 503"
+    assert json.loads(out.read_text())["counts"][0]["error"] == "HTTP 503"
+
+
+def test_run_counts_records_an_error_answer():
+    client = FakeClient([Resp({}, status=400)])
+    (c,) = probe.run_counts(client, [("bad", "x")])
+    assert "HTTP 400" in c.error
+
+
+def test_run_counts_stops_on_a_block_or_a_cap():
+    from warntext.client import CapReached, SourceBlocked
+
+    with pytest.raises(SourceBlocked):
+        probe.run_counts(Raises(SourceBlocked(403, "blocked")), [("a", None)])
+    with pytest.raises(CapReached):
+        probe.run_counts(Raises(CapReached("cap")), [("a", None)])
