@@ -1,160 +1,174 @@
-# Method (DRAFT)
+# Method
 
-**DRAFT for review.** How WarnText turns the archive into a corpus: the unit, duplicates,
-chains, channels, scope and the alerts about people. The two decisions (scope and alerts about
-people) are laid out with their numbers in sections 7 and 8; they are the maintainer's to make.
-Numbers come from the server-side counts and the seeded sample of 2026-11-15 (section 9).
+How WarnText turns OpenFEMA's "IPAWS Archived Alerts" (version 1) into a corpus: what is read,
+the unit, duplicates and threads, the classifications, the privacy rules, the measures and the
+checks. Every rule here is applied by code (`src/warntext/`); none needs a model or a hand
+review. Numbers are from the build of the 2026-11-15 snapshot (section 10).
 
-## 1. The unit
+## 1. Scope and what is read
+- **Senders:** every sender except the National Weather Service's archive sender
+  (`w-nws.webmaster@noaa.gov`). The weather service's records are 98.3% of the archive; they are
+  archived more fully elsewhere, and in this archive they stop in July 2023 except for phone
+  alerts. They are not read.
+- **Time:** every record sent before the snapshot bound (`2026-11-14T00:00:00Z` for the first
+  build); the weekly update reads what comes after.
+- **How:** the API, year by year, ordered by `sent` and `id`, in pages of 500. Each page starts
+  at the `sent` time of the last record read and skips only the records already read at that
+  time, so the server reads forward instead of counting from the start of the year. Each answer
+  is written once, flushed, made read-only and checked against its SHA-256; a manifest records
+  every page; a stopped run resumes after the last page in the manifest.
+- **Counts:** the server's count per year is taken before and after. Where the direct count
+  (`sender ne` the weather service) passes the server's 60-second limit, the year is counted as
+  every sender minus the weather service's sender. The release check compares the tables with
+  these counts year by year.
+
+Everything in a row is read from the original CAP XML (`originalMessage`), the authoritative
+copy. OpenFEMA's own fields give the record `id`, `cogId` and the UTC form of `sent`, and are
+compared with the XML for every record (identifier, sender, status, type, scope, sent time,
+event codes and number of language blocks).
+
+## 2. The unit
 One row per alert message: one CAP `<alert>`, identified by the CAP triple (`sender`,
-`identifier`, `sent`). Everything is read from the original XML (`originalMessage`), which is
-the authoritative copy; OpenFEMA's structured fields are used only for its record `id`, its
-`cogId` (the sending authority's group) and the UTC form of `sent`. One message may hold several
-`info` blocks, usually one per language; they stay together in one row of `messages` and one row
-each in `infos`.
+`identifier`, `sent`). A message may hold several `info` blocks, usually one per language; each
+is a row of `infos`. `message_id` is the FEMA record id of the message's first archive copy.
 
-## 2. Duplicates
-Three kinds, handled differently:
-1. **The same message archived twice** (the same CAP triple under two OpenFEMA ids). The copies
-   collapse into one row; `archive_copies` counts them and `record_ids` keeps every id.
-   FEMA's own notes warn that flattening the nesting "can introduce duplicate records"; the
-   triple is the guard.
-2. **The same text sent again under a new identifier** (a re-send, or one message per channel or
-   per area). These are separate sends and stay separate rows, because how often an authority
-   repeats a warning is itself a research variable. They share a `text_group` (a hash of the
-   sender and the normalized text), so a study of distinct texts can keep one per group.
-3. **The same sender and sent time under different identifiers** (for example one message per
-   language or per channel, sent together). Kept, and grouped the same way.
+## 3. Duplicates
+1. **Archive copies:** the same triple under two or more FEMA record ids. One message;
+   `record_ids` keeps every id and `archive_copies` counts them.
+2. **Re-sends:** the same text (headline, description, instruction, phone texts and broadcast
+   texts, lower-cased and with spaces collapsed) from the same sender under another
+   identifier. Each send stays a row, because how often an authority repeats a warning is a
+   research variable; they share a `text_group` (the `message_id` of the first), and
+   `text_group_size` counts them. A study of distinct texts keeps one row per group.
+3. **One identifier, two times:** the same sender and identifier with another sent time; counted
+   (section 10) and kept.
 
-## 3. Chains
-CAP links an update or a cancellation to the messages it follows through `references`
-(`sender,identifier,sent`, separated by whitespace), and the IPAWS profile says "All related
-messages that have not yet expired MUST be referenced for “Update” and “Cancel” messages." The
-`references` field cannot be searched on the server, so chains are built after the backfill:
-- every reference becomes a row in `references`, keyed on the referenced triple;
-- a reference resolves when that triple is in the archive (`resolved`);
-- a thread is the connected set of messages; its `thread_id` is the earliest message in it;
-- references that are not three comma-separated parts are kept as unparsed and counted.
+## 4. Threads
+CAP links an update or a cancellation to what it follows through `references`
+(`sender,identifier,sent`, separated by spaces). Each reference is resolved, in order:
+1. `exact`: the same triple is in the corpus;
+2. `same_time_other_form`: the same sender and identifier and the same instant written another
+   way (`Z` against an offset);
+3. `sender_and_identifier`: the sender and identifier match exactly one message. Most resolved
+   references are of this kind: senders often write a different sent time in the reference
+   (usually within a day of the referenced message's). Because no sender reuses an identifier in
+   the archive (section 10), the match is unambiguous.
 
-## 4. Channels
-The record shows which channels the sender asked for, not what was delivered:
-- **Wireless Emergency Alerts (WEA):** a phone text is present (`CMAMtext`, at most 90
-  characters; `CMAMlongtext`, at most 360) and no `BLOCKCHANNEL` names `CMAS`;
-- **Emergency Alert System (EAS):** `EAS-ORG` is present and no `BLOCKCHANNEL` names `EAS`;
-- **Non-weather emergency messages on NOAA Weather Radio (NWEM, "HazCollect"):** a sender other
-  than the weather service, a SAME event code, and no `BLOCKCHANNEL` names `NWEM`;
-- **the public feed:** no `BLOCKCHANNEL` names `PUBLIC`.
-Phone delivery also depends on the FCC's alert classes (47 CFR 10.400: national, imminent threat
-by urgency, severity and certainty, child abduction, public safety) and on each carrier, which
-the record does not show.
+A reference to the weather service's sender is outside the corpus and counted as such. A thread
+is a connected set of messages; its `thread_id` is its earliest message. Thread shapes:
+`alert_only`, `alerts_only` (several alerts linked to each other), `alert_and_cancel`,
+`alert_and_updates`, `alert_updates_and_cancel`, and `no_alert` (updates or cancels whose alert
+is not in the archive).
 
-## 5. Rules that change what a message can hold
-- Phone texts: 90 characters until the 360-character rule in the version of 47 CFR 10.430 dated
-  2019-05-01; Spanish required in the version of 10.480 dated 2018-11-01; Public Safety Messages
-  in the version of 10.400 dated 2019-05-01; more languages from 2028-06-12.
-- The weather service's records in the archive fall from 33,000 to 43,000 a month to 769 in
-  August 2023 and about 50 to 300 a month after; the reason is not stated on any page read (a
-  question for OpenFEMA). A series over 2012–2026 has to treat that month as a break.
+## 5. Configurations and event groups
+- **`tests`:** any message with a test or demonstration code (`RWT`, `RMT`, `DMO`, `NPT`,
+  `NMN`) or a status other than `Actual`. Tests are sent as `Actual` (the IPAWS profile requires
+  it for tests that reach the public), so the event code decides.
+- **`alerts`:** everything else, in groups by SAME event code: `about_people` (CAE, MEP, BLU,
+  LEW), `administrative` (ADR), `non_weather_hazard` (the other non-weather codes in FEMA's
+  "Event Code Descriptions for Use with IPAWS"), `weather` (weather codes, reserved for the
+  weather service but used by a few other senders) and `none` (no event code, mostly messages
+  without an info block).
+- **`hazard`** names the first event code more finely: `fire`, `evacuation`,
+  `shelter_in_place`, `hazardous_materials`, `civil_danger`, `civil_emergency`,
+  `local_area_emergency`, `telephone_outage`, `earthquake`, `nuclear_plant`, `radiological`,
+  `avalanche`, `volcano`, `national_emergency`, `child_abduction`, `missing_person`,
+  `law_enforcement`, `law_enforcement_officer`, `administrative`, and `weather_*` by kind of
+  weather.
 
-## 6. What a release leaves out in every option
-- embedded audio and files (only their description, type and size are kept);
-- vendor parameters that can name the sending agency's staff or their addresses (an allow-list
-  keeps the standard ones: `CMAMtext`, `CMAMlongtext`, `EAS-ORG`, `EAS-Must-Carry`,
-  `BLOCKCHANNEL`, `VTEC`, `PIL`, `eventEndingTime`, `timezone`, `WEAHandling` and the others the
-  backfill confirms as standard);
-- the XML signature.
+## 6. Senders
+**Kinds.** Each message is given a sender kind: `federal`, `state`, `local`, `tribal`,
+`territorial`, `other` (universities, companies, hospitals, utilities) or `unknown`. The rule
+reads, in order:
+1. the organization name (`senderName`), by keyword: local words (county, city, parish,
+   borough, town, sheriff, police department, 911 ...) first, then tribal words (tribe, nation,
+   band of, pueblo of, rancheria ...), then federal words (FEMA, NOAA, U.S. Army, Corps of
+   Engineers, air force, national park ...; "National Guard" units are state forces), then other
+   bodies, then state words or a state's name at the start;
+2. the internet domain of the sender value: `.mil` and known federal domains, tribal `-nsn.gov`,
+   territorial domains, local `co.<name>.<st>.us` and `ci.<name>.<st>.us`, state domains
+   (`ca.gov`, `state.tx.us` ...); any other `.gov` reads as local and `.edu` as other; IP
+   addresses and vendors' domains say nothing;
+3. a weaker reading of the name: an emergency agency's words ("Emergency Management", "OEM",
+   "EMA") without a state's name read as local.
 
-## 7. Decision: scope (the maintainer's)
-Counts from the server (2026-11-15) unless marked "est." (sample estimate, weighted).
+The evidence of all messages is then pooled by **FEMA's identifier for the alerting authority**
+(`cogId`): the authority takes the kind most of its messages point to, and all its messages
+carry it. A tie is `unknown`. **Federal needs more:** at least half of all the authority's
+messages must point to it, or the authority is `unknown`. An authority that nothing above places
+takes the kind its footprint suggests (nine in ten messages on one county: local; half on a
+whole state: state), the least sure step, which never gives federal. `sender_kind_source` says
+which step decided. Unknown is treated as not federal everywhere.
 
-| Part | Records |
-|---|---:|
-| Whole archive (sum of yearly counts) | 4,887,686 |
-| National Weather Service sender | 4,803,827 |
-| of which sent from August 2023 on (only tornado, flash flood, severe thunderstorm, dust storm and hurricane warnings) | 19,444 |
-| All other senders | 83,859 |
-| of which tests and demos (RWT est. 40,965; RMT 4,717; DMO 2,574) | est. 48,300 |
-| of which about people (CAE 4,927; MEP 503; BLU 155; LEW 4,099) | 9,684 |
-| of which non-weather hazards (LAE 9,790; CEM 3,834; EVI 2,286; FRW 2,186; CDW 380; others) | est. 20,000 |
-| of which administrative (ADR) | 1,682 |
-| of which no info block (est.) | est. 3,900 |
-| of which weather codes sent by others (est.) | est. 20 |
+How sure: the name and the domain agree for AGREE_SHARE of the messages where both speak, and
+a message's own evidence matches its authority's kind for OWN_MATCH_SHARE (section 10).
 
-The options, each with tests and demos in their own configuration:
-- **(A) Everything in one table:** 4,887,686 rows, 98.3% of them weather service products, most
-  of which were blocked from phones, broadcast and weather radio (`BLOCKCHANNEL` names CMAS, EAS
-  and NWEM in 83% of all records, est.) and went only to the public feed.
-- **(B) Everything, the weather service in its own configuration:** 4,803,827 rows in `nws`
-  (with a break in August 2023, after which only its phone-alert warnings are archived) and
-  83,859 in the others' configurations (about 35,600 outside tests and demos).
-- **(C) No weather messages:** the 83,859 messages of other senders, less about 20 with weather
-  codes; about 35,600 outside tests and demos.
+**Identity.** The release names the organization, not a person: `cog_id` and `organization`,
+the authority's most common `senderName` that passes four checks (3 to 120 characters; no email
+address or phone number; not equal to any sender value; not shaped like a person's name, two
+capitalized words with no organization word). The raw sender value, often an employee's email
+address, is in no table and no reference row. Identifiers that hold an email address, or the
+local part of a person-shaped sender address, are withheld (`identifier_withheld`).
 
-What each costs a researcher: (A) and (B) add the weather service's warnings, which the Iowa
-Environmental Mesonet already archives more completely (from 1986 to 2008 by type) and which in
-this archive stop in July 2023 except for phone alerts; but (B) keeps the weather service's
-Wireless Emergency Alerts (1.5% of its records carry a phone text, about 71,000, est.) next to
-everyone else's, which matters for studies of phone warnings. (C) is the corpus warning researchers have
-coded by hand (Olson et al. 2024 excluded the weather service), is small enough to read through
-the API (section 9), but loses the weather service entirely. (A) and (B) need a download of
-roughly 45 GB as served (est.); (C) about 1.9 GB.
+## 7. The privacy rules
+1. **Alerts about people keep their row and lose their text.** Always for the four people codes
+   (CAE, MEP, BLU, LEW); and for any other message in which a personal-detail pattern finds
+   something in a field that could reach a text table (event, headline, description,
+   instruction, web, the phone and broadcast texts, area descriptions, resource addresses). The
+   patterns: a North American phone number, a plate or tag number, an age, a height or weight,
+   an email address, "last seen", "last known" or "last heard". They are simple and over-count;
+   withholding too much is accepted. The organization name is not scanned.
+2. **A withheld message has no text anywhere:** no row in either text table, and no polygons or
+   circles in `areas` (a shape can mark one address). Its codes, times, counties, counts,
+   lengths and flags stay; `text_withheld` gives the reason (`people_code`, `personal_pattern`,
+   or `unparsed` for XML that cannot be read) and `withheld_patterns` the pattern names.
+3. **Parameters are allow-listed.** A parameter is kept only if its name is on the list below and
+   its value has the allowed form; free-text parameters that are part of the message go to the
+   text layer; everything else is dropped by name.
 
-## 8. Decision: alerts about people (the maintainer's)
-- **By event code:** 9,684 messages carry a people code (CAE 4,927; LEW 4,099; MEP 503; BLU
-  155): 11.5% of the other senders' messages, 27% of those outside tests and demos, 0.2% of the
-  archive.
-- **By pattern, in those 9,684 (sample, weighted):** "last seen" 42%, an age 39%, a height or
-  weight 33%, a phone number 24%, a plate 15%.
-- **Under general codes:** in other senders' messages outside tests and the people codes, an age
-  pattern appears in 9.8%, "last seen" in 8.2%, a height or weight in 8.3% and a phone number in
-  6.2% (sample, weighted). Some local area emergencies and civil emergency messages are about
-  people, so a rule by code alone is not enough.
-- **The senders' own staff:** 12.9% of other senders' messages (est.) carry vendor parameters
-  such as `UserName`, `AssignedAddress`, `Email` or `SMS`; 1.3% have a contact field with an
-  email address or phone number.
+   | Parameter | Why it is kept | Allowed form |
+   |---|---|---|
+   | `EAS-ORG` | the EAS originator code (IPAWS profile, EAS-CAP guide) | `EAS`, `CIV`, `WXR`, `PEP` |
+   | `EAS-STN-ID` | the originator's eight-character EAS station id | letters, digits and `/ ,._-`, up to 8 |
+   | `EAS-Must-Carry` | whether broadcasters must relay it | true/false/yes/no |
+   | `BLOCKCHANNEL` | a channel the message must not go to (IPAWS profile) | 2 to 10 letters |
+   | `WEAHandling` | the phone-alert class (Imminent Threat, Public Safety, Presidential, AMBER) | letters and spaces |
+   | `timezone` (also `TimeZone`) | the zone of the message's local times | a zone name |
+   | `EASHeader` | the SAME header: originator, event, locations, duration, time, station | the standard `ZCZC-...` form only |
 
-The options:
-1. **Leave them out.** The corpus loses 9,684 messages and with them every count of how often,
-   where, how fast and in what threads child abduction, missing person, Blue Alert and law
-   enforcement messages are sent. Simple and safe; it biases any study of what alerting
-   authorities send.
-2. **Keep the row, withhold the text** (the starting position). Kept: sender, time, place
-   (area names are kept only if they name places, see below), codes, channels, chain links, text
-   lengths, and in S3 the rule-based content codes computed before the text is dropped. Lost:
-   reading or re-coding the text. A researcher who needs a message can still read it at the
-   source by its OpenFEMA record id, which the row keeps; the corpus does not republish it.
-   The rule applies by code and to every message the patterns flag under other codes, after a
-   review list. It fits the OpenFEMA terms' clause against publishing "any facts that may lead
-   to the identification of individuals who are the subject of the data".
-3. **Keep the text with names and details masked.** Names cannot be found reliably by pattern;
-   masking them needs a named-entity model (model calls, a provenance label and a validation
-   study) and every miss publishes a name. Descriptions of clothing and vehicles still
-   identify. Masked text is changed content, which the terms say may not be presented as
-   FEMA's. Researchers keep most of the warning text for content coding.
+   Text layer: `CMAMtext`, `CMAMlongtext` (the 90- and 360-character phone texts), `CMAMText`,
+   `EASText`, `ShortText`, `EASDescription`. Dropped, among others: `UserName`,
+   `AccountName`, `AccountPassword`, `AssignedAddress`, `Email`, `Email To`, `SMS`,
+   `DA Page Address`, `DA Page Customer ID`, `EMnet Nodes`, `OriginatingSystem`, `StationID`,
+   `route` and the vendor settings that come with them.
+4. **Free fields are dropped everywhere:** `contact`, and the message-level `note`, `source`,
+   `addresses`, `restriction` and `incidents`. `audience` is text and goes to the text layer.
 
-In every option the release drops staff parameters and keeps `contact` only when it holds no
-email address or phone number.
+## 8. The two layers
+- **Record layer** (`messages`, `infos`, `areas`, `references`, `threads`): no message text.
+- **Text layer:** `text_federal` holds the text of messages from federal senders; `text_other`
+  the text of every other kind, including unknown. A withheld message is in neither. The text
+  layer is kept as the message gives it, never changed.
+- **Rebuilding the text:** `warntext text` reads the record layer, asks FEMA's API for each
+  message by record id (twenty ids a request, one request at a time, at least 3.5 seconds
+  apart), parses it, applies the privacy rules again (a message the rules now withhold is
+  skipped) and writes the text tables by the sender kind in the record layer.
 
-## 9. Numbers behind this page
-- Server counts: per year, per weather-service year and month, per event code (FEMA's documented
-  filter path `infos/eventCode/value` now answers HTTP 400; `info/eventCode/value` works),
-  and three years with no record other than `Actual` (2013, 2018, 2022; all of 2025 is `Actual`).
-- The sample: 2,940 records, 98 from each of 30 strata (15 years by two kinds of sender), seed
-  20261115, pages of 14 consecutive records; weights are stratum size over records drawn. All
-  2,940 parse, and the parser agrees with OpenFEMA's own fields on every one (identifier,
-  sender, status, type, scope, sent time, event codes, number of info blocks).
-- Message types (est.): weather service 45% alerts, 45% updates, 10% cancellations; others 90%
-  alerts, 9% cancellations, 1% updates. Updates and cancellations carry references in 99.5% or
-  more; of 25 referenced messages looked up, 23 were in the archive (16 of 18 for other senders,
-  7 of 7 for the weather service).
-- Languages (est.): others 8.0% English and Spanish, the rest English (4.6% have no info block);
-  the weather service 0.4% English and Spanish.
-- Channels asked for (est.), other senders: EAS only 44%, WEA only 28%, WEA with EAS 13%, EAS
-  with NWEM 7%, none 8%. Weather service: 96% none (public feed only), 3% EAS, 1% WEA.
-- Text fields, other senders (est.): headline missing 12.8%, description missing 18.5%,
-  instruction missing 62.7%; the 90-character phone text present in 48%, the 360-character one in
-  28%; none over its limit. Median lengths: headline 24, description 95, instruction 36, short
-  phone text 86 and long phone text 147 characters.
-- Repeats inside pages of 14 consecutive records: no identifier twice; identical text under a
-  new identifier from the same sender 196 times among other senders' 1,470 records (154 of them
-  tests, 21 about people, 21 hazards) and 48 among the weather service's.
+## 9. Measures that need no model
+For each language block: the length of `event`, `headline`, `description`, `instruction`,
+`web` and the two phone texts (null when absent); whether a link or a phone number is present
+(flags, never the value); the share of capital letters among the letters of its text. For each
+message, the same for its first English block, whether each phone text is over its limit (90
+and 360 characters, 47 CFR 10.430), the number of areas, polygons and circles, and the states
+and counties named by the SAME area codes (`PSSCCC`: part of county, state FIPS, county FIPS;
+`SS000` is a whole state).
+
+## 10. Numbers from the build of 2026-11-15
+NUMBERS_TO_FOLLOW
+
+## 11. The release check
+`warntext check` fails, loudly, when a year's count of records differs from the server's; a
+withheld message has text in a text table or shapes in `areas`; a parameter outside the
+allow-list (or a value outside its form) appears; a raw sender value appears in any cell of any
+table; a text table holds a message of the wrong sender kind, or one that is not in the tables;
+an id is duplicated; or a row lacks its source or record id.
