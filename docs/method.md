@@ -103,12 +103,39 @@ which step decided. Unknown is treated as not federal everywhere.
 How sure: the name and the domain agree for 88.0% of the messages where both speak, and a
 message's own evidence matches its authority's kind for 97.1% (section 10).
 
-**Identity.** The release names the organization, not a person: `cog_id` and `organization`,
-the authority's most common `senderName` that passes four checks (3 to 120 characters; no email
-address or phone number; not equal to any sender value; not shaped like a person's name, two
-capitalized words with no organization word). The raw sender value, often an employee's email
-address, is in no table and no reference row. Identifiers that hold an email address, or the
-local part of a person-shaped sender address, are withheld (`identifier_withheld`).
+**FEMA's list of alerting authorities.** FEMA publishes the organizations that hold IPAWS
+alerting authority ("IPAWS Alerting Authorities - Agencies and Organizations"; data.gov
+identifier FEMA-0333, licensed as a work of the U.S. government): each authority's IPAWS
+identifier, which is the archive's `cogId`, its name, state, FEMA region and type (Local, State,
+Tribal, Territory, Federal, Military, National). WarnText keeps a dated snapshot in the package
+(`alerting_authorities.csv`, read 2026-11-15 from the page last updated 2026-11-12; 2,177
+authorities) and refreshes it with `warntext authorities`. It joins exactly, by identifier: 1,308
+of the archive's 1,329 authorities are on it (98.4%), with 76,646 of 83,851 messages and 31,478
+of 34,665 real alerts. The 21 that are not are retired identifiers. For a listed authority,
+**FEMA's type is the first evidence for the kind** (Federal and Military read as `federal`,
+National as `other`, the rest by name) and **FEMA's name is the organization name** when it
+passes the same checks (a person's shape, an address, a sender value; an official name needs no
+organization word). The rule's own reading stays in `sender_kind_rule`. FEMA's type and the rule
+agree for 1,250 of the 1,308 listed authorities (95.6%) and 26,879 of their 31,478 real alerts
+(85.4%); the largest disagreements are State authorities the rule read as unknown (8 authorities,
+2,983 real alerts) or as local (8, 1,230).
+
+**Hand overrides.** A tracked file (`kind_overrides.csv`) sets the kind of an authority by hand,
+with its reason in one line, for organizations only. It holds the national clearinghouse that
+relays AMBER alerts for local police agencies (three identifiers, two of them retired), as
+`other`: its messages carry the police agencies' names, so neither the rule nor FEMA's list can
+place it. Overrides come last.
+
+**Identity.** The release names the organization, not a person: the authority is the only sender
+key, `cog_id` with `organization`, and there is no account key. For an authority not on FEMA's
+list, `organization` is its most common `senderName` that passes four checks (3 to 120
+characters; no email address or phone number; not equal to any sender value; not shaped like a
+person's name, two capitalized words with no organization word). The raw sender value, often an
+employee's email address, is in no table and no reference row; it stays in a private file the
+release check reads. **Raw CAP identifiers are not released either:** some sending programs
+build them from a user's name. Rows are keyed by FEMA's record id, and references, threads and
+text groups point to messages by those keys; the raw identifiers stay in a private file the
+release check reads.
 
 ## 7. The privacy rules
 1. **Alerts about people keep their row and lose their text.** Always for the four people codes
@@ -146,9 +173,17 @@ local part of a person-shaped sender address, are withheld (`identifier_withheld
    `route` and the vendor settings that come with them.
 4. **Free fields are dropped everywhere:** `contact`, and the message-level `note`, `source`,
    `addresses`, `restriction` and `incidents`. `audience` is text and goes to the text layer.
+5. **Messages with a people code keep only the hour.** In the record layer their sent time, the
+   effective, onset and expiry times of their blocks, the sent time in references from or to
+   them, and the first and last times of their threads are rounded down to the hour, in the
+   time's own offset (`times_rounded`). The county stays; the area shapes stay withheld. The
+   date and the county already point to an event, and the minute adds little to that; the hour of
+   day is kept as a research variable. The exact times are written only to a private local table.
 
 ## 8. The two layers
-- **Record layer** (`messages`, `infos`, `areas`, `references`, `threads`): no message text.
+- **Record layer** (`messages`, `infos`, `areas`, `references`, `threads`, `codes`): no message
+  text, no raw sender value, no raw CAP identifier, and no time finer than the hour for a message
+  with a people code. The content codes (section 12) are yes or no, counts, kinds and categories.
 - **Text layer:** `text_federal` holds the text of messages from federal senders; `text_other`
   the text of every other kind, including unknown. A withheld message is in neither. The text
   layer is kept as the message gives it, never changed.
@@ -200,26 +235,33 @@ start with a real alert: 19,142 alert only, 6,141 alert and cancel, 830 alert an
 alert, updates and cancel, 208 without their alert, 7 several linked alerts. The longest thread
 has 9 messages; 146 threads mix the two configurations.
 
-**Sender kinds** (real alerts; authorities in brackets): local 23,414 (1,134), state 7,409
+**Sender kinds** (real alerts; authorities in brackets), with FEMA's list and the overrides:
+local 19,606 (1,144), state 11,572 (88), other 2,753 (3), territorial 331 (4), federal 290 (9:
+4 military installations, 2 federal agencies, 3 authorities not on the list), tribal 81 (9),
+unknown 32 (3). FEMA's type decided 31,453 real alerts and the overrides 2,753 (all about people).
+By the rule alone they were: local 23,414 (1,134), state 7,409
 (79), unknown 3,251 (32), territorial 303 (2), federal 220 (7), tribal 56 (4), other 12 (2).
-What decided the kind, over all messages: the name 65,274; the domain 8,751; the footprint
+What decided the rule's kind, over all messages: the name 65,274; the domain 8,751; the footprint
 2,998; the weaker name reading 2,876; nothing 3,220; a tie 9; too few federal votes 723. Where
 both the name and the domain speak (19,362 messages) they agree on 88.0%; the commonest
 disagreements are a state name with a local domain (1,351) and a local name with a state domain
 (676), and 268 state names come with a `.mil` address (state National Guard staff). A message's
-own evidence matches its authority's kind for 97.1% of the messages that have any. One case is
-known to be off: the national clearinghouse that relays AMBER alerts for local police is read
-as local, because its messages carry the police agencies' names; all its messages are withheld
-under the people rule, so no text depends on it.
+own evidence matches its authority's kind for 97.1% of the messages that have any. The rule
+reads the national clearinghouse that relays AMBER alerts as local, because its messages carry
+the police agencies' names; the override sets it to other. All its messages are withheld under
+the people rule, so no text depends on it.
 
 **Senders' identities.** 7,411 distinct sender values: 2,103 have an `@`, and 5,308 do not
 (most of these are numbers: some sending systems put each message's own number in the field).
 By shape, 1,755 distinct values (30,765 messages) look like a named person's: 721 first and
 last name, 1,034 an initial and a name or one longer word. 710 authorities use more than one
-sender value; 74 values appear under more than one authority. 1,142 of 1,328 authorities have
-an organization name that passes the checks; candidate names were refused because they equal a
-sender value (214), hold no organization word (161), are shaped like a person's name (5), hold
-an address or number (2), or are too short or long (2). 123 identifiers are withheld.
+sender value; 74 values appear under more than one authority. Organization names now come from
+FEMA's list for 76,646 messages (31,478 real alerts) and from `senderName` for 7,192 (3,175);
+13 messages have none. Of the senders' own names, 1,142 of 1,328 authorities have one that passes
+the checks; candidate names were refused because they equal a sender value (214), hold no
+organization word (161), are shaped like a person's name (5), hold an address or number (2), or
+are too short or long (2). 84,080 raw identifiers (of messages and referenced messages) are kept
+in the private file; none is in a table.
 
 **The people rule.** Real alerts withheld: 8,859 by people code and 4,897 by pattern, 13,756 of
 34,665 (39.7%). By pattern, of the 20,137 non-weather hazard alerts 3,820 (19.0%) lose their
@@ -251,10 +293,15 @@ broadcast 8,653, weather radio 1,474, the public feed 30,724. Nearly every real 
 state (30,534); 142 name two or more; 55 states and territories appear. 15,648 real alerts carry
 a polygon and 3,662 a circle.
 
-**The two layers.** Text rows exist for 16,929 real alerts: 183 from federal senders (168 of
-them earthquake warnings) in `text_federal`, and 16,746 in `text_other` (local 13,575, state
-1,572, unknown 1,365, territorial 213, tribal 12, other 9). The other 17,736 real alerts have
-no text row: 13,756 are withheld and 3,980 have no language block.
+**The two layers.** Text rows exist for 16,929 real alerts: 223 from federal senders (168 of
+them earthquake warnings) in `text_federal`, and 16,706 in `text_other` (local 13,011, state
+3,419, territorial 235, tribal 25, unknown 16). The other 17,736 real alerts have no text row:
+13,756 are withheld and 3,980 have no language block. Before FEMA's list, the federal table held
+183 real alerts.
+
+**People-code times.** 8,859 real alerts carry a people code; their 37,869 exact time values
+(8,859 sent times, 9,350 expiry, 7,299 effective and 609 onset times, 2,893 reference times) are
+rounded in the record layer and kept privately, and 6,487 threads touch them.
 
 ## 11. The release check
 `warntext check` fails, loudly, when a year's count of records differs from the server's; a
@@ -263,5 +310,102 @@ allow-list (or a value outside its form) appears; a raw sender value appears (an
 cell of any table, even inside a text; a value with four letters or more in any record-layer
 cell outside the station-code parameters; values of digits only are not checked, because some
 sending systems put the message's own number in the sender field); a record-layer cell matches
-a personal-detail pattern; a text table holds a message of the wrong sender kind, or one that is not in the tables;
-an id is duplicated; or a row lacks its source or record id.
+a personal-detail pattern; a raw CAP identifier appears in any cell of any table, whole or as a
+token inside a link or a list; a message with a people code, or a reference or thread that
+touches one, carries a time finer than the hour; a text table holds a message of the wrong
+sender kind, or one that is not in the tables; an id is duplicated (codes rows included); or a
+row lacks its source or record id. It passes on the build of 2026-11-15 with the codes.
+
+## 12. Content codes
+Every unit of every real alert is coded by rule (`codebook.md`, version 1): the 90-character
+phone text, the 360-character one and the full text, each on its own, English blocks only. The
+codes are in the record layer's `codes` table, for withheld messages too, because they are yes
+or no, counts, kinds and categories and never the matched words (codebook, section 4).
+
+84,555 units of 30,643 real alerts (13,749 of them withheld): 31,388 at 90 characters, 22,326 at
+360 and 30,841 full texts. 13,115 are not coded: 12,818 Spanish blocks and 297 English-labeled
+texts written in Spanish. Shares of the coded units (90 / 360 / full): hazard 39.1 / 58.3 /
+45.2; location 59.0 / 84.6 / 59.9; time 18.5 / 40.7 / 31.2; source 19.6 / 44.3 / 34.5; guidance
+46.1 / 77.2 / 54.9; complete 1.9 / 11.7 / 9.8; a link 19.6 / 31.8 / 8.9; abbreviations 49.8 /
+57.2 / 40.1; evacuation wordings 11.8 / 19.3 / 12.4. A quarter of the units are about a missing
+person (all of them the people code's or withheld). These shares cover every real alert, about
+people and tests sent under real codes included; section 13 applies Olson et al.'s filters.
+
+## 13. The check against Olson et al. (2024)
+`warntext compare-olson` applies Olson et al.'s filters to the tables and sets the rules' shares
+beside the published ones (aggregates in `olson_compare.json` and `.md`). Main reading: missing-
+person and AMBER alerts are removed as they describe (the codes CAE and MEP, and any text about a
+missing person); law-enforcement warnings stay, as in their corpus.
+
+| step | this corpus | Olson et al. |
+|---|---:|---:|
+| all messages (the weather service is outside this corpus) | 83,851 | |
+| phone alerts (a 90- or 360-character text) | 38,886 | |
+| sent June 2012 to April 2022 | 16,065 | 10,873 |
+| no tests or demos (by code, or a test's words) | 8,785 | |
+| no missing-person or AMBER alerts | 5,214 | |
+| alerts only (no updates or cancels) | 4,876 | |
+| English (a coded English phone text) | 4,854 | |
+| identical 90 and 360 texts counted once | 305 pairs | 1,104 |
+| texts at 90 / 360 characters | 4,854 / 1,901 | 4,207 / 1,873 |
+| texts in all | 6,755 | 6,080 |
+
+Their 10,873 counts messages FEMA gave them before their first filters, which removed about
+3,200 in one step; this archive holds more phone alerts in the period (16,065), most of them
+tests. The 360-character texts agree within 2% (1,901 against 1,873); the 90-character texts are
+15% more (4,854 against 4,207), which fits their count of identical pairs (1,104) being three
+times this corpus's (305): they may have treated more pairs as identical than an exact match
+does. Removing all four people codes (but not the missing-person texts under other codes)
+gives 6,772 texts (variant `all_people_codes_out`); keeping one message per text group gives
+6,379 (`unique_texts`).
+
+Shares of the rules (final version 1) beside the published ones, in percent (90 / 360 / all):
+
+| code | this corpus | Olson et al. |
+|---|---|---|
+| hazard | 60.5 / 74.6 / 64.5 | 70.3 / 80.6 / 73.5 |
+| hazard description | 10.1 / 24.1 / 14.0 | 16.7 / 33.5 / 21.9 |
+| location | 70.9 / 88.4 / 75.8 | 81.2 / 91.5 / 84.4 |
+| time | 32.8 / 48.8 / 37.3 | 32.8 / 53.5 / 39.2 |
+| source | 21.0 / 42.3 / 27.0 | 26.6 / 52.1 / 34.5 |
+| guidance | 60.6 / 83.5 / 67.0 | 64.0 / 88.0 / 71.4 |
+| complete | 3.7 / 12.8 / 6.3 | 2.9 / 21.1 / 8.5 |
+| link | 17.6 / 31.6 / 21.5 | 21.5 (printed; 14.9 by its count) / 33.4 / 24.1 |
+| boundary location | 56.6 / 80.1 / 63.2 | 56.0 / 75.4 / 61.9 |
+| road | 23.4 / 38.1 / 27.5 | 29.5 / 41.3 / 33.1 |
+| landmark | 19.7 / 32.3 / 23.2 | 27.4 / 33.3 / 29.2 |
+| vague or none | 29.1 / 11.6 / 24.2 | 18.6 / 8.6 / 15.5 |
+| zone | 0.6 / 2.2 / 1.0 | 1.6 / 2.3 / 1.8 |
+| time until impact | 14.5 / 22.1 / 16.7 | 17.2 / 30.7 / 21.4 |
+| time to act | 14.8 / 25.6 / 17.8 | 11.2 / 19.2 / 13.6 |
+| expiry | 5.6 / 10.2 / 6.9 | 14.5 / 20.6 / 16.4 |
+
+Hazard categories (all texts; this corpus against theirs): wildfire 26.1 / 32.0; public safety
+11.0 / 17.6; law enforcement 16.7 / 15.9; public health 11.5 / 14.2; atmospheric 13.6 / 12.1;
+technological 2.9 / 4.2; other or unknown 16.5 / 3.2; geophysical 1.6 / 0.9. Senders: county
+69.5 / 71.5; state 13.7 / 15.3; city 6.1 / 8.2; other 10.3 / 3.4; city and county 0.4 / 1.5.
+
+**Where the gap is over 5 points, and why** (traced by counting candidate words in the texts a
+rule missed; counts only):
+- **Hazard named** (−9.8 at 90): the rule does not count generic event labels; 449 hazard-free
+  phone texts in the set say "emergency", and many are actions alone ("Evacuate Zone A").
+- **Location at 90** (−10.3) and vague or none (+10.5): place names that no word marks as a place,
+  most of all in all-caps texts (location 55.9% there against 69.1% in mixed case before the last
+  change).
+- **Source at 360** (−9.8): organizations named without an agency word or a speaker cue.
+- **Time kinds:** time as a whole matches (32.8 against 32.8 at 90), but expiry is 9 to 10 points
+  under and time to act 3 to 6 over. Only 0.9% of texts hold an "until" read as time to act, so
+  the split is not in that rule; the coders' practice on durations and clock times is not
+  described in the article.
+- **Hazard description** (−6.6 and −9.4): open vocabulary; the rule is not trusted.
+- **Other or unknown category** (+13.3): action-only messages under generic codes (LAE, CEM, EVI)
+  that coders could place from context.
+- **Senders "other"** (+6.9): local authorities whose FEMA name has no county or city word
+  (emergency management offices, districts, universities); the article does not say how its
+  types were assigned.
+- **Completeness at 360** (−8.3) follows from source and time.
+
+The first version of the rules, before the changes listed in the codebook (section 6), was
+further off: hazard 55.1 / 70.2, location 61.3 / 79.6, source 17.0 / 35.6, guidance 51.4 / 79.0
+(90 / 360) and other or unknown 30.9%. Every change has a reason in the codebook; none was made
+to reach a number.
