@@ -318,8 +318,16 @@ _ORG_WORDS = re.compile(
 _PERSON_NAME = re.compile(r"^[A-Z][a-z]+(\s[A-Z]\.?)?\s[A-Z][a-z'-]+$")
 
 
+_ACRONYM = re.compile(r"^[A-Z][A-Z0-9&-]{1,11}$")
+
+
 def org_name_check(name: str, raw_senders: set[str]) -> str | None:
-    """Why an organization name may not be released (a reason), or None when it may."""
+    """Why an organization name may not be released (a reason), or None when it may.
+
+    A name must look like an organization's: it holds an organization word (office, county,
+    police, emergency ...), a word the sender-kind rule reads, or it is one acronym. A name
+    shaped like a person's ("Jane Doe", "Sgt. Jane Doe") is never released.
+    """
     if not 3 <= len(name) <= 120:
         return "length"
     if "@" in name or _EMAIL.search(name) or patterns.PATTERNS["phone"].search(name):
@@ -328,6 +336,14 @@ def org_name_check(name: str, raw_senders: set[str]) -> str | None:
         return "equals_a_sender_value"
     if _PERSON_NAME.match(name) and not _ORG_WORDS.search(name):
         return "person_shaped"
+    organization_like = (
+        _ORG_WORDS.search(name)
+        or sd.kind_from_name(name) is not None
+        or sd.weak_kind_from_name(name) is not None
+        or _ACRONYM.match(name)
+    )
+    if not organization_like:
+        return "no_organization_word"
     return None
 
 

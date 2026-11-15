@@ -258,6 +258,10 @@ def test_org_name_check_reasons():
     assert tables.org_name_check("x@example.org", set()) == "address_or_number"
     assert tables.org_name_check("Example Unit", {"example unit"}) == "equals_a_sender_value"
     assert tables.org_name_check("ab", set()) == "length"
+    assert tables.org_name_check("Sgt. Jane Doe", set()) == "no_organization_word"
+    assert tables.org_name_check("Sampleton", set()) == "no_organization_word"
+    assert tables.org_name_check("EXAMPLE-EMA", set()) is None
+    assert tables.org_name_check("Sampleton Police", set()) is None
 
 
 def test_thread_shapes():
