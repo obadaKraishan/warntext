@@ -14,6 +14,7 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 from warntext import __version__
+from warntext import authorities as au
 from warntext import backfill as bf
 from warntext import check as ck
 from warntext import client as cl
@@ -243,6 +244,24 @@ def cmd_text(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_authorities(args: argparse.Namespace) -> int:
+    """Read FEMA's list of alerting authorities (one request) and write it as the snapshot CSV."""
+    c = _client(args)
+    resp = c.get(au.PAGE_URL)
+    if resp.status != 200:
+        print(f"FEMA's page answered HTTP {resp.status}; the snapshot was not changed.")
+        return 1
+    rows = au.parse_page(resp.content.decode("utf-8", errors="replace"))
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(au.to_csv(rows), encoding="utf-8")
+    print(
+        f"{len(rows):,} alerting authorities written to {out}. Update SNAPSHOT_PAGE_UPDATED and "
+        "SNAPSHOT_RETRIEVED in warntext/authorities.py if this replaces the tracked snapshot."
+    )
+    return 0
+
+
 def _client_options(
     p: argparse.ArgumentParser,
     since_required: bool = True,
@@ -338,6 +357,11 @@ def build_parser() -> argparse.ArgumentParser:
     # A full rebuild of the real alerts is about 1,800 requests of 20 ids.
     _client_options(p, since_required=False, max_calls=5000, max_bytes=5_000_000_000)
     p.set_defaults(func=cmd_text)
+
+    p = sub.add_parser("authorities", help="read FEMA's list of alerting authorities to a CSV")
+    p.add_argument("--out", required=True)
+    _client_options(p, since_required=False, max_calls=5, max_bytes=5_000_000)
+    p.set_defaults(func=cmd_authorities)
 
     p = sub.add_parser("profile", help="aggregate the sample (no text)")
     p.add_argument("--plan", required=True)

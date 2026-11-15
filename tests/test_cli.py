@@ -279,3 +279,30 @@ def test_text_needs_no_session_start_and_allows_a_full_rebuild():
     assert args.max_calls == 5000
     with pytest.raises(SystemExit):
         cli.build_parser().parse_args(["backfill", "--counts", "c", "--raw", "r"])
+
+
+def test_authorities_writes_the_snapshot_from_one_request(tmp_path, monkeypatch, capsys):
+    from test_authorities import PAGE
+
+    class Page:
+        status = 200
+        content = PAGE.encode()
+
+    class One:
+        def __init__(self, answer):
+            self.answer, self.calls = answer, 0
+
+        def get(self, url, params=None):
+            self.calls += 1
+            return self.answer
+
+    fake = One(Page())
+    monkeypatch.setattr(cli, "_client", lambda args: fake)
+    out = tmp_path / "aa.csv"
+    assert cli.main(["authorities", "--out", str(out)]) == 0
+    assert fake.calls == 1
+    assert out.read_text().startswith("cog_id,name,state,fema_region,type\n900101,")
+    assert "3 alerting authorities" in capsys.readouterr().out
+    Page.status = 503
+    assert cli.main(["authorities", "--out", str(tmp_path / "x.csv")]) == 1
+    assert not (tmp_path / "x.csv").exists()
