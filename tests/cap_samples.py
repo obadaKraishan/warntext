@@ -139,3 +139,54 @@ ENTITY_EXPANSION = (
     '<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">]>'
     f'<alert xmlns="{NS12}"><identifier>&b;</identifier></alert>'
 )
+
+
+def invented(
+    identifier: str = "EX-100",
+    sender: str = "alerts@example-county.example.gov",
+    sent: str = "2024-05-01T10:15:00-05:00",
+    msg_type: str = "Alert",
+    code: str | None = "CEM",
+    headline: str = "Invented headline",
+    description: str = "Invented description of an invented hazard.",
+    instruction: str | None = None,
+    sender_name: str = "Example County Office of Emergency Management",
+    parameters: tuple[tuple[str, str], ...] = (("EAS-ORG", "CIV"),),
+    references: str | None = None,
+    geocodes: tuple[str, ...] = ("048201",),
+    polygon: str | None = None,
+    contact: str | None = None,
+    language: str = "en-US",
+    extra_info: str = "",
+    note: str | None = None,
+) -> str:
+    """One invented CAP message, built from parts, for tests of the tables and the rules."""
+    params = "".join(
+        f"<parameter><valueName>{n}</valueName><value>{v}</value></parameter>"
+        for n, v in parameters
+    )
+    codes = (
+        f"<eventCode><valueName>SAME</valueName><value>{code}</value></eventCode>" if code else ""
+    )
+    area = "<area><areaDesc>Invented area</areaDesc>"
+    area += f"<polygon>{polygon}</polygon>" if polygon else ""
+    area += "".join(
+        f"<geocode><valueName>SAME</valueName><value>{g}</value></geocode>" for g in geocodes
+    )
+    area += "</area>"
+    info = (
+        f"<info><language>{language}</language><category>Safety</category>"
+        f"<event>Invented event</event><urgency>Immediate</urgency><severity>Severe</severity>"
+        f"<certainty>Observed</certainty>{codes}<senderName>{sender_name}</senderName>"
+        f"<headline>{headline}</headline><description>{description}</description>"
+        + (f"<instruction>{instruction}</instruction>" if instruction else "")
+        + (f"<contact>{contact}</contact>" if contact else "")
+        + f"{params}{area}</info>"
+    )
+    head = (
+        f"<identifier>{identifier}</identifier><sender>{sender}</sender><sent>{sent}</sent>"
+        f"<status>Actual</status><msgType>{msg_type}</msgType><scope>Public</scope>"
+        + (f"<note>{note}</note>" if note else "")
+        + (f"<references>{references}</references>" if references else "")
+    )
+    return alert(head + info + extra_info)
