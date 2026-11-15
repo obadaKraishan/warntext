@@ -4,7 +4,8 @@ Some alerts are about people (missing children and adults, wanted suspects) and 
 numbers, car plates, ages and descriptions. These patterns measure how often such details
 appear, so the privacy options can be weighed with numbers. They are deliberately simple and
 over-count rather than under-count; they never identify anyone, and no pattern tries to infer
-an attribute of a person (there is no pattern for race, sex or any other trait).
+an attribute of a person (there is no pattern for race, sex or any other trait). The last one,
+``person_words``, finds words that mark a message about a person rather than a detail.
 """
 
 from __future__ import annotations
@@ -37,6 +38,16 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "email": re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
     # The phrase missing-person messages use for a last known place or time.
     "last_seen": re.compile(r"\blast\s+(?:seen|known|heard)\b", re.IGNORECASE),
+    # Words of messages about a person: missing, abducted, wanted, a suspect, a description,
+    # clothing, and the named alert programs. They mark a message about someone even when it
+    # gives no number; they also fire on some hazard messages ("suspect package"), by design.
+    "person_words": re.compile(
+        r"\b(?:missing|abduct\w*|kidnap\w*|endangered\s+(?:person|adult|child|juvenile)|"
+        r"runaway|wanted\s+(?:for|by|in)|suspects?\b|described\s+as|wearing|"
+        r"(?:amber|silver|blue|ashanti|feather|endangered\s+missing)\s+alert|"
+        r"have\s+you\s+seen)",
+        re.IGNORECASE,
+    ),
 }
 
 

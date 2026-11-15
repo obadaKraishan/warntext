@@ -116,8 +116,10 @@ local part of a person-shaped sender address, are withheld (`identifier_withheld
    something in a field that could reach a text table (event, headline, description,
    instruction, web, the phone and broadcast texts, area descriptions, resource addresses). The
    patterns: a North American phone number, a plate or tag number, an age, a height or weight,
-   an email address, "last seen", "last known" or "last heard". They are simple and over-count;
-   withholding too much is accepted. The organization name is not scanned.
+   an email address, "last seen", "last known" or "last heard", and words that mark a message
+   about a person (missing, abducted, wanted, suspect, "described as", wearing, "have you
+   seen", and the named alert programs such as AMBER and Silver Alerts). They are simple and
+   over-count; withholding too much is accepted. The organization name is not scanned.
 2. **A withheld message has no text anywhere:** no row in either text table, and no polygons or
    circles in `areas` (a shape can mark one address). Its codes, times, counties, counts,
    lengths and flags stay; `text_withheld` gives the reason (`people_code`, `personal_pattern`,

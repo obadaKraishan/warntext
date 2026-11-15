@@ -204,10 +204,11 @@ def _narrower(pattern_rows: list[dict[str, Any]]) -> dict[str, int]:
     """How many pattern-withheld messages a narrower rule would release, for the report.
 
     The narrower rule withholds only messages with a person-describing pattern (an age, a
-    height or weight, a plate or "last seen"), or with two or more patterns of any kind; a
-    phone number or an email address alone (an agency's hotline) would not withhold.
+    height or weight, a plate, "last seen" or words about a person), or with two or more
+    patterns of any kind; a phone number or an email address alone (an agency's hotline) would
+    not withhold.
     """
-    describing = {"age", "height_weight", "plate", "last_seen"}
+    describing = {"age", "height_weight", "plate", "last_seen", "person_words"}
     kept = released = 0
     for r in pattern_rows:
         hits = set(r["withheld_patterns"])

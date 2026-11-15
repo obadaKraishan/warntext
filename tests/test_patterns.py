@@ -42,6 +42,7 @@ def test_empty_text_counts_zero_and_present_is_boolean():
         "height_weight": False,
         "email": False,
         "last_seen": False,
+        "person_words": False,
     }
 
 
@@ -54,3 +55,12 @@ def test_results_never_hold_the_matched_text():
 def test_email_addresses():
     assert patterns.count("Write to someone@example.org or a.b@example.co.uk.")["email"] == 2
     assert patterns.count("Meet at 5 @ the park.")["email"] == 0
+
+
+def test_person_words_mark_a_message_about_someone():
+    text = "Invented: a missing adult, described as tall, wearing a coat. Have you seen them?"
+    assert patterns.count(text)["person_words"] == 4
+    assert patterns.present("Invented SILVER ALERT issued")["person_words"]
+    assert patterns.present("Police seek suspects in an invented case")["person_words"]
+    assert not patterns.present("Boil water before drinking. Avoid the area.")["person_words"]
+    assert not patterns.present("Endangered species habitat is closed.")["person_words"]
