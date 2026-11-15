@@ -65,11 +65,12 @@ before `2026-11-14T00:00:00Z`.
   a deep `$skip`, which makes the server count from the start of the year; it was replaced before
   most pages were read.
 - **The run:** 177 pages, 83,851 records, 1.51 GB as served (1,513,046,831 bytes), 39.5
-  minutes of wall time (14:56 to 15:36 UTC), no page retried and no error. Server time per page ranged from about 1 to 110 seconds; the
-  heaviest years (2018 to 2019, when the weather service sent about 500,000 records a year)
-  were the slowest.
-- **Size:** 18,044 bytes a record as served on average, against the estimate of 14,413. Pages from 2014 to 2017 ran 30 to 90
-  KB a record (embedded audio), about three times the sample's estimate for those years.
+  minutes of wall time (14:56 to 15:36 UTC), no page retried and no error. Server time per
+  page ranged from about 1 to 110 seconds; the heaviest years (2018 and 2019, when the weather
+  service sent about 500,000 records a year) were the slowest.
+- **Size:** 18,044 bytes a record as served on average, against the estimate of 14,413. Pages
+  from 2014 to 2017 ran 30 to 90 KB a record (embedded audio), about three times the sample's
+  estimate for those years.
 - **Raw files:** one JSON file per page on the external data drive, written once, flushed,
   made read-only and checked against its SHA-256, with a manifest of the page's cursor, record
   count, size, hash, first and last `sent` and the time it was read.

@@ -7,18 +7,19 @@ weekly update.
 ## What WarnText is
 A research corpus of the public alert messages that US federal, state, local, tribal and
 territorial alerting authorities sent through the Integrated Public Alert and Warning System
-(IPAWS) from 2011 to 2026 (five messages in 2011), read from FEMA's OpenFEMA dataset "IPAWS Archived Alerts" (version
-1). One row per message, with its alerting authority, time, place, event codes, the channels it
-asked for (phones, broadcast, weather radio, the public feed), the updates and cancellations
-that followed it, and measures of its text. It is built for communication, journalism and risk
-and crisis communication research that reads, counts and codes official warnings.
+(IPAWS) from 2011 to 2026 (five messages in 2011), read from FEMA's OpenFEMA dataset "IPAWS
+Archived Alerts" (version 1). One row per message, with its alerting authority, time, place,
+event codes, the channels it asked for (phones, broadcast, weather radio, the public feed), the
+updates and cancellations that followed it, and measures of its text. It is built for
+communication, journalism and risk and crisis communication research that reads, counts and
+codes official warnings.
 
 **The honest size.** The archive holds about 4.9 million records, but 98% of them are National
 Weather Service products, which this first release leaves out (they are archived more fully
 elsewhere, and in this archive they stop in July 2023 except for phone alerts). What is left is
 83,851 messages from 1,329 alerting authorities: about 34,700 real alerts (34,665) from 1,260
-authorities, and about 49,200 tests and demonstrations (49,186). Most authorities send few messages; tests are the most
-common message of all.
+authorities, and about 49,200 tests and demonstrations (49,186). Most authorities send few
+messages; tests are the most common message of all.
 
 ## What it is not
 - **Not an alerting service.** It runs at least a day behind and must never be used to receive or
