@@ -4,7 +4,7 @@ It fails, loudly, when:
 - a year's count of archive records differs from the server's count for that year;
 - a withheld message has text in any text table, or area shapes in the area table;
 - a parameter that is not on the allow-list (or a value not in its allowed form) appears;
-- a raw sender value appears in any cell of any table;
+- a raw sender value appears: an address anywhere, or an account name in the record layer;
 - a cell of the record layer matches a personal-detail pattern (the record layer holds no text,
   so such a match means text has leaked into it);
 - a text table holds a message of the wrong sender kind, or a message that does not exist;
@@ -109,18 +109,30 @@ def check(
         if names:
             fail.append(f"{c}/infos: parameters outside the allow-list: {dict(names)}")
 
-    # Raw sender values, anywhere.
-    senders = {s.casefold() for s in sender_values if s}
+    # Raw sender values. An address (with "@") may appear nowhere, not even inside a text. A
+    # value with four letters or more (an account or user name) may appear nowhere in the
+    # record layer, except in the station-code parameters, which some senders also use as
+    # their sender value. Values of digits only are left out: some sending systems put the
+    # message's own number in the sender field, so they equal its released identifier.
+    addresses, named = sender_sets(sender_values)
+    station = {"EAS-STN-ID", "EASHeader"}
     for c in CONFIGS:
         for name in RECORD_TABLES + TEXT_TABLES:
+            record = name in RECORD_TABLES
             hits = 0
             for row in tables[c][name]:
+                station_values = set()
+                if name == "infos":
+                    pairs = zip(row["parameter_names"], row["parameter_values"], strict=True)
+                    station_values = {v.casefold() for n, v in pairs if n in station}
                 for cell in _cells(row):
                     folded = cell.casefold()
-                    if folded in senders or any(
-                        e.casefold() in senders for e in _EMAIL.findall(cell)
-                    ):
-                        hits += 1
+                    bad = folded in addresses or any(
+                        e.casefold() in addresses for e in _EMAIL.findall(cell)
+                    )
+                    if record and folded in named and folded not in station_values:
+                        bad = True
+                    hits += bad
             if hits:
                 fail.append(f"{c}/{name}: {hits} cell(s) hold a raw sender value.")
 
@@ -186,6 +198,20 @@ def check(
             if bad:
                 fail.append(f"{c}/{name}: {bad} row(s) without a source or a record id.")
     return fail
+
+
+def sender_sets(values: Iterable[str]) -> tuple[set[str], set[str]]:
+    """Raw sender values split into addresses and names (four letters or more), case-folded."""
+    addresses, named = set(), set()
+    for v in values:
+        if not v:
+            continue
+        folded = v.casefold()
+        if "@" in folded:
+            addresses.add(folded)
+        elif sum(ch.isalpha() for ch in folded) >= 4:
+            named.add(folded)
+    return addresses, named
 
 
 def read_sender_values(private_dir: Path | str) -> list[str]:

@@ -193,3 +193,29 @@ def test_text_leaking_into_the_record_layer_fails(built):
     t["alerts"]["infos"][0]["parameter_values"] = ["Call 555-555-0123"]
     out = check.check(t, senders, None)
     assert any("alerts/infos: cells match personal-detail patterns: {'phone': 1}" in f for f in out)
+
+
+def test_sender_values_are_checked_by_their_form(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    senders = [*senders, "98765", "EXAMPLE1", "Example County"]
+    # a numeric sender value equal to an identifier is not a leak
+    t["alerts"]["messages"][0]["identifier"] = "98765"
+    # a station code used as the sender value is allowed in its parameter
+    info = t["alerts"]["infos"][0]
+    info["parameter_names"] = [*info["parameter_names"], "EAS-STN-ID"]
+    info["parameter_values"] = [*info["parameter_values"], "EXAMPLE1"]
+    # a place name used as the sender value may appear in the text layer
+    t["alerts"]["text_other"][0]["area_descriptions"] = ["Example County"]
+    assert check.check(t, senders, None) == []
+    t["alerts"]["references"].append(
+        {**t["alerts"]["messages"][0], "ref_index": 0, "ref_identifier": "EXAMPLE1"}
+    )
+    out = check.check(t, senders, None)
+    assert any("alerts/references: 1 cell(s) hold a raw sender value" in f for f in out)
+
+
+def test_sender_sets_split_addresses_and_names():
+    addresses, named = check.sender_sets(["A@Example.org", "12345", "AB-1", "Example1", ""])
+    assert addresses == {"a@example.org"}
+    assert named == {"example1"}
