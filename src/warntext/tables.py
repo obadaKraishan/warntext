@@ -640,17 +640,18 @@ def code_rows(u: Unit, i: Info, k: int) -> list[dict[str, Any]]:
     Units are the 90-character phone text, the 360-character phone text and the full text
     (headline, description, instruction); a unit the block does not have gets no row.
     """
-    ctx = cd.Context(
-        organization=u.organization,
-        place_words=cd.place_words_of(a.description for a in i.areas),
-        event_codes=tuple(u.codes),
-    )
     spanish = i.language.lower().startswith("es")
     texts = {
         "wea90": i.wea_short,
         "wea360": i.wea_long,
         "full": cd.full_text(i.headline, i.description, i.instruction),
     }
+    ctx = cd.Context(
+        organization=u.organization,
+        place_words=cd.place_words_of(a.description for a in i.areas),
+        event_codes=tuple(u.codes),
+        block_text="\n".join(t for t in texts.values() if t and t.strip()),
+    )
     rows = []
     for unit, text in texts.items():
         if not text or not text.strip():

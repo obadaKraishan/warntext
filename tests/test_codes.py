@@ -249,3 +249,57 @@ def test_about_missing_person():
     ]
     assert code("Have you seen this invented child?")["about_missing_person"]
     assert not code("Missing water service on Oak Road.")["about_missing_person"]
+
+
+# --- rules added after the first comparison, each with its codebook reason -----------------
+
+
+def test_speakers_named_in_the_text_are_sources():
+    assert code("This is Sampleton County with an invented message.")["source_named"]
+    assert code("Message from the City of Sampleton: water is safe.")["source_named"]
+    assert code("Sampleton County urges residents to stay home.")["source_named"]
+    assert code("Exampleville Police report a crash on Oak Road.")["source_named"]
+    assert code("Sampleton County Evacuation Order: leave now.")["source_named"]
+    assert not code("Call Police if you see smoke.")["source_named"]
+    assert not code("From 5 PM to 6 PM avoid Oak Road.")["source_named"]
+
+
+def test_instructions_after_their_addressee_or_a_condition():
+    assert cd.guidance_actions("Residents near Oak Creek move to higher ground.") == ["move"]
+    assert cd.guidance_actions("If you see smoke call 911.") == ["call"]
+    assert cd.guidance_actions("Sampleton residents evacuate now.") == ["evacuate"]
+    assert cd.guidance_actions("Area residents were evacuated.") == []
+
+
+def test_evacuation_stated_as_required_or_ordered_is_guidance():
+    assert cd.guidance_actions("Evacuation is required for Zone C.") == ["evacuation is required"]
+    assert cd.guidance_actions("Immediate evacuation for Oak Creek.") == ["immediate evacuation"]
+    assert cd.guidance_actions("An evacuation drill was held.") == []
+
+
+def test_named_places_after_a_locative_word_in_mixed_case():
+    assert code("Water main break in Exampleville. Boil water.")["loc_boundary"]
+    assert code("Residents of North Sampleton: boil water.")["loc_boundary"]
+    assert not code("Shelter in Place until further notice.")["loc_boundary"]
+    assert not code("Updates on Monday.")["loc_boundary"]
+    assert code("Police activity in the 100 block of Oak.")["loc_road"]
+
+
+def test_missing_person_texts_are_flagged_whatever_the_wording():
+    assert code("Missing invented man, 70, last known near Oak Road.")["about_missing_person"]
+    assert not code("Missing water service on Oak Road.")["about_missing_person"]
+
+
+def test_a_unit_without_hazard_words_takes_its_message_s_category():
+    ctx = cd.Context(block_text="Evacuate now.\nBrush fire near Oak Road. Evacuate now.")
+    c = code("Evacuate now.", ctx)
+    assert (c["hazard"], c["hazard_category"], c["hazard_category_source"]) == (
+        False,
+        "wildfire",
+        "message_words",
+    )
+
+
+def test_road_closures_and_burn_bans_name_their_event():
+    assert code("Oak Road is closed. Use another route.")["hazard_category"] == "public_safety"
+    assert code("Burn ban in effect for Sampleton County.")["hazard_category"] == "wildfire"
