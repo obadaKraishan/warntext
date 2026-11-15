@@ -39,8 +39,11 @@ kinds or a category, never the words that matched.
 codes below. Real alerts only.
 
 **Trust before the hand sheet** (section 5): **A** the rule is close to the published shares
-and simple enough to trust for a first release; **B** usable with its stated limit; **C** not to
-be used until the hand sheet scores it.
+and simple enough to trust for a first release; **B** usable with its stated limit; **C**
+experimental: computed and kept in the local tables, but **left out of the first release**
+(`hazard_description` and its two parts, the three kinds of time, `loc_road`, `loc_landmark`,
+`loc_zone`). After the hand sheet, an A or B code at an alpha of .80 or above is released, and one
+under .80 is marked experimental and left out too.
 
 ## 2. The five contents of the Warning Response Model
 
@@ -261,6 +264,8 @@ Emergency Alert; a message that has all five is **complete**.
 - Both are yes or no and say nothing about any person. **Trust B.**
 
 ## 4. What may be released for withheld messages
+(This section says which codes may be released for withheld messages at all; the experimental C
+codes are left out of the first release for every message, withheld or not.)
 
 The record layer is released for every real alert; the text of 13,756 is withheld (section 7
 of the method). Their codes are computed locally from their text. A code may be released for a
