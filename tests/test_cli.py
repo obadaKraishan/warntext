@@ -306,3 +306,18 @@ def test_authorities_writes_the_snapshot_from_one_request(tmp_path, monkeypatch,
     Page.status = 503
     assert cli.main(["authorities", "--out", str(tmp_path / "x.csv")]) == 1
     assert not (tmp_path / "x.csv").exists()
+
+
+def test_compare_olson_writes_aggregates(tmp_path, capsys):
+    from cap_samples import invented
+    from test_tables import COUNTY, record, run
+    from warntext import tables
+
+    xml = invented(identifier="EX-1", sender=COUNTY, parameters=(("CMAMtext", "Leave now"),))
+    b = run([record(xml, "r01")])
+    tables.write(b, tmp_path / "t", tmp_path / "p")
+    assert cli.main(["compare-olson", "--tables", str(tmp_path / "t"), "--out", str(tmp_path)]) == 0
+    data = json.loads((tmp_path / "olson_compare.json").read_text())
+    assert set(data) == {"main", "all_people_codes_out", "unique_texts"}
+    assert "texts (theirs 6,080)" in capsys.readouterr().out
+    assert "Leave now" not in (tmp_path / "olson_compare.md").read_text()

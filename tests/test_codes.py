@@ -241,3 +241,11 @@ def test_codes_never_hold_text():
 
 def test_full_text_joins_the_three_fields():
     assert cd.full_text("Head", None, " Do this. ") == "Head\nDo this."
+
+
+def test_about_missing_person():
+    assert code("Silver Alert for an invented man, last seen near Oak Road.")[
+        "about_missing_person"
+    ]
+    assert code("Have you seen this invented child?")["about_missing_person"]
+    assert not code("Missing water service on Oak Road.")["about_missing_person"]

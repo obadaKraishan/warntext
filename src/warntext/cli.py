@@ -18,6 +18,7 @@ from warntext import authorities as au
 from warntext import backfill as bf
 from warntext import check as ck
 from warntext import client as cl
+from warntext import olson as ol
 from warntext import probe as pr
 from warntext import profile as pf
 from warntext import rebuild as rb
@@ -262,6 +263,39 @@ def cmd_authorities(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_compare_olson(args: argparse.Namespace) -> int:
+    """Apply Olson et al.'s filters to the tables and set the shares beside theirs."""
+    tables = Path(args.tables)
+    messages = []
+    for c in ("alerts", "tests"):
+        messages += pq.read_table(tables / c / "messages.parquet").to_pylist()
+    codes = pq.read_table(tables / "alerts" / "codes.parquet").to_pylist()
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    variants = {
+        "main": {"people": "missing", "unique_texts": False},
+        "all_people_codes_out": {"people": "all", "unique_texts": False},
+        "unique_texts": {"people": "missing", "unique_texts": True},
+    }
+    results = {name: ol.compare(messages, codes, **kw) for name, kw in variants.items()}
+    for r in results.values():
+        r["gaps_over_5_points"] = ol.gaps(r)
+    (out / "olson_compare.json").write_text(
+        json.dumps(results, indent=1, default=str) + "\n", encoding="utf-8"
+    )
+    (out / "olson_compare.md").write_text(
+        "\n".join(f"## {name}\n\n{ol.markdown(r)}" for name, r in results.items()),
+        encoding="utf-8",
+    )
+    main_steps = dict(results["main"]["steps"])
+    print(
+        f"{main_steps['texts in all']:,} texts (theirs 6,080); "
+        f"{len(results['main']['gaps_over_5_points'])} shares differ by more than 5 points; "
+        f"aggregates in {out}."
+    )
+    return 0
+
+
 def _client_options(
     p: argparse.ArgumentParser,
     since_required: bool = True,
@@ -362,6 +396,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True)
     _client_options(p, since_required=False, max_calls=5, max_bytes=5_000_000)
     p.set_defaults(func=cmd_authorities)
+
+    p = sub.add_parser(
+        "compare-olson", help="this corpus beside Olson et al.'s published shares (aggregates)"
+    )
+    p.add_argument("--tables", required=True)
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_compare_olson)
 
     p = sub.add_parser("profile", help="aggregate the sample (no text)")
     p.add_argument("--plan", required=True)

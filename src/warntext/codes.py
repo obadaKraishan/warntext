@@ -855,6 +855,15 @@ def evacuation_terms(text: str) -> dict[str, bool]:
     return out
 
 
+#: Words of a message about a missing person (Olson et al. removed these whatever their code).
+_MISSING_PERSON = _rx(
+    r"\bmissing\s+(?:person|child|children|juvenile|teen|adult|man|woman|boy|girl|elderly|"
+    r"senior|endangered|and\s+endangered)|\bendangered\s+(?:missing|person|adult|child|"
+    r"juvenile)|\b(?:silver|amber|ashanti|feather|endangered\s+missing)\s+alert|"
+    r"\bhave\s+you\s+seen\b|\blast\s+seen\b|\bwas\s+reported\s+missing\b|\bgone\s+missing\b"
+)
+
+
 # --- one unit ----------------------------------------------------------------------------
 
 
@@ -904,6 +913,7 @@ CODE_FIELDS = (
     "evac_voluntary_mandatory",
     "evac_pre_evacuation",
     "complete",
+    "about_missing_person",
 )
 
 
@@ -945,6 +955,7 @@ def code_text(text: str, ctx: Context | None = None) -> dict[str, Any]:
         "n_abbreviations": n_abbr,
         "all_caps": caps > 0.9,
         **evacuation_terms(rest),
+        "about_missing_person": bool(_MISSING_PERSON.search(text)),
     }
     out["complete"] = all(
         out[k] for k in ("hazard", "location", "time", "source_named", "guidance")
