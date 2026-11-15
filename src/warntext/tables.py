@@ -583,7 +583,17 @@ def build(parsed: list[Parsed]) -> Build:
     for u in units:
         m = u.first.message
         names = [i.sender_name for i in m.infos] if m else []
-        ev[u.message_id] = sd.evidence(u.first.sender, names)
+        geos = [
+            g.value.strip()
+            for i in (m.infos if m else ())
+            for a in i.areas
+            for g in a.geocodes
+            if g.name.strip().upper() == "SAME"
+        ]
+        _, counties = measures.places(geos)
+        whole = any(re.fullmatch(r"\d{3}000", g) for g in geos)
+        area = sd.footprint(len(counties), whole)
+        ev[u.message_id] = sd.evidence(u.first.sender, names, area)
     authorities = sd.pool((u.first.cog_id, u.message_id, ev[u.message_id]) for u in units)
     for u in units:
         a = authorities[u.message_id]

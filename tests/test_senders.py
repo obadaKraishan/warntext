@@ -125,3 +125,42 @@ def test_pool_gives_each_authority_its_majority_kind():
 def test_address_shape_describes_without_returning(sender, shape):
     assert sd.address_shape(sender) == shape
     assert shape in {"role", "first_last", "initial_name", "other_address", "not_address"}
+
+
+def test_an_ip_address_is_not_a_domain():
+    assert sd.domain_of("someone@10.0.0.1") is None
+
+
+def test_weak_names_read_agency_words_as_local_and_never_federal():
+    assert sd.weak_kind_from_name("Sampleton Emergency Management") == "local"
+    assert sd.weak_kind_from_name("Sampleton OEM") == "local"
+    assert sd.weak_kind_from_name("Example County EMA") is None  # the main rule places it
+    assert sd.weak_kind_from_name("Guam Office of Emergency Example") is None
+    assert sd.weak_kind_from_name("Sampleton") is None
+    ev = sd.evidence(None, ["Sampleton Emergency Management"])
+    assert (ev.kind, ev.source) == ("local", "name_weak")
+
+
+def test_federal_needs_half_of_all_the_authoritys_messages():
+    federal = sd.Evidence("federal", None)
+    none = sd.Evidence(None, None)
+    out = sd.pool([(1, "a", federal), (1, "b", none), (1, "c", none)])
+    assert (out["a"].kind, out["a"].source) == ("unknown", "federal_minority")
+    out = sd.pool([(2, "d", federal), (2, "e", none)])
+    assert out["d"].kind == "federal"
+
+
+def test_an_authority_no_name_places_takes_its_footprint():
+    county = sd.Evidence(None, None, area="one_county")
+    state = sd.Evidence(None, None, area="whole_state")
+    several = sd.Evidence(None, None, area="several")
+    out = sd.pool([(1, "a", county)] * 1 + [(1, "b", county)])
+    assert (out["a"].kind, out["a"].source) == ("local", "area")
+    out = sd.pool([(2, "c", state), (2, "d", several)])
+    assert out["c"].kind == "state"
+    out = sd.pool([(3, "e", several), (3, "f", county)])
+    assert out["e"].kind == "unknown"
+    assert sd.footprint(0, False) is None
+    assert sd.footprint(1, False) == "one_county"
+    assert sd.footprint(4, False) == "several"
+    assert sd.footprint(0, True) == "whole_state"

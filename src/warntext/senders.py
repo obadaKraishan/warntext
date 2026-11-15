@@ -2,20 +2,22 @@
 
 Every message is classified as sent by a ``federal``, ``state``, ``local``, ``tribal`` or
 ``territorial`` authority, by ``other`` bodies (universities, companies, hospitals, utilities)
-or by an ``unknown`` one. The rule reads three things, in this order:
+or by an ``unknown`` one. The rule reads, in this order:
 
 1. the sender's organization name (``senderName`` in the language blocks), by keyword;
 2. the internet domain of the ``sender`` value, when it has one (``.mil``, known federal
    domains, state domains such as ``ca.gov`` or ``state.tx.us``, local forms such as
    ``co.<name>.<st>.us``, tribal ``-nsn.gov`` domains, territorial domains);
-3. nothing else: the place a message covers is not used, because one authority may warn a
-   county today and a whole state tomorrow.
+3. a weaker reading of the name: an emergency agency's words without a state's name are read
+   as local.
 
 A message's own evidence is then pooled by FEMA's identifier for the alerting authority (the
 Collaborative Operating Group, ``cogId``): each authority takes the kind most of its messages
-point to, and every message of that authority carries it. ``unknown`` stays unknown and is
-treated as not federal everywhere, so a message is only ever counted as federal on positive
-evidence.
+point to, and every message of that authority carries it. Federal needs at least half of all
+the authority's messages. An authority that nothing above places takes the kind its footprint
+suggests (one county: local; whole-state codes: state), which is the least sure step and never
+gives federal. ``unknown`` stays unknown and is treated as not federal everywhere, so a message
+is only ever counted as federal on positive evidence.
 
 The raw ``sender`` value is used here and in duplicate and reference matching only. It never
 enters a release table; :func:`address_shape` describes it by pattern without returning it.
@@ -300,6 +302,8 @@ def domain_of(sender: str | None) -> str | None:
     host = host.strip(".")
     if not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", host):
         return None
+    if re.fullmatch(r"[0-9.]+", host):
+        return None  # an IP address names a machine, not an organization
     return host
 
 
@@ -340,17 +344,41 @@ def kind_from_domain(domain: str | None) -> str | None:
 
 # --- the pooled rule ---------------------------------------------------------------------
 
+_AGENCY_WORDS = re.compile(
+    r"\b(emergency management|emergency services|homeland security|emergency operations|"
+    r"office of emergency|oem|ema|eoc|public safety|emergency communications|"
+    r"emergency preparedness)\b",
+    re.IGNORECASE,
+)
+
+
+def weak_kind_from_name(name: str | None) -> str | None:
+    """A weaker reading of a name the main rule cannot place: ``local`` for an emergency
+    agency's words without a state's or territory's name ("Sampleton Emergency Management"),
+    since state agencies nearly always carry their state's name. Never federal."""
+    if not name or kind_from_name(name) is not None:
+        return None
+    if _AGENCY_WORDS.search(name) and not _TERRITORY_NAME.search(name):
+        return "local"
+    return None
+
 
 @dataclass(frozen=True)
 class Evidence:
-    """What one message says about its sender's kind, and from where."""
+    """What one message says about its sender's kind, and from where.
+
+    ``area`` describes the message's footprint (``one_county``, ``whole_state``, ``several``)
+    and is used only for an authority that no name or domain places.
+    """
 
     by_name: str | None
     by_domain: str | None
+    by_weak_name: str | None = None
+    area: str | None = None
 
     @property
     def kind(self) -> str | None:
-        return self.by_name or self.by_domain
+        return self.by_name or self.by_domain or self.by_weak_name
 
     @property
     def source(self) -> str:
@@ -358,16 +386,34 @@ class Evidence:
             return "name"
         if self.by_domain:
             return "domain"
+        if self.by_weak_name:
+            return "name_weak"
         return "none"
 
 
-def evidence(sender: str | None, sender_names: Iterable[str | None]) -> Evidence:
-    by_name = None
-    for name in sender_names:
-        by_name = kind_from_name(name)
-        if by_name:
-            break
-    return Evidence(by_name=by_name, by_domain=kind_from_domain(domain_of(sender)))
+def evidence(
+    sender: str | None, sender_names: Iterable[str | None], area: str | None = None
+) -> Evidence:
+    names = [n for n in sender_names if n and n.strip()]
+    by_name = next((k for k in map(kind_from_name, names) if k), None)
+    weak = next((k for k in map(weak_kind_from_name, names) if k), None)
+    return Evidence(
+        by_name=by_name,
+        by_domain=kind_from_domain(domain_of(sender)),
+        by_weak_name=weak,
+        area=area,
+    )
+
+
+def footprint(n_counties: int, whole_state: bool) -> str | None:
+    """A message's footprint from its SAME codes, for :class:`Evidence`."""
+    if whole_state:
+        return "whole_state"
+    if n_counties == 1:
+        return "one_county"
+    if n_counties > 1:
+        return "several"
+    return None
 
 
 @dataclass(frozen=True)
@@ -380,12 +426,28 @@ class Authority:
     source: str
 
 
+def _by_area(members: list[tuple[str, Evidence]]) -> str | None:
+    areas = Counter(ev.area for _, ev in members if ev.area)
+    total = sum(areas.values())
+    if not total:
+        return None
+    if areas["one_county"] / total >= 0.9:
+        return "local"
+    if areas["whole_state"] / total >= 0.5:
+        return "state"
+    return None
+
+
 def pool(items: Iterable[tuple[int | None, str, Evidence]]) -> dict[str, Authority]:
     """Give each authority one kind from its messages' evidence.
 
     ``items`` holds ``(cog_id, message_id, evidence)``. Messages without a ``cogId`` are pooled
-    by themselves. A tie between kinds, or no evidence at all, gives ``unknown``. Returns the
-    authority for each message id.
+    by themselves. The kind most messages point to wins; a tie gives ``unknown``. Federal needs
+    more: at least half of all the authority's messages must point to it, or the authority is
+    ``unknown``, because federal text is the part of the corpus that can be released. An
+    authority that no name or domain places takes the kind its footprint suggests (``local``
+    when nine in ten of its messages cover one county, ``state`` when half cover a whole
+    state), and otherwise stays ``unknown``. Returns the authority for each message id.
     """
     groups: dict[str, list[tuple[str, Evidence]]] = defaultdict(list)
     for cog, mid, ev in items:
@@ -395,11 +457,16 @@ def pool(items: Iterable[tuple[int | None, str, Evidence]]) -> dict[str, Authori
         votes = Counter(ev.kind for _, ev in members if ev.kind)
         sources = Counter(ev.source for _, ev in members if ev.kind)
         ranked = votes.most_common(2)
-        if not ranked or (len(ranked) == 2 and ranked[0][1] == ranked[1][1]):
-            kind, agreeing, source = "unknown", 0, "none"
+        if not ranked:
+            area = _by_area(members)
+            kind, agreeing, source = (area, 0, "area") if area else ("unknown", 0, "none")
+        elif len(ranked) == 2 and ranked[0][1] == ranked[1][1]:
+            kind, agreeing, source = "unknown", 0, "tie"
         else:
             kind, agreeing = ranked[0]
             source = sources.most_common(1)[0][0]
+            if kind == "federal" and agreeing * 2 < len(members):
+                kind, source = "unknown", "federal_minority"
         authority = Authority(kind, len(members), agreeing, source)
         for mid, _ in members:
             out[mid] = authority
