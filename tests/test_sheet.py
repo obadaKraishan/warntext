@@ -234,3 +234,14 @@ def test_periods_take_their_share_and_lend_rows_when_short():
         "before_2020": 10,
         "2020_on": 90,
     }
+
+
+def test_the_guide_in_docs_says_what_the_workbook_says():
+    from pathlib import Path
+
+    guide = (Path(__file__).parents[1] / "docs" / "hand-sheet-guide.md").read_text(encoding="utf-8")
+    assert guide.splitlines()[0] == sh.GUIDE_FIRST_LINE
+    for heading, definition, yes, no in sh.DEFINITIONS:
+        assert f'| **{heading}** | {definition} | "{yes}" | "{no}" |' in guide
+    for text, _, _ in sh.EDGE_CASES:
+        assert f'"{text}"' in guide
