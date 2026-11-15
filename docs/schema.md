@@ -17,10 +17,11 @@ status `Actual`). Every row carries `source` (the OpenFEMA endpoint it was read 
 
 Lists are Parquet lists. Times are kept as written (`sent`, with its offset) and in UTC
 (`sent_utc`, from OpenFEMA's own field). **Messages with a people code** (CAE, MEP, LEW, BLU)
-carry every time rounded down to the hour, in its own offset: `sent`, `sent_utc`, the blocks'
-`effective`, `onset` and `expires`, the `ref_sent` of references from or to them, and the times of
-their threads (`times_rounded` marks each such row). The county stays; the exact times are in a
-private local table only.
+and **messages about a missing person** carry every time rounded down to the hour, in its own
+offset: `sent`, `sent_utc`, the blocks' `effective`, `onset` and `expires`, the `ref_sent` of
+references from or to them, the times of their threads and the issue time in their `EASHeader`
+(`times_rounded` marks each such row). Their SAME and FIPS6 area codes keep the county (the
+part-of-county digit is 0). The exact values are in a private local table only.
 
 ## The unit and the ids
 One row of `messages` per alert message: one CAP `<alert>`, identified inside the build by the
@@ -46,7 +47,8 @@ archive's order: `sent`, then `id`); `record_ids` lists every copy. Other tables
 | `sent` | string | CAP `sent`, as written (with its offset); rounded down to the hour for a people code |
 | `sent_utc` | timestamp (UTC) | OpenFEMA's `sent`; rounded down to the hour for a people code |
 | `year` | int | year of `sent_utc` |
-| `times_rounded` | bool | *derived*: the message's times are rounded down to the hour (a people code) |
+| `times_rounded` | bool | *derived*: the message keeps only the hour and the county (a people code, or about a missing person) |
+| `about_missing_person` | bool | *derived*: a text field is about a missing person (method, privacy rule 6) |
 | `status`, `msg_type`, `scope` | string | CAP `status`, `msgType`, `scope` |
 | `codes` | list of string | CAP `code` (`IPAWSv1.0` and others) |
 | `xmlns` | string | the CAP namespace (version) |
@@ -77,7 +79,7 @@ archive's order: `sent`, then `id`); `record_ids` lists every copy. Other tables
 | `thread_position` | int | *derived*: 0 for the earliest |
 | `text_group` | string | *derived*: `message_id` of the first message with the same text from the same sender |
 | `text_group_size` | int | *derived* |
-| `text_withheld` | string | *derived*: null, or why the text is withheld: `people_code`, `personal_pattern`, `unparsed` |
+| `text_withheld` | string | *derived*: null, or why the text is withheld: `people_code`, `personal_pattern`, `missing_person`, `unparsed` |
 | `withheld_patterns` | list of string | *derived*: names of the personal-detail patterns found (never the match) |
 | `shapes_withheld` | bool | *derived*: polygons or circles left out because the text is withheld |
 | `has_text` | bool | *derived*: any text field is non-empty |

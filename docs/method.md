@@ -152,7 +152,8 @@ release check reads.
 2. **A withheld message has no text anywhere:** no row in either text table, and no polygons or
    circles in `areas` (a shape can mark one address). Its codes, times, counties, counts,
    lengths and flags stay; `text_withheld` gives the reason (`people_code`, `personal_pattern`,
-   or `unparsed` for XML that cannot be read) and `withheld_patterns` the pattern names.
+   `missing_person` (rule 6), or `unparsed` for XML that cannot be read) and `withheld_patterns`
+   the pattern names.
 3. **Parameters are allow-listed.** A parameter is kept only if its name is on the list below and
    its value has the allowed form; free-text parameters that are part of the message go to the
    text layer; everything else is dropped by name.
@@ -175,12 +176,20 @@ release check reads.
    `route` and the vendor settings that come with them.
 4. **Free fields are dropped everywhere:** `contact`, and the message-level `note`, `source`,
    `addresses`, `restriction` and `incidents`. `audience` is text and goes to the text layer.
-5. **Messages with a people code keep only the hour.** In the record layer their sent time, the
-   effective, onset and expiry times of their blocks, the sent time in references from or to
-   them, and the first and last times of their threads are rounded down to the hour, in the
-   time's own offset (`times_rounded`). The county stays; the area shapes stay withheld. The
-   date and the county already point to an event, and the minute adds little to that; the hour of
-   day is kept as a research variable. The exact times are written only to a private local table.
+5. **Messages with a people code keep only the hour and the county.** In the record layer their
+   sent time, the effective, onset and expiry times of their blocks, the sent time in references
+   from or to them, the first and last times of their threads, and the issue time inside their
+   EAS header are rounded down to the hour, in the time's own offset (`times_rounded`). Their
+   area codes (SAME and FIPS6, in `messages`, `areas` and the EAS header) keep the county: the
+   part-of-county digit is set to 0. The area shapes stay withheld. The date and the county
+   already point to an event, and the minute and the part of a county add little to that; the
+   hour of day is kept as a research variable. The exact values are written only to a private
+   local table.
+6. **A message about a missing person is treated the same way, whatever its event code**
+   (`about_missing_person`): words such as "missing" for a person, an endangered person, a
+   Silver or AMBER Alert, "have you seen" or "last seen", in English or Spanish, in any of its
+   text fields. Its text and shapes are withheld (`missing_person` when no other rule already
+   withheld it), its times keep only the hour and its area codes only the county.
 
 ## 8. The two layers
 - **Record layer** (`messages`, `infos`, `areas`, `references`, `threads`, `codes`): no message
@@ -301,9 +310,14 @@ them earthquake warnings) in `text_federal`, and 16,706 in `text_other` (local 1
 13,756 are withheld and 3,980 have no language block. Before FEMA's list, the federal table held
 183 real alerts.
 
-**People-code times.** 8,859 real alerts carry a people code; their 37,869 exact time values
-(8,859 sent times, 9,350 expiry, 7,299 effective and 609 onset times, 2,893 reference times) are
-rounded in the record layer and kept privately, and 6,487 threads touch them.
+**People-code and missing-person rows.** Of the real alerts, 8,859 carry a people code and
+10,548 are about a missing person (3,363 of them without a people code), so 12,222 keep only the
+hour and the county; 18 of them lose their text only by rule 6. 868 tests mention a missing
+person (mostly tests of the AMBER channel) and are treated the same way. Over both
+configurations, 57,122 exact values are kept privately (13,090 sent times and their UTC copies,
+13,730 expiry, 10,681 effective and 1,361 onset times, 4,121 reference times, 1,049 EAS
+headers); 466 part-of-county digits in 199 messages are set to 0; 9,402 threads of real alerts
+are rounded.
 
 ## 11. The release check
 `warntext check` fails, loudly, when a year's count of records differs from the server's; a
@@ -314,9 +328,18 @@ cell outside the station-code parameters; values of digits only are not checked,
 sending systems put the message's own number in the sender field); a record-layer cell matches
 a personal-detail pattern; a raw CAP identifier appears in any cell of any table, whole or as a
 token inside a link or a list; a message with a people code, or a reference or thread that
-touches one, carries a time finer than the hour; a text table holds a message of the wrong
-sender kind, or one that is not in the tables; an id is duplicated (codes rows included); or a
-row lacks its source or record id. It passes on the build of 2026-11-15 with the codes.
+touches one, carries a time finer than the hour (EAS headers included); a message about a
+missing person does the same; a people-code or missing-person row carries a part-of-county digit
+in an area code; a text table holds a message of the wrong sender kind, or one that is not in
+the tables; an id is duplicated (codes rows included); or a row lacks its source or record id.
+It passes on the build of 2026-11-15 and on the weekly update's dry run.
+
+**The release pack** (`warntext release build`) holds, for both configurations, the record
+layer, the released codes (without the experimental ones) and `text_federal`, with a manifest
+and the dataset card; `warntext release check` runs on the pack's own folder and also fails on
+any file that is not part of the release, on any text table other than `text_federal`, on an
+experimental code, on a file that differs from the manifest, and on a card without its license
+fields. Version 0.1.0 (records sent before 2026-11-14T17:00Z): 13 files, 433,842 rows, 28.8 MB.
 
 ## 12. Content codes
 Every unit of every real alert is coded by rule (`codebook.md`, version 1): the 90-character

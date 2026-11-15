@@ -78,3 +78,19 @@ All notable changes to this project are recorded here. The format follows
   the hour in a people-code row (or a reference or thread that touches one).
 - CI runs ruff and pytest on Python 3.12 for pushes and pull requests; the full 3.10 to 3.13
   matrix runs when the workflow is started by hand.
+- Messages about a missing person, whatever their event code (English or Spanish words in any
+  text field), are treated like people-code rows: text and shapes withheld (`missing_person`),
+  times rounded to the hour, area codes at county level (`about_missing_person`).
+- People-code and missing-person rows keep the county only: the part-of-county digit of their
+  SAME and FIPS6 codes, and of the codes in their EAS header, is set to 0; the EAS header's issue
+  time is rounded to the hour. `warntext check` fails on a part-of-county digit or an exact time
+  on such a row.
+- `warntext update`: the weekly update from local state (the new window, FEMA's list again, a
+  7-day look-back for late records, a full rebuild, the check, a summary of counts); `--init`
+  starts the state from the backfill.
+- `warntext release build` and `release check`: the first release's pack (record layer,
+  released codes without the experimental ones, `text_federal`, a manifest and the dataset
+  card) and the Kaggle mirror's folder (record layer and codes only), and a check that runs on
+  the pack's own folder.
+- `.zenodo.json` for the GitHub-to-Zenodo route: the code and documents, no data.
+

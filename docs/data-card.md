@@ -65,9 +65,11 @@ their rows and withholds their text, by code and with no hand review:
 - a withheld message has no text in either text table and no area shapes (a polygon or circle
   can mark one address); its counts, codes, times, counties, lengths and flags stay, with the
   reason in `text_withheld`;
-- a message with a people code carries its times rounded down to the hour (sent, effective,
-  onset, expiry, and the times of the references and threads that touch it); the county stays,
-  and the exact times are kept only on the maintainer's machine.
+- a message with a people code, and any message about a missing person whatever its code,
+  carries its times rounded down to the hour (sent, effective, onset, expiry, the times of the
+  references and threads that touch it, and the time in its EAS header) and its area codes at
+  county level only (the part-of-county digit is set to 0); the exact values are kept only on the
+  maintainer's machine. A message about a missing person also loses its text and shapes.
 
 **What is released for withheld messages.** Their content codes are computed from their text
 on the maintainer's machine and released, because each is a yes or no, a count, a kind or a
@@ -134,11 +136,24 @@ time it was read, as FEMA asks:
 
 Each row's `retrieved_at` gives the exact time its message was read.
 
+## The first release (prepared, not published)
+Version 0.1.0 covers records sent before 2026-11-14T17:00Z: 34,678 real alerts from 1,260
+authorities and 49,186 tests. It holds the record layer of both configurations, the released
+content codes (trust A and B; the experimental C codes are left out) and `text_federal`
+(223 real alerts and the federal tests): 13 Parquet files, 433,842 rows, 28.8 MB. Of the real
+alerts, 13,778 have their text withheld and 12,226 keep only the hour and the county.
+- **Hugging Face** (`obadakr/warntext`): one configuration per table, with the splits `alerts`
+  and `tests`; the card's license is `other`, under OpenFEMA's terms.
+- **Kaggle mirror:** the record layer and the codes only, no text.
+- **Zenodo:** the code and the documents, through the GitHub route; **no data table**. OpenFEMA's
+  terms let FEMA ask a user to destroy any copy, and a Zenodo record cannot be withdrawn by its
+  depositor, so no copy of the data is kept there, not even the record layer.
+
 ## Configurations and tables
 | Configuration | Messages | Record layer | Text layer |
 |---|---:|---|---|
-| `alerts` (real alerts) | 34,665 | messages, infos, areas, references, threads, codes | text_federal (223 messages), text_other (16,706, not released for now) |
-| `tests` (tests and demonstrations) | 49,186 | the same, without codes | text_federal (3,869), text_other (44,278, not released for now) |
+| `alerts` (real alerts) | 34,678 | messages, infos, areas, references, threads, codes | text_federal (223 messages), text_other (16,698, not released for now) |
+| `tests` (tests and demonstrations) | 49,186 | the same, without codes | text_federal (3,869), text_other (44,276, not released for now) |
 
 The field list is in `schema.md`, and how each field is derived in `method.md`.
 
