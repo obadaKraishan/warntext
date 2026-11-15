@@ -382,3 +382,17 @@ sample.
   network parts "technically incapable" of 360); §10.480 (Spanish, in the version dated
   2018-11-01; more languages from 2028-06-12); §10.400 (the classes of alert, with the Public
   Safety Message in the version dated 2019-05-01, and "National Alert" since 2021).
+
+## 8. FEMA's list of IPAWS alerting authorities
+- **Page:** "IPAWS Alerting Authorities - Agencies and Organizations",
+  https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system/public-safety-officials/alerting-authorities/agencies-organizations
+  (read 2026-11-15; the page says it was last updated 2026-11-12). One table of 2,177
+  authorities with five columns: IPAWS Alerting Authority ID (six digits, the archive's `cogId`),
+  name, state or territory, FEMA region and type (Local 2,040; State 89; Military 20; Tribal 18;
+  Federal 5; Territory 4; National 1). No person is named; names are organizations'.
+- **Catalog entry:** data.gov lists it as "IPAWS Alerting Authorities: Agencies and
+  Organizations" (identifier FEMA-0333, access level public, dataset modified 2025-04-01), with
+  the license https://www.usa.gov/government-works: FEMA's own compilation is a work of the U.S.
+  government.
+- **Use in WarnText:** a dated snapshot in the package (`alerting_authorities.csv`), joined to the
+  archive by identifier; refreshed with `warntext authorities` (one request).
