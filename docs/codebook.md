@@ -110,9 +110,18 @@ Emergency Alert; a message that has all five is **complete**.
 - `location` is any of the first four. `loc_vague_or_none` is its opposite.
 - **Does not count:** a generic word ("the area", "your area", "the county", "the city", "local
   area", "the affected area"); a fire's name used as a label ("Oak Trail Fire evacuation
-  message" names a fire, not a road); a place inside the source's name ("Sampleton County OEM")
-  or written as the speaker ("Sampleton County: ..."), which names who speaks, not where (2.4);
+  message" names a fire, not a road); a place inside the source's name ("Sampleton County OEM");
   the CAP area description, which targets phones and is not part of the text.
+- **A place written only as the speaker is not a location**, settled after the first sheet: it
+  names who speaks, not where (2.4). "Sampleton County: boil water before use." has a source and
+  no location; the same holds for "City of Sampleton: ..." and "Message from Sampleton County".
+  Another place in the text still counts: "Sampleton County: boil water before use on Oak Road."
+  names Oak Road.
+- **Known miss of version 2.** For an opener of the form "City of X:" (or town, village,
+  borough, township) the rule blanks only the first word as the speaker, so "of X" is read as a
+  place. About 35 of the 71,408 coded units take their location from such an opener alone (an
+  approximate count, from version 2's tables). The rules are frozen for the second hand sheet,
+  which measures this as a miss; a later version would fix it and need a new blind sheet.
 - **Rule.** Patterns per kind; place names from the message's own area descriptions and the
   authority's name, counted only when they appear in the text; in mixed-case texts, a capitalized
   name after a locative word. **Trust B for `location` and `loc_boundary`; C for road, landmark
@@ -139,9 +148,17 @@ Emergency Alert; a message that has all five is **complete**.
   already happened ("At 2 PM a brush fire started", "was reported this morning"); "now" in "now
   open", "now lifted", "now closed"; "immediate" as a place ("the immediate area"); "at this
   time" without an instruction ("At this time there is no threat"); "approaching" alone; an order
-  that has been lifted; a promised update ("Updates to follow", "Next update at 5 PM"), which is
-  not a time of the danger, the action or its end; "before" that names a use ("boil water before
-  use"); a fraction of a mile ("1/2 mile"), which is not a date; "thru traffic".
+  that has been lifted; "before" that names a use ("boil water before use"); a fraction of a mile
+  ("1/2 mile"), which is not a date; "thru traffic".
+- **A promised update is not time**, with or without its hour, settled after the first sheet:
+  "An update will follow", "Updates to follow" and "Next update at 5 PM" say when the next message
+  comes, not when the danger comes, when to act, or until when it lasts. "Repairs will last until
+  5 PM" is time.
+- **Known miss of version 2.** The rule leaves out a promised update without an hour, but a clock
+  time in one ("Next update at 5 PM") is still read as impact time, as any clock time outside an
+  action is. About 3 of the 71,408 coded units take their time from such an update alone (an
+  approximate count, from version 2's tables). The rules are frozen for the second hand sheet,
+  which measures this as a miss; a later version would fix it and need a new blind sheet.
 - **Rule.** Patterns, clause by clause. **Trust A for `time`; C for the three kinds.**
 - **Limit.** "Until 5 PM" can mean the end of the hazard, of the action or of the message
   (Sutton & Kuligowski 2019); the rule reads it by the clause it stands in. A past event is told
@@ -264,7 +281,7 @@ Emergency Alert; a message that has all five is **complete**.
 ### 3.1 `hazard_description`, with `hazard_characteristics` and `hazard_impacts`
 
 > **Settled.** Anything said about the hazard beyond its name: what it is doing, how big, how
-> fast, where it is heading, how dangerous, what it can cause.
+> fast, where it is heading, how dangerous, what it can cause. No named hazard, no description.
 
 - **Follows** Olson et al. (2024), who code this as one item, and Kuligowski et al. (2023), who
   split it into what the hazard is or is doing (`hazard_characteristics`: fast-moving, spreading,
@@ -272,12 +289,23 @@ Emergency Alert; a message that has all five is **complete**.
   conditions worsening, the fire has passed) and what it does or can do to people, property or
   services (`hazard_impacts`: damage, injuries, power outages, roads closed or reopening, backups,
   unable to call 911, contaminated water). `hazard_description` is either.
-- **Counts only with a named hazard** (2.1): a description is said about a hazard, so a unit that
-  names none has none. The hazard's own words are not read again as its description ("Road
-  closed" names the event; it does not also describe it), unless the text names several distinct
-  hazards ("Flooding: Oak Road closed" names a flood and describes its impact).
+- **Counts only with a named hazard** (2.1), settled after the first sheet: a description is
+  said about a hazard, so a unit that names none has none.
+- **The event's own name is not its description**, settled after the first sheet. A closure or
+  an outage that is itself the event is the hazard's name ("Oak Road closed at Elm St." names the
+  event; it does not also describe it). What the text says about it beyond the name still counts
+  ("Large power outage across Sampleton." says how big it is), and so does a closure or outage
+  that another named hazard causes ("Oak Road closed at Elm St due to flooding." names a flood
+  and describes its impact). The reasons:
+  - Olson et al. (2024) define the description as specific characteristics of the hazard itself
+    and code it as a subcategory of naming the hazard; a name is not a characteristic of itself;
+  - counted both ways, every closure or outage alert would carry a description by default, and
+    the code would measure nothing for them;
+  - it would not close the gap with the published share: version 1 counted these and still
+    stood at 10.1% of 90-character texts against Olson et al.'s 16.7%.
 - **Examples.** Yes, both: "Fast-moving brush fire, 200 acres. Roads are closed." Yes: "Diesel
-  fuel release into Oak Creek." No: "Brush fire near Oak Road." No: "Oak Road closed."
+  fuel release into Oak Creek." No: "Brush fire near Oak Road." No: "Oak Road closed." No:
+  "Fast-moving and dangerous. Leave now." (no hazard is named).
 - **Trust B** in version 2 (C in version 1, when the definition was open). **Limit:** many
   descriptions use words no list holds; intensity words ("dangerous", "serious") are read as
   characteristics wherever they stand.
@@ -453,11 +481,11 @@ tests on invented messages:
 | The source is the speaker only: an opener, a signature, a speaker verb or announcement, initials or an agency phrase that start the text, or the authority's own name or initials; an organization only mentioned is no source | 2.4: the organization that speaks is named |
 | Agency initials count as a speaker, joined to the text by a colon or a dash too ("SCSO: ...", "SCSO-Road ..."); channel, alert and hazard words in capitals do not ("EAS", "WEA", "FLOOD ALERT") | 2.4: an organization's usual initials count |
 | A web address alone never names the source | 2.4: settled |
-| A place counts as the source only when written as the speaker; a place written as the speaker is not also a location | 2.4 and 2.2: the place names who speaks, not where |
+| A place counts as the source only when written as the speaker; a place written as the speaker is not also a location (except in an opener "City of X:", a known miss, 2.2) | 2.4 and 2.2: the place names who speaks, not where |
 | Every organization mentioned is blanked before the other codes are read | 1: an agency's name is not a hazard or a place |
 | Orders and prohibitions as nouns are guidance (evacuation levels, "evacuation immediate", "burn ban", "no swimming", restrictions, detours); a web address after an information cue is guidance; an order that has ended is not | 2.5: any instruction or prohibition in any form, and telling people where to get information |
 | More places where an instruction can start ("or", "then", "but", "for more information") and strong phrases wherever they stand ("find an alternate route", "merge left", "call 911"); "warning" is not a verb | 2.5: an instruction in any form |
-| "Immediate", "at a moment's notice", and "at this time" with an instruction are times to act; "till" and "til" are "until"; "approaching" alone, "thru", a fraction of a mile, a past lifting, a past event, a promised update and "before use" are not times | 2.3: settled, with what already happened left out |
+| "Immediate", "at a moment's notice", and "at this time" with an instruction are times to act; "till" and "til" are "until"; "approaching" alone, "thru", a fraction of a mile, a past lifting, a past event, a promised update without an hour and "before use" are not times (a clock time in a promised update still is, a known miss, 2.3) | 2.3: settled, with what already happened left out |
 | A named county, township, community or burn area counts; generic words ("the county", "local area", "the affected area") do not; road codes in any common form, ramps, and lettered evacuation levels count; a fire's name is not a road | 2.2: a named place at any level, never a generic word |
 | More hazard words (fuel or chemical releases, downed lines and trees, closed numbered roads, service suspensions); "ice" alone is not a hazard | 2.1: the threat or event is named |
 | A description needs a named hazard and is not the hazard's own words; more words for state, size, direction and impact | 3.1: anything said about the hazard beyond its name |
