@@ -66,3 +66,28 @@ as for the rules (codebook, section 4).
 - **After the hand sheet:** if `hazard_description` or the time kinds fall below .80 and matter
   for the first paper, run a local pilot (route A) on the hand sheet's 100 texts; if the pilot
   reaches .80, code the non-withheld units on Kaggle (route B).
+
+## 5. After the rules' version 2
+
+**No model pass is planned.** Version 2 of the rules (codebook, version 2) reaches an alpha of
+.93 or more on every one of the six codes against the first hand sheet. That figure is a
+development figure: version 2 was built by reading that sheet's rows, so it overstates how well
+the rules code new texts. The check is the second hand sheet of 100 new texts, coded blind with
+the settled definitions. A model pass is weighed only for a code that stays under .80 on it, and
+then for that code only, on these terms:
+
+- **Model:** an instruct model with an Apache-2.0 or MIT license, small enough to run on the
+  maintainer's laptop at 4 bits (7 to 9 billion parameters), its name and license recorded on
+  every unit it codes.
+- **Where the texts go:** nowhere. Every text, withheld or not, stays on the laptop; nothing is
+  uploaded.
+- **Time:** version 2 codes 71,408 English units (26,907 at 90 characters, 18,069 at 360, 26,432
+  full texts; the 84,598 unit rows include 13,190 Spanish ones, not coded). At 3 to 5 seconds a
+  unit for one code, that is about 60 to 100 hours of laptop time, so a pass would be weighed on
+  the second sheet's 100 texts first (about 5 to 10 minutes).
+- **Check:** the model's prompt is the settled definition of that one code, fixed before it sees
+  any text. It codes the second sheet's 100 texts, and its alpha against the hand codes is set
+  beside the rules' alpha on the same rows; it is used only at .80 or above. The rules are not
+  changed after the second sheet is scored.
+
+Nothing is downloaded or run until the maintainer decides.
