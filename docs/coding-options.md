@@ -24,8 +24,9 @@ the result.
 
 ## 2. What a pass would cost with no money
 
-The real alerts give 84,555 coded units (31,388 at 90 characters, 22,326 at 360, 30,841 full
-texts); 13,749 of their messages are withheld. A unit's prompt would be the codebook's
+The real alerts give 84,555 unit rows (31,388 at 90 characters, 22,326 at 360, 30,841 full
+texts), of which 71,468 English ones are coded (the rest are Spanish); 13,749 of their messages
+are withheld. A unit's prompt would be the codebook's
 definitions (about 1,200 tokens, the same for every unit) and the text (median under 100
 characters for the phone texts), asking for the codes as JSON (about 80 tokens).
 
