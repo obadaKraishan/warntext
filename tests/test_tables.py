@@ -301,12 +301,14 @@ def test_a_hand_override_sets_the_authority_kind_and_name():
         description="Invented relay text.",
     )
     plain = invented(identifier="EX-R2", sender=COUNTY, sent="2024-05-02T10:00:00-05:00")
+    again = invented(identifier="EX-R3", sender=COUNTY, code="CAE", description="Invented.")
     overrides = {
         707: senders.Override(707, "other", "Example Relay Center", "Invented relay."),
     }
     b = tables.build(
         tables.parse_records(
-            (Line(), r) for r in [record(relay, "q1", cog=707), record(plain, "q2")]
+            (Line(), r)
+            for r in [record(relay, "q1", cog=707), record(plain, "q2"), record(again, "q3", 707)]
         ),
         overrides=overrides,
     )
@@ -315,8 +317,8 @@ def test_a_hand_override_sets_the_authority_kind_and_name():
     assert rows["q1"]["sender_kind_source"] == "override"
     assert rows["q1"]["organization"] == "Example Relay Center"
     assert rows["q2"]["sender_kind"] == "local"
-    assert b.summary["kind_overrides"]["messages"] == 1
-    assert b.summary["kind_overrides"]["rule_kind_to_override_kind"] == {"local->other": 1}
+    assert b.summary["kind_overrides"]["messages"] == 2
+    assert b.summary["kind_overrides"]["rule_kind_to_override_kind"] == {"local->other": 2}
     # a person-shaped name in the override file is refused
     bad = {707: senders.Override(707, "other", "Jane Doe", "Invented.")}
     with pytest.raises(ValueError, match="refused"):

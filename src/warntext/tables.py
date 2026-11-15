@@ -642,13 +642,14 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
         if o is not None:
             touched[(o.cog_id, u.kind, o.kind)] += 1
             u.kind, u.kind_source = o.kind, "override"
+    changes: Counter = Counter()
+    for (_, rule_kind, hand_kind), n in touched.items():
+        changes[f"{rule_kind}->{hand_kind}"] += n
     summary["kind_overrides"] = {
         "authorities_listed": len(overrides),
         "authorities_seen": len({k[0] for k in touched}),
         "messages": sum(touched.values()),
-        "rule_kind_to_override_kind": dict(
-            Counter({f"{a}->{b}": n for (_, a, b), n in touched.items()})
-        ),
+        "rule_kind_to_override_kind": dict(changes),
     }
 
     # Organization names, by authority.
