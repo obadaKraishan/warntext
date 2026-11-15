@@ -215,7 +215,7 @@ def test_staff_details_never_reach_a_table(corpus):
     assert row["contact_dropped"] is True
     assert row["parameters_dropped"] == 1
     assert row["organization"] is None  # a person-shaped name is not released
-    info = [r for r in corpus.tables["alerts"]["infos"] if r["message_id"] == "r10"][0]
+    info = next(r for r in corpus.tables["alerts"]["infos"] if r["message_id"] == "r10")
     assert info["parameter_names"] == ["EAS-ORG"]
     cells = set(every_cell(corpus))
     assert not any(PERSON in c or COUNTY in c or BASE in c for c in cells)
