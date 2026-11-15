@@ -1,0 +1,24 @@
+# DRAFT: nothing has been released yet. The version, date and DOI are filled in at release.
+cff-version: 1.2.0
+message: "If you use WarnText, please cite it as below."
+type: software
+title: "WarnText: a research corpus of the public emergency alert messages sent in the United States"
+abstract: >-
+  WarnText is a corpus of the public emergency alert messages sent in the United States through
+  the Integrated Public Alert and Warning System since June 2012 (Wireless Emergency Alerts,
+  Emergency Alert System messages and others), one row per message with its sender, time,
+  place, channel and full text, and with updates and cancellations linked to the alert they
+  follow.
+authors:
+  - family-names: Kraishan
+    given-names: Obada
+    affiliation: "College of Media and Communication, Texas Tech University"
+license: Apache-2.0
+repository-code: "https://github.com/obadaKraishan/warntext"
+keywords:
+  - emergency alerts
+  - Wireless Emergency Alerts
+  - crisis communication
+  - risk communication
+  - communication research
+  - dataset

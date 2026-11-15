@@ -1,0 +1,12 @@
+WarnText
+Copyright 2026 Obada Kraishan
+
+The WarnText software (everything under src/ and tests/) is licensed under the Apache License,
+Version 2.0 (see LICENSE).
+
+No real alert message text is in this repository; the tests use invented messages.
+docs/sources.md describes where the messages come from and the terms that apply to them.
+
+WarnText is an independent research project. It is not made, endorsed or checked by the Federal
+Emergency Management Agency (FEMA), the Department of Homeland Security or any alerting
+authority.
