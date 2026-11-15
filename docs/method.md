@@ -434,3 +434,42 @@ The first version of the rules, before the changes listed in the codebook (secti
 further off: hazard 55.1 / 70.2, location 61.3 / 79.6, source 17.0 / 35.6, guidance 51.4 / 79.0
 (90 / 360) and other or unknown 30.9%. Every change has a reason in the codebook; none was made
 to reach a number.
+
+## 14. The hand sheet: the rules against a person
+The maintainer coded 100 texts blind to the rules (`warntext sheet`; one per text group; real
+alerts sent as alerts, none withheld, none a test or about a missing person, English; 34 phone
+texts of 90 characters, 33 of 360, 33 full texts; 40 sent before 2020; all eight hazard
+categories). `warntext sheet-check` compares his six codes with the rules':
+
+| code | alpha | agreement | both yes | both no | he yes, rules no | he no, rules yes | status |
+|---|---:|---:|---:|---:|---:|---:|---|
+| hazard | 0.86 | 0.94 | 64 | 30 | 5 | 1 | released |
+| hazard description | 0.52 | 0.80 | 19 | 61 | 18 | 2 | experimental |
+| source | 0.41 | 0.74 | 20 | 54 | 22 | 4 | experimental |
+| guidance | 0.63 | 0.83 | 56 | 27 | 14 | 3 | experimental |
+| time | 0.72 | 0.88 | 25 | 63 | 9 | 3 | experimental |
+| location | 0.73 | 0.90 | 70 | 20 | 6 | 4 | experimental |
+
+Only `hazard` reaches the bar of .80. The rules miss far more than they add: every code's
+differences are mostly texts where the person saw the content and the rules did not. By what
+the differing rows are (unit, period, category; no text is quoted):
+- **Source** (26 rows; 21 in the phone texts): 18 of them hold a short capitalized token and 11
+  a link; the rules seem to miss agencies named only by initials outside their lists, or by a
+  web address. Mostly the rule; partly a definition question (does a site's name name the
+  source?).
+- **Guidance** (17 rows; 15 in the 90-character and full texts, median 87 characters):
+  instructions in forms the verb list and its lead-ins do not reach. The rule.
+- **Time** (12 rows; 9 sent before 2020): times written without a clock time or a cue word the
+  rules know, in older formats. The rule.
+- **Location** (10 rows; 6 in full texts): places the rules miss and generic words they take for
+  places, both ways. The rule.
+- **Hazard description** (20 rows, spread over all units and categories): open vocabulary, as
+  expected for a trust-C code. Rule and definition both.
+
+No rule was changed after the sheet: the sheet is the check, and a rule changed to fit it would
+no longer be checked by it. `complete` needs all five contents, four of which are under the
+bar, so it is experimental too; so are the parts of the codes that failed (`n_actions` and the
+two kinds of guidance, `loc_boundary`, `loc_vague_or_none`). Released: `hazard`, the hazard
+category, links and their kinds, abbreviations, all caps, the evacuation wordings and the two
+flags (`src/warntext/code_status.csv`). The differing rows, by number, are kept for the next
+version of the rules.

@@ -139,9 +139,17 @@ Each row's `retrieved_at` gives the exact time its message was read.
 ## The first release (prepared, not published)
 Version 0.1.0 covers records sent before 2026-11-14T17:00Z: 34,678 real alerts from 1,260
 authorities and 49,186 tests. It holds the record layer of both configurations, the released
-content codes (trust A and B; the experimental C codes are left out) and `text_federal`
-(223 real alerts and the federal tests): 13 Parquet files, 433,842 rows, 28.8 MB. Of the real
-alerts, 13,778 have their text withheld and 12,226 keep only the hour and the county.
+content codes and `text_federal` (223 real alerts and the federal tests): 13 Parquet files,
+433,842 rows, 28.6 MB. Of the real alerts, 13,778 have their text withheld and 12,226 keep only
+the hour and the county.
+- **Codes released** after the hand sheet (100 texts coded blind; method, section 14): `hazard`
+  (alpha 0.86), the hazard category, links and their kinds, abbreviations, all caps, the
+  evacuation wordings and the two flags. Source (0.41), guidance (0.63), time (0.72), location
+  (0.73), hazard description (0.52), completeness and their parts are experimental and left out.
+- **Organization names:** FEMA's for every authority on its list; the senders' own names only
+  where the maintainer read and accepted them (13 names), blank otherwise (3 names, 8 real alerts
+  and 3,698 tests, `organization_source` `sender_name_unreviewed`); the AMBER clearinghouse's
+  older identifiers carry the name FEMA lists for its current one.
 - **Hugging Face** (`obadakr/warntext`): one configuration per table, with the splits `alerts`
   and `tests`; the card's license is `other`, under OpenFEMA's terms.
 - **Kaggle mirror:** the record layer and the codes only, no text.

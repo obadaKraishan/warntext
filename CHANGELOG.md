@@ -93,4 +93,13 @@ All notable changes to this project are recorded here. The format follows
   card) and the Kaggle mirror's folder (record layer and codes only), and a check that runs on
   the pack's own folder.
 - `.zenodo.json` for the GitHub-to-Zenodo route: the code and documents, no data.
+- The hand sheet scored: Krippendorff's alpha per code against .80 (hazard 0.86; source 0.41,
+  guidance 0.63, time 0.72, location 0.73, hazard description 0.52). Each code's release status
+  is kept in `code_status.csv`; the release leaves out every experimental code, and the card's
+  codes section is filled from the file.
+- A sender's own organization name is released only when the maintainer has accepted it
+  (`name_review.csv`, keyed by authority and a hash of the name); otherwise it is blank, with
+  `organization_source` `sender_name_refused` or `sender_name_unreviewed`.
+- `warntext update --rebuild`: both layers again from the state's raw folders, with no request.
+- `docs/sources.md` points to FEMA's contact page instead of spelling out its addresses.
 

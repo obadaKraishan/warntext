@@ -287,17 +287,33 @@ nothing about a person; anything that quotes the text or locates beyond the coun
 | length, same_as_wea90, language, coded, not_coded_reason | yes | a number, yes or no, a language code |
 | the matched words, place names, road names, times, links | **no** | they quote the text or locate beyond the county; the rules never store them |
 
-## 5. How far the rules can be trusted (before the hand sheet)
+## 5. How far the rules can be trusted
 
-`warntext compare-olson` applies Olson et al.'s filters to the corpus and sets the rules'
-shares beside the published ones (method, section 13). After the rule changes in section 6, the
-shares within 5 points of the published ones are: time at 90 and 360 characters, guidance at 90
-and 360, location at 360, boundary locations at 90, completeness at 90, links (against the
-published figure, which is internally inconsistent at 90), five of the eight hazard
-categories, and the county, state and city shares of senders. Further apart: hazard at 90
-(60.5 against 70.3), location at 90 (70.9 against 81.2), source at 360 (42.3 against 52.1),
-the hazard description, the split between the three kinds of time, road and landmark at 90, and
-the other-or-unknown category. The hand sheet decides.
+**The hand sheet** (100 texts coded blind by the maintainer; method, section 14):
+
+| code | alpha | agreement | in the first release |
+|---|---:|---:|---|
+| `hazard` | 0.86 | 0.94 | released |
+| `hazard_description` | 0.52 | 0.80 | experimental |
+| `source_named` | 0.41 | 0.74 | experimental |
+| `guidance` | 0.63 | 0.83 | experimental |
+| `time` | 0.72 | 0.88 | experimental |
+| `location` | 0.73 | 0.90 | experimental |
+
+Only `hazard` reaches .80. `complete`, and the parts of the codes under .80 (`n_actions`,
+`guidance_protective`, `guidance_information`, `loc_boundary`, `loc_vague_or_none`), are
+experimental with them; the trust-C codes stay experimental. Codes the sheet did not measure keep
+their trust level: the hazard category, links and their kinds, abbreviations, all caps, the
+evacuation wordings and the two flags are released. Each code's status is in
+`src/warntext/code_status.csv`, which the release reads. The rules were not changed after the
+sheet; a later version will be checked against a new one.
+
+**Against the published shares** (before the sheet): `warntext compare-olson` applies Olson et
+al.'s filters to the corpus and sets the rules' shares beside the published ones (method,
+section 13). The shares within 5 points of the published ones were time at 90 and 360
+characters, guidance at 90 and 360, location at 360, boundary locations at 90, completeness at 90,
+links, five of the eight hazard categories, and the county, state and city shares of senders.
+The sheet shows that close shares can hide many disagreements on single texts.
 
 ## 6. Changes after the first comparison
 
