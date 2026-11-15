@@ -1,5 +1,6 @@
 """The table builder on invented archive records. No real alert text anywhere."""
 
+import json
 from datetime import datetime, timezone
 
 import pyarrow.parquet as pq
@@ -161,7 +162,8 @@ def test_threads_from_references(corpus):
         "unresolved:weather_service": 1,
     }
     rows = [r for c in corpus.tables.values() for r in c["references"]]
-    assert all("@" not in str(r["ref_identifier"]) for r in rows)
+    assert all("ref_identifier" not in r for r in rows)
+    assert msgs["r03"]["references_resolved"] == 1
     assert {r["ref_weather_service"] for r in rows} == {True, False}
 
 
@@ -210,8 +212,7 @@ def test_an_unreadable_record_keeps_its_row_without_text(corpus):
 
 def test_staff_details_never_reach_a_table(corpus):
     row = by_id(corpus)["r10"]
-    assert row["identifier"] is None
-    assert row["identifier_withheld"] is True
+    assert "identifier" not in row
     assert row["contact_dropped"] is True
     assert row["parameters_dropped"] == 1
     assert row["organization"] is None  # a person-shaped name is not released
@@ -250,6 +251,22 @@ def test_write_produces_parquet_and_a_private_sender_file(corpus, tmp_path):
     assert t.num_rows == counts["alerts/messages"]
     assert (tmp_path / "tables" / "tests" / "text_other.parquet").exists()
     assert COUNTY in (tmp_path / "private" / "sender_values.json").read_text()
+    assert "EX-1" in json.loads((tmp_path / "private" / "identifiers.json").read_text())
+
+
+def test_no_table_holds_a_sender_value_an_account_key_or_a_raw_identifier():
+    for name, schema in tables.SCHEMAS.items():
+        for column in schema.names:
+            assert "sender" not in column or column.startswith("sender_kind"), (name, column)
+            assert "account" not in column, (name, column)
+            assert "identifier" not in column, (name, column)
+
+
+def test_raw_identifiers_appear_in_no_cell(corpus):
+    cells = set(every_cell(corpus))
+    assert "EX-1" in corpus.raw_identifiers
+    assert "NWS-1" in corpus.raw_identifiers  # a referenced message's identifier
+    assert not cells & set(corpus.raw_identifiers)
 
 
 def test_org_name_check_reasons():

@@ -11,9 +11,11 @@ The unit is the message: archive copies (the same CAP sender, identifier and sen
 one row, whose ``message_id`` is the FEMA record id of its first copy; ``record_ids`` lists
 them all. Every row carries the endpoint it came from (``source``) and a FEMA record id.
 
-The raw ``sender`` value never reaches a table: the sender appears as FEMA's identifier for the
-alerting authority (``cog_id``), an organization name and a sender kind. Raw sender values are
-written only to a private file the release check reads.
+The raw ``sender`` value never reaches a table: the sender appears only as the alerting
+authority, keyed by FEMA's identifier (``cog_id``), with its organization name and a sender kind.
+There is no account key. Raw CAP identifiers never reach a table either: rows, references,
+threads and text groups are keyed by FEMA's record ids. Raw sender values and identifiers are
+written only to private files the release check reads.
 """
 
 from __future__ import annotations
@@ -61,8 +63,6 @@ SCHEMAS: dict[str, pa.Schema] = {
             ("source", S),
             ("retrieved_at", S),
             ("config", S),
-            ("identifier", S),
-            ("identifier_withheld", B),
             ("sent", S),
             ("sent_utc", TS),
             ("year", INT),
@@ -181,7 +181,6 @@ SCHEMAS: dict[str, pa.Schema] = {
             ("ref_index", INT),
             ("record_id", S),
             ("source", S),
-            ("ref_identifier", S),
             ("ref_sent", S),
             ("resolved", B),
             ("resolved_by", S),
@@ -287,25 +286,6 @@ def fingerprint(m: Message | None) -> str | None:
 
 
 _EMAIL = patterns.PATTERNS["email"]
-
-
-def identifier_public(identifier: str | None, sender: str | None) -> tuple[str | None, bool]:
-    """The identifier as released, and whether it was withheld.
-
-    An identifier is withheld when it holds an email address, or when the sender's value looks
-    like a named person's address and its local part (four letters or more) is inside the
-    identifier: some sending programs build identifiers from the user's name.
-    """
-    if identifier is None:
-        return None, False
-    if "@" in identifier or _EMAIL.search(identifier):
-        return None, True
-    if sender and sd.address_shape(sender) in sd.PERSON_SHAPES:
-        local = sender.strip().rsplit("@", 1)[0].lower()
-        for piece in [*re.split(r"[._-]", local), local]:
-            if len(piece) >= 4 and piece in identifier.lower():
-                return None, True
-    return identifier, False
 
 
 _ORG_WORDS = re.compile(
@@ -501,6 +481,9 @@ class Build:
     tables: dict[str, dict[str, list[dict]]]
     summary: dict[str, Any]
     raw_senders: list[dict[str, Any]]
+    #: Raw CAP identifiers (of messages and of the messages they reference). They are never
+    #: released: rows are keyed by FEMA's record id. The release check reads them to make sure.
+    raw_identifiers: list[str] = field(default_factory=list)
 
 
 def _primary(m: Message) -> Info | None:
@@ -743,14 +726,12 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
             else:
                 ref_stats[how] += 1
                 resolved_pairs.append((u.message_id, target.message_id))
-            rid, _withheld_id = identifier_public(ref.identifier, ref.sender)
             ref_rows.append(
                 {
                     "message_id": u.message_id,
                     "ref_index": k,
                     "record_id": u.first.record_id,
                     "source": ENDPOINT,
-                    "ref_identifier": rid,
                     "ref_sent": ref.sent,
                     "resolved": target is not None,
                     "resolved_by": how if target is not None else None,
@@ -831,7 +812,6 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
     params_dropped: Counter = Counter()
     params_text: Counter = Counter()
     dropped_message_fields: Counter = Counter()
-    ident_withheld = 0
     for u in units:
         t = tables[u.config]
         m = u.first.message
@@ -919,8 +899,6 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
         states, counties = measures.places(same_geos)
         p = _primary(m) if m else None
         ptexts = info_measure_texts(p) if p else []
-        identifier, id_withheld = identifier_public(u.first.identifier, u.first.sender)
-        ident_withheld += id_withheld
         resolved = resolved_by_message[u.message_id]
         sent_utc = _utc(u.first.sent_utc)
         t["messages"].append(
@@ -932,8 +910,6 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
                 "source": ENDPOINT,
                 "retrieved_at": u.first.retrieved_at,
                 "config": u.config,
-                "identifier": identifier,
-                "identifier_withheld": id_withheld,
                 "sent": u.first.sent or None,
                 "sent_utc": sent_utc,
                 "year": sent_utc.year if sent_utc else None,
@@ -1014,7 +990,17 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
         ),
         **dict(dropped_message_fields),
     }
-    summary["identifiers_withheld"] = ident_withheld
+    raw_identifiers = sorted(
+        {_strip(u.first.identifier) for u in units if _strip(u.first.identifier)}
+        | {
+            _strip(ref.identifier)
+            for u in units
+            if u.first.message
+            for ref in u.first.message.references
+            if _strip(ref.identifier)
+        }
+    )
+    summary["raw_identifiers_kept_private"] = len(raw_identifiers)
     cogs_by_sender: dict[str, set[int]] = defaultdict(set)
     for u in units:
         if u.first.sender:
@@ -1024,7 +1010,13 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
     raw_senders = [
         {"sender": snd, "cog_ids": sorted(cogs)} for snd, cogs in sorted(cogs_by_sender.items())
     ]
-    b = Build(units=units, tables=tables, summary=summary, raw_senders=raw_senders)
+    b = Build(
+        units=units,
+        tables=tables,
+        summary=summary,
+        raw_senders=raw_senders,
+        raw_identifiers=raw_identifiers,
+    )
     from warntext.describe import describe
 
     summary.update(describe(b))
@@ -1032,7 +1024,7 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
 
 
 def write(b: Build, out_dir: Path | str, private_dir: Path | str) -> dict[str, int]:
-    """Write every table as Parquet (one folder per configuration) and the private file.
+    """Write every table as Parquet (one folder per configuration) and the private files.
 
     Returns the number of rows written per ``<config>/<table>``.
     """
@@ -1048,6 +1040,9 @@ def write(b: Build, out_dir: Path | str, private_dir: Path | str) -> dict[str, i
     private_dir.mkdir(parents=True, exist_ok=True)
     (private_dir / "sender_values.json").write_text(
         json.dumps(b.raw_senders, indent=0) + "\n", encoding="utf-8"
+    )
+    (private_dir / "identifiers.json").write_text(
+        json.dumps(b.raw_identifiers, indent=0) + "\n", encoding="utf-8"
     )
     return counts
 

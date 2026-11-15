@@ -199,8 +199,8 @@ def test_sender_values_are_checked_by_their_form(built):
     t, senders = built
     t = copy.deepcopy(t)
     senders = [*senders, "98765", "EXAMPLE1", "Example County"]
-    # a numeric sender value equal to an identifier is not a leak
-    t["alerts"]["messages"][0]["identifier"] = "98765"
+    # a numeric sender value equal to a message's number is not a leak
+    t["alerts"]["messages"][0]["event_codes"] = ["98765"]
     # a station code used as the sender value is allowed in its parameter
     info = t["alerts"]["infos"][0]
     info["parameter_names"] = [*info["parameter_names"], "EAS-STN-ID"]
@@ -209,7 +209,7 @@ def test_sender_values_are_checked_by_their_form(built):
     t["alerts"]["text_other"][0]["area_descriptions"] = ["Example County"]
     assert check.check(t, senders, None) == []
     t["alerts"]["references"].append(
-        {**t["alerts"]["messages"][0], "ref_index": 0, "ref_identifier": "EXAMPLE1"}
+        {**t["alerts"]["messages"][0], "ref_index": 0, "ref_message_id": "EXAMPLE1"}
     )
     out = check.check(t, senders, None)
     assert any("alerts/references: 1 cell(s) hold a raw sender value" in f for f in out)
