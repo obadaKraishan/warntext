@@ -25,6 +25,7 @@ from warntext import rebuild as rb
 from warntext import sample as sm
 from warntext import sheet as sh
 from warntext import tables as tb
+from warntext import update as up
 
 NWS_FILTER = f"sender eq '{sm.NWS_SENDER}'"
 
@@ -339,6 +340,37 @@ def cmd_sheet_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_update(args: argparse.Namespace) -> int:
+    """The weekly update (or, with --init, the state it starts from). Prints counts only."""
+    if args.init:
+        counts, until = read_year_counts(args.counts or [])
+        up.init_state(args.state, args.init, {y: n for y, (n, _) in counts.items()}, until)
+        print(f"State started at {args.state}: raw {args.init}, window end {until}.")
+        return 0
+    c = _client(args)
+    summary = up.run_update(
+        c,
+        args.state,
+        args.raw_root,
+        args.out,
+        args.private,
+        until=args.until,
+        fetch_list=not args.no_list,
+    )
+    failures = summary.pop("failures")
+    out = Path(args.summary)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(summary, indent=1, default=str) + "\n", encoding="utf-8")
+    print(
+        f"Window {summary['window']['start']} to {summary['window']['until']}: "
+        f"{summary['new_records']:,} new records, {summary['new_real_alerts']:,} new real alerts; "
+        f"{summary['calls']} calls; check {summary['check']}. Summary in {out}."
+    )
+    for f in failures:
+        print(f"  FAIL {f}")
+    return 0 if not failures else 1
+
+
 def _client_options(
     p: argparse.ArgumentParser,
     since_required: bool = True,
@@ -460,6 +492,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tables", required=True)
     p.add_argument("--out", help="JSON file for the result (counts and row numbers only)")
     p.set_defaults(func=cmd_sheet_check)
+
+    p = sub.add_parser("update", help="the weekly update: new records, FEMA's list, rebuild, check")
+    p.add_argument("--state", required=True, help="the state file (next to the raw pages)")
+    p.add_argument("--raw-root", default="data/raw", help="the folder that holds the raw folders")
+    p.add_argument("--out", default="data/interim/tables")
+    p.add_argument("--private", default="data/interim/private")
+    p.add_argument("--summary", default="data/interim/update/summary.json")
+    p.add_argument("--until", help="exclusive UTC end (default: the newest hour 25 h old)")
+    p.add_argument("--no-list", action="store_true", help="keep the packaged FEMA list")
+    p.add_argument("--init", nargs="+", help="start the state from these raw folders, no calls")
+    p.add_argument("--counts", nargs="*", help="with --init: backfill-counts files")
+    _client_options(p, since_required=False, max_calls=30, max_bytes=100_000_000)
+    p.set_defaults(func=cmd_update)
 
     p = sub.add_parser("profile", help="aggregate the sample (no text)")
     p.add_argument("--plan", required=True)

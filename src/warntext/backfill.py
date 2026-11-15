@@ -177,12 +177,17 @@ class Cursor:
     finished: bool
 
 
-def cursor(lines: Iterable[PageLine], year: int, until: str) -> Cursor:
-    """The next page of ``year`` after the pages already in the manifest."""
+def cursor(lines: Iterable[PageLine], year: int, until: str, start: str | None = None) -> Cursor:
+    """The next page of ``year`` after the pages already in the manifest.
+
+    ``start`` (an ISO time in UTC) makes the first page begin there instead of at the year's
+    first instant, for a window such as a weekly update's.
+    """
     mine = sorted((x for x in lines if x.year == year), key=lambda x: x.page)
     read = sum(x.records for x in mine)
     if not mine:
-        return Cursor(0, year_bounds(year, until)[0], 0, 0, False)
+        first = year_bounds(year, until)[0]
+        return Cursor(0, max(first, start) if start else first, 0, 0, False)
     last = mine[-1]
     if last.records < last.top:
         return Cursor(last.page + 1, last.last_sent, last.last_seen, read, True)
@@ -237,6 +242,7 @@ def run(
     top: int = PAGE_SIZE,
     small: int = SMALL_PAGE,
     on_page: Any = None,
+    start: str | None = None,
 ) -> list[PageLine]:
     """Read every page not yet in the manifest, year by year. Returns the new manifest lines.
 
@@ -250,7 +256,7 @@ def run(
     new: list[PageLine] = []
     for year in sorted(expected):
         while True:
-            at = cursor(lines, year, until)
+            at = cursor(lines, year, until, start)
             if at.finished or at.read >= expected[year]:
                 break
             try:

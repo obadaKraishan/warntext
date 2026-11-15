@@ -378,3 +378,33 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
     printed = capsys.readouterr().out
     assert "hazard: 4 rows" in printed and "Brush fire" not in printed
     assert json.loads(res.read_text())["rows_in_key"] == 4
+
+
+def test_update_command_starts_the_state_then_runs(tmp_path, monkeypatch, capsys):
+    from test_update import Server, rec
+    from warntext import backfill
+
+    old = [rec(1, "2026-11-10T10:00:00-05:00")]
+    new = [rec(4, "2026-11-15T10:00:00-05:00")]
+    raw = tmp_path / "raw"
+    backfill.run(Server(old), {2026: 1}, "2026-11-14T00:00:00.000Z", raw / "backfill")
+    counts = tmp_path / "counts.json"
+    counts.write_text(
+        json.dumps(
+            {
+                "facts": {"until": "2026-11-14T00:00:00.000Z"},
+                "counts": [{"name": "other:2026", "count": 1}],
+            }
+        )
+    )
+    state = raw / "update-state.json"
+    init = ["update", "--state", str(state), "--init", "backfill", "--counts", str(counts)]
+    assert cli.main(init) == 0
+    monkeypatch.setattr(cli, "_client", lambda args: Server(old + new))
+    args = ["update", "--state", str(state), "--raw-root", str(raw), "--until"]
+    args += ["2026-11-18T00:00:00.000Z", "--out", str(tmp_path / "t"), "--private"]
+    args += [str(tmp_path / "p"), "--summary", str(tmp_path / "s.json")]
+    assert cli.main(args) == 0
+    printed = capsys.readouterr().out
+    assert "1 new records" in printed and "check passed" in printed
+    assert json.loads((tmp_path / "s.json").read_text())["new_real_alerts"] == 1
