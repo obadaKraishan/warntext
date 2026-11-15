@@ -29,6 +29,48 @@ PEOPLE_CODES = {
 #: Codes whose messages may be about people, depending on the case.
 MAYBE_PEOPLE_CODES = {"LAE": "Local Area Emergency", "CEM": "Civil Emergency Message"}
 NWS_CUTOVER = "2023-08-01"
+#: Non-weather SAME codes in FEMA's "Event Code Descriptions for Use with IPAWS" (February
+#: 2021). It says the weather codes "are reserved for the National Weather Service".
+TEST_CODES = frozenset({"RWT", "RMT", "DMO", "NPT", "NMN"})
+ADMIN_CODES = frozenset({"ADR"})
+NON_WEATHER_HAZARD_CODES = frozenset(
+    {
+        "AVA",
+        "AVW",
+        "CDW",
+        "CEM",
+        "EQW",
+        "EVI",
+        "FRW",
+        "HMW",
+        "LAE",
+        "NUW",
+        "RHW",
+        "SPW",
+        "TOE",
+        "VOW",
+        "EAN",
+        "NIC",
+    }
+)
+
+
+def event_group(code: str | None) -> str:
+    """Group a SAME event code: test or demo, about people, administrative, non-weather
+    hazard, weather (every other code), or none."""
+    if not code:
+        return "none"
+    if code in TEST_CODES:
+        return "test_or_demo"
+    if code in PEOPLE_CODES:
+        return "about_people"
+    if code in ADMIN_CODES:
+        return "administrative"
+    if code in NON_WEATHER_HAZARD_CODES:
+        return "non_weather_hazard"
+    return "weather"
+
+
 #: Vendor parameters that may name the sending agency's staff or their addresses.
 STAFF_PARAMETERS = frozenset(
     {"UserName", "Email", "Email To", "SMS", "AssignedAddress", "DA Page Customer ID"}
@@ -371,6 +413,13 @@ def summarize(rows: list[Row]) -> dict[str, Any]:
         ),
         "blocked": weighted(rows, m(lambda x: "+".join(x.channels.blocked) or "none")),
         "event_code_top30": {},
+        "event_group": weighted(rows, m(lambda x: event_group(_same_code(x)))),
+        "event_group_nws": weighted(
+            [r for r in rows if r.kind == "nws"], m(lambda x: event_group(_same_code(x)))
+        ),
+        "event_group_other": weighted(
+            [r for r in rows if r.kind == "other"], m(lambda x: event_group(_same_code(x)))
+        ),
         "text_fields": text_fields(rows),
         "duplicates": duplicates(rows),
         "contacts": contacts(rows),

@@ -131,3 +131,15 @@ def test_contacts_are_shapes_and_shares_only():
 def test_phone_texts_over_their_limit_are_counted():
     t = profile.text_fields(rows())["other"]
     assert t["wea_short"]["over_limit_share"] == 0.0
+
+
+def test_event_groups():
+    assert profile.event_group("RWT") == "test_or_demo"
+    assert profile.event_group("CAE") == "about_people"
+    assert profile.event_group("ADR") == "administrative"
+    assert profile.event_group("CEM") == "non_weather_hazard"
+    assert profile.event_group("TOR") == "weather"
+    assert profile.event_group(None) == "none"
+    out = profile.summarize(rows())
+    assert out["event_group_other"]["sample_count"] == {"non_weather_hazard": 3, "about_people": 1}
+    assert out["event_group_nws"]["sample_count"] == {"weather": 1}
