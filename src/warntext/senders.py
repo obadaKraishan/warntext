@@ -529,3 +529,64 @@ def address_shape(sender: str | None) -> str:
 
 
 PERSON_SHAPES = frozenset({"first_last", "initial_name"})
+
+
+# --- hand overrides, by alerting authority -----------------------------------------------
+
+#: The tracked file of hand overrides: one alerting authority per line, by FEMA's identifier.
+OVERRIDES_FILE = "kind_overrides.csv"
+_OVERRIDE_COLUMNS = ["cog_id", "kind", "organization", "reason"]
+
+
+@dataclass(frozen=True)
+class Override:
+    """A kind (and optionally an organization name) set by hand for one alerting authority.
+
+    Overrides are for organizations only, never a person, and each carries its reason in one
+    line. They are the only exception to "by rule"; the build counts the messages they touch.
+    """
+
+    cog_id: int
+    kind: str
+    organization: str | None
+    reason: str
+
+
+def parse_overrides(text: str, where: str = OVERRIDES_FILE) -> dict[int, Override]:
+    """Read and check the override file's text; raise ``ValueError`` naming the line to fix."""
+    import csv
+    import io
+
+    rows = list(csv.DictReader(io.StringIO(text)))
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, [])
+    if header != _OVERRIDE_COLUMNS:
+        raise ValueError(
+            f"{where}: the header must be {','.join(_OVERRIDE_COLUMNS)}; it is {','.join(header)}."
+        )
+    out: dict[int, Override] = {}
+    for n, row in enumerate(rows, start=2):
+        cog = (row.get("cog_id") or "").strip()
+        kind = (row.get("kind") or "").strip()
+        org = (row.get("organization") or "").strip() or None
+        reason = (row.get("reason") or "").strip()
+        if not cog.isdigit():
+            raise ValueError(f"{where}, line {n}: cog_id must be FEMA's numeric identifier.")
+        if kind not in KINDS:
+            raise ValueError(f"{where}, line {n}: kind must be one of {', '.join(KINDS)}.")
+        if not reason or "\n" in reason:
+            raise ValueError(f"{where}, line {n}: give the reason in one line.")
+        if org is not None and address_shape(org) != "not_address":
+            raise ValueError(f"{where}, line {n}: the organization name must not be an address.")
+        if int(cog) in out:
+            raise ValueError(f"{where}, line {n}: cog_id {cog} is listed twice.")
+        out[int(cog)] = Override(int(cog), kind, org, reason)
+    return out
+
+
+def load_overrides() -> dict[int, Override]:
+    """The overrides shipped with the package (``src/warntext/kind_overrides.csv``)."""
+    from importlib import resources
+
+    text = resources.files("warntext").joinpath(OVERRIDES_FILE).read_text(encoding="utf-8")
+    return parse_overrides(text)

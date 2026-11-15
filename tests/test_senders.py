@@ -169,3 +169,39 @@ def test_an_authority_no_name_places_takes_its_footprint():
     assert sd.footprint(1, False) == "one_county"
     assert sd.footprint(4, False) == "several"
     assert sd.footprint(0, True) == "whole_state"
+
+
+# --- hand overrides ----------------------------------------------------------------------
+
+OVERRIDES_HEADER = "cog_id,kind,organization,reason\n"
+
+
+def test_the_shipped_override_file_reads_and_names_organizations_only():
+    overrides = sd.load_overrides()
+    assert overrides, "the tracked override file is empty"
+    for o in overrides.values():
+        assert o.kind in sd.KINDS
+        assert o.reason and "\n" not in o.reason
+        assert "@" not in o.reason
+
+
+def test_overrides_parse_and_refuse_bad_lines():
+    ok = sd.parse_overrides(OVERRIDES_HEADER + "900001,other,Example Relay Center,Invented.\n")
+    assert ok[900001] == sd.Override(900001, "other", "Example Relay Center", "Invented.")
+    assert (
+        sd.parse_overrides(OVERRIDES_HEADER + "900002,state,,Invented.\n")[900002].organization
+        is None
+    )
+    bad = {
+        "abc,other,,Invented.": "numeric identifier",
+        "900003,county,,Invented.": "kind must be one of",
+        "900004,other,,": "reason in one line",
+        "900005,other,someone@example.org,Invented.": "must not be an address",
+    }
+    for line, message in bad.items():
+        with pytest.raises(ValueError, match=message):
+            sd.parse_overrides(OVERRIDES_HEADER + line + "\n")
+    with pytest.raises(ValueError, match="listed twice"):
+        sd.parse_overrides(OVERRIDES_HEADER + "900006,other,,A.\n900006,local,,B.\n")
+    with pytest.raises(ValueError, match="the header must be"):
+        sd.parse_overrides("cog,kind\n1,other\n")

@@ -271,3 +271,36 @@ def test_thread_shapes():
     assert tables.thread_shape(Counter({"Alert": 2})) == "alerts_only"
     assert tables.thread_shape(Counter({"Alert": 1, "Cancel": 1})) == "alert_and_cancel"
     assert tables.thread_shape(Counter({"Alert": 1, "Update": 2})) == "alert_and_updates"
+
+
+def test_a_hand_override_sets_the_authority_kind_and_name():
+    from warntext import senders
+
+    relay = invented(
+        identifier="EX-R1",
+        sender=COUNTY,
+        code="CAE",
+        sender_name="Sampleton Police Department",
+        description="Invented relay text.",
+    )
+    plain = invented(identifier="EX-R2", sender=COUNTY, sent="2024-05-02T10:00:00-05:00")
+    overrides = {
+        707: senders.Override(707, "other", "Example Relay Center", "Invented relay."),
+    }
+    b = tables.build(
+        tables.parse_records(
+            (Line(), r) for r in [record(relay, "q1", cog=707), record(plain, "q2")]
+        ),
+        overrides=overrides,
+    )
+    rows = {r["message_id"]: r for c in b.tables.values() for r in c["messages"]}
+    assert rows["q1"]["sender_kind"] == "other"
+    assert rows["q1"]["sender_kind_source"] == "override"
+    assert rows["q1"]["organization"] == "Example Relay Center"
+    assert rows["q2"]["sender_kind"] == "local"
+    assert b.summary["kind_overrides"]["messages"] == 1
+    assert b.summary["kind_overrides"]["rule_kind_to_override_kind"] == {"local->other": 1}
+    # a person-shaped name in the override file is refused
+    bad = {707: senders.Override(707, "other", "Jane Doe", "Invented.")}
+    with pytest.raises(ValueError, match="refused"):
+        tables.build(tables.parse_records((Line(), r) for r in [record(relay, "q1", cog=707)]), bad)

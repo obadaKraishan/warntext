@@ -548,8 +548,13 @@ def text_table_for(kind: str) -> str:
     return "text_federal" if kind == "federal" else "text_other"
 
 
-def build(parsed: list[Parsed]) -> Build:
-    """Apply every rule to the parsed records and return the rows of every table."""
+def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = None) -> Build:
+    """Apply every rule to the parsed records and return the rows of every table.
+
+    ``overrides`` are the hand overrides by alerting authority (by default the tracked file
+    shipped with the package, :func:`warntext.senders.load_overrides`).
+    """
+    overrides = sd.load_overrides() if overrides is None else overrides
     summary: dict[str, Any] = {"records": len(parsed)}
 
     # Parse errors and the cross-check, per record.
@@ -615,6 +620,21 @@ def build(parsed: list[Parsed]) -> Build:
         a = authorities[u.message_id]
         u.kind, u.kind_source = a.kind, a.source
         u.by_name, u.by_domain = ev[u.message_id].by_name, ev[u.message_id].by_domain
+    # Hand overrides, by authority: the only exception to "by rule".
+    touched: Counter = Counter()
+    for u in units:
+        o = overrides.get(u.first.cog_id) if u.first.cog_id is not None else None
+        if o is not None:
+            touched[(o.cog_id, u.kind, o.kind)] += 1
+            u.kind, u.kind_source = o.kind, "override"
+    summary["kind_overrides"] = {
+        "authorities_listed": len(overrides),
+        "authorities_seen": len({k[0] for k in touched}),
+        "messages": sum(touched.values()),
+        "rule_kind_to_override_kind": dict(
+            Counter({f"{a}->{b}": n for (_, a, b), n in touched.items()})
+        ),
+    }
 
     # Organization names, by authority.
     raw_sender_set = {u.first.sender.casefold() for u in units if u.first.sender}
@@ -639,6 +659,15 @@ def build(parsed: list[Parsed]) -> Build:
     for u in units:
         gkey = f"cog:{u.first.cog_id}" if u.first.cog_id is not None else f"msg:{u.message_id}"
         u.organization = chosen.get(gkey)
+        o = overrides.get(u.first.cog_id) if u.first.cog_id is not None else None
+        if o is not None and o.organization:
+            reason = org_name_check(o.organization, raw_sender_set)
+            if reason is not None:
+                raise ValueError(
+                    f"{sd.OVERRIDES_FILE}: the organization name for cog_id {o.cog_id} is "
+                    f"refused ({reason}); give the organization's official name."
+                )
+            u.organization = o.organization
     summary["organization_names"] = {
         "authorities": len({k for k in names_by_group if k.startswith("cog:")}),
         "authorities_with_a_name": sum(1 for k, v in chosen.items() if k.startswith("cog:") and v),
