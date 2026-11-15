@@ -238,11 +238,21 @@ def cmd_text(args: argparse.Namespace) -> int:
     return 0
 
 
-def _client_options(p: argparse.ArgumentParser) -> None:
+def _client_options(
+    p: argparse.ArgumentParser,
+    since_required: bool = True,
+    max_calls: int = cl.DEFAULT_MAX_CALLS,
+    max_bytes: int = cl.DEFAULT_MAX_BYTES,
+) -> None:
     p.add_argument("--log", default="data/usage_log.csv", help="request log (CSV)")
-    p.add_argument("--since", required=True, help="UTC start of the session, for the caps")
-    p.add_argument("--max-calls", type=int, default=cl.DEFAULT_MAX_CALLS)
-    p.add_argument("--max-bytes", type=int, default=cl.DEFAULT_MAX_BYTES)
+    p.add_argument(
+        "--since",
+        required=since_required,
+        default=None if since_required else cl.now_utc(),
+        help="UTC start of the session, for the caps" + ("" if since_required else " (now)"),
+    )
+    p.add_argument("--max-calls", type=int, default=max_calls)
+    p.add_argument("--max-bytes", type=int, default=max_bytes)
     p.add_argument("--min-interval", type=float, default=3.5, help="seconds between requests")
     p.add_argument("--retries", type=int, default=2)
 
@@ -320,7 +330,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ids", help="only these message ids, comma-separated")
     p.add_argument("--limit", type=int, help="at most this many messages")
     p.add_argument("--batch", type=int, default=rb.BATCH, help="record ids per request")
-    _client_options(p)
+    # A full rebuild of the real alerts is about 1,800 requests of 20 ids.
+    _client_options(p, since_required=False, max_calls=5000, max_bytes=5_000_000_000)
     p.set_defaults(func=cmd_text)
 
     p = sub.add_parser("profile", help="aggregate the sample (no text)")

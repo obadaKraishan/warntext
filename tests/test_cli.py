@@ -265,9 +265,17 @@ def test_build_and_text_commands_end_to_end(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(cli, "_client", lambda a: fake)
     capsys.readouterr()
     rebuilt = tmp_path / "rebuilt"
-    args = ["text", "--records", str(out / "alerts"), "--out", str(rebuilt), "--since", "x"]
+    args = ["text", "--records", str(out / "alerts"), "--out", str(rebuilt)]
     assert cli.main([*args, "--limit", "5", "--ids", "r01"]) == 0
     assert "'rebuilt': 1" in capsys.readouterr().out
     assert (rebuilt / "text_other.parquet").exists()
     fake.budget = cl.Budget(max_calls=0)
     assert cli.main(args) == 2
+
+
+def test_text_needs_no_session_start_and_allows_a_full_rebuild():
+    args = cli.build_parser().parse_args(["text", "--records", "r", "--out", "o"])
+    assert args.since.endswith("Z")
+    assert args.max_calls == 5000
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(["backfill", "--counts", "c", "--raw", "r"])
