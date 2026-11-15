@@ -378,13 +378,16 @@ def people(rows: list[Row]) -> dict[str, Any]:
             "share_of_archive": round(w / total_w, 5) if total_w else None,
             "share_of_non_nws": round(w / other_w, 4) if other_w else None,
         }
-    for label, codes in (("people_codes", set(PEOPLE_CODES)), ("all_non_nws", None)):
-        sel = [
-            r
-            for r in part
-            if (codes is None and r.kind == "other")
-            or (codes is not None and _same_code(r.message) in codes)
-        ]
+    selections = {
+        "people_codes": lambda r: _same_code(r.message) in PEOPLE_CODES,
+        "all_non_nws": lambda r: r.kind == "other",
+        "non_nws_other_codes": lambda r: (
+            r.kind == "other"
+            and event_group(_same_code(r.message)) not in ("about_people", "test_or_demo")
+        ),
+    }
+    for label, keep in selections.items():
+        sel = [r for r in part if keep(r)]
         any_w: Counter = Counter()
         occurrences: Counter = Counter()
         for r in sel:

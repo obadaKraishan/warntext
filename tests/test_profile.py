@@ -96,6 +96,7 @@ def test_people_codes_and_patterns_are_counts_only():
         "last_seen": 1.0,
     }
     assert "ABC1234" not in repr(p)
+    assert p["patterns"]["non_nws_other_codes"]["sample_messages"] == 3
 
 
 def test_structure_names_parameters_and_shapes():
