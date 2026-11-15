@@ -321,3 +321,46 @@ def test_a_hand_override_sets_the_authority_kind_and_name():
     bad = {707: senders.Override(707, "other", "Jane Doe", "Invented.")}
     with pytest.raises(ValueError, match="refused"):
         tables.build(tables.parse_records((Line(), r) for r in [record(relay, "q1", cog=707)]), bad)
+
+
+def test_people_code_rows_keep_only_the_hour_and_the_exact_time_stays_private(tmp_path):
+    child = invented(
+        identifier="EX-P1",
+        sender=COUNTY,
+        code="CAE",
+        sent="2024-05-01T10:47:12-05:00",
+        description="Invented child alert, no details.",
+    )
+    cancel = invented(
+        identifier="EX-P2",
+        sender=COUNTY,
+        code="CAE",
+        msg_type="Cancel",
+        sent="2024-05-01T12:31:05-05:00",
+        description="Invented cancel.",
+        references=f"{COUNTY},EX-P1,2024-05-01T10:47:12-05:00",
+    )
+    hazard = invented(identifier="EX-H1", sender=COUNTY, sent="2024-05-01T10:47:12-05:00")
+    b = run([record(child, "p1"), record(cancel, "p2"), record(hazard, "h1")])
+    rows = by_id(b)
+    assert rows["p1"]["sent"] == "2024-05-01T10:00:00-05:00"
+    assert rows["p1"]["sent_utc"] == datetime(2024, 5, 1, 15, tzinfo=timezone.utc)
+    assert rows["p1"]["times_rounded"] is True
+    assert rows["p1"]["counties"] == ["48201"]  # the county stays
+    assert rows["h1"]["sent"] == "2024-05-01T10:47:12-05:00"  # other rows keep the exact time
+    assert rows["h1"]["times_rounded"] is False
+    ref = next(r for c in b.tables.values() for r in c["references"] if r["message_id"] == "p2")
+    assert ref["ref_sent"] == "2024-05-01T10:00:00-05:00"
+    assert ref["ref_message_id"] == "p1"
+    thread = by_id_threads(b)["p1"]
+    assert thread["times_rounded"] is True
+    assert thread["last_sent_utc"] == datetime(2024, 5, 1, 17, tzinfo=timezone.utc)
+    exact = {(x["message_id"], x["table"], x["field"]): x["value"] for x in b.people_times}
+    assert exact[("p1", "messages", "sent")] == "2024-05-01T10:47:12-05:00"
+    assert exact[("p2", "references", "ref_sent")] == "2024-05-01T10:47:12-05:00"
+    assert not any(x["message_id"] == "h1" for x in b.people_times)
+    tables.write(b, tmp_path / "t", tmp_path / "private")
+    private = pq.read_table(tmp_path / "private" / "people_times.parquet").to_pylist()
+    assert len(private) == len(b.people_times)
+    released = pq.read_table(tmp_path / "t" / "alerts" / "messages.parquet").to_pylist()
+    assert "2024-05-01T10:47:12-05:00" not in {r["sent"] for r in released if r["times_rounded"]}

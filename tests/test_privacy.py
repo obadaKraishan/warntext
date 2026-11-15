@@ -95,3 +95,25 @@ def test_message_texts_cover_the_dropped_fields():
     texts = privacy.message_texts(m)
     assert "Invented contact" in texts
     assert "Invented note" in texts
+
+
+def test_people_times_round_down_to_the_hour():
+    from datetime import datetime, timezone
+
+    assert privacy.hour_floor("2024-05-01T10:47:12-05:00") == "2024-05-01T10:00:00-05:00"
+    assert privacy.hour_floor("2024-05-01T23:59:59.999Z") == "2024-05-01T23:00:00Z"
+    assert privacy.hour_floor("2024-05-01T10:00:00") == "2024-05-01T10:00:00"
+    assert privacy.hour_floor("not a time") is None
+    assert privacy.hour_floor(None) is None
+    t = datetime(2024, 5, 1, 15, 47, 12, 500, tzinfo=timezone.utc)
+    assert privacy.hour_floor_utc(t) == datetime(2024, 5, 1, 15, tzinfo=timezone.utc)
+    assert privacy.hour_floor_utc(None) is None
+    assert privacy.finer_than_hour("2024-05-01T10:47:00-05:00")
+    assert privacy.finer_than_hour("2024-05-01T10:00:01Z")
+    assert privacy.finer_than_hour("2024-05-01T10:00:00.250Z")
+    assert not privacy.finer_than_hour("2024-05-01T10:00:00.000Z")
+    assert not privacy.finer_than_hour("2024-05-01T10:00:00-05:00")
+    assert privacy.finer_than_hour("tomorrow")
+    assert privacy.finer_than_hour(t)
+    assert not privacy.finer_than_hour(privacy.hour_floor_utc(t))
+    assert not privacy.finer_than_hour(None)

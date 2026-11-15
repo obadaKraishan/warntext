@@ -66,6 +66,7 @@ SCHEMAS: dict[str, pa.Schema] = {
             ("sent", S),
             ("sent_utc", TS),
             ("year", INT),
+            ("times_rounded", B),
             ("status", S),
             ("msg_type", S),
             ("scope", S),
@@ -142,6 +143,7 @@ SCHEMAS: dict[str, pa.Schema] = {
             ("effective", S),
             ("onset", S),
             ("expires", S),
+            ("times_rounded", B),
             ("parameter_names", LS),
             ("parameter_values", LS),
             ("n_resources", INT),
@@ -182,6 +184,7 @@ SCHEMAS: dict[str, pa.Schema] = {
             ("record_id", S),
             ("source", S),
             ("ref_sent", S),
+            ("times_rounded", B),
             ("resolved", B),
             ("resolved_by", S),
             ("ref_message_id", S),
@@ -197,6 +200,7 @@ SCHEMAS: dict[str, pa.Schema] = {
             ("source", S),
             ("first_sent_utc", TS),
             ("last_sent_utc", TS),
+            ("times_rounded", B),
             ("n_messages", INT),
             ("n_alerts", INT),
             ("n_updates", INT),
@@ -235,6 +239,10 @@ _TEXT_SCHEMA = pa.schema(
 )
 SCHEMAS["text_federal"] = _TEXT_SCHEMA
 SCHEMAS["text_other"] = _TEXT_SCHEMA
+#: The private table of the exact times of messages with a people code (never released).
+PEOPLE_TIMES_SCHEMA = pa.schema(
+    [("message_id", S), ("table", S), ("index", INT), ("field", S), ("value", S)]
+)
 
 
 # --- small helpers -----------------------------------------------------------------------
@@ -484,6 +492,9 @@ class Build:
     #: Raw CAP identifiers (of messages and of the messages they reference). They are never
     #: released: rows are keyed by FEMA's record id. The release check reads them to make sure.
     raw_identifiers: list[str] = field(default_factory=list)
+    #: The exact times that the record layer rounds down to the hour for messages with a people
+    #: code. Private: written next to the raw sender values, never released.
+    people_times: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _primary(m: Message) -> Info | None:
@@ -525,6 +536,27 @@ def text_row(u: Unit, i: Info, index: int) -> dict[str, Any]:
         "resource_descriptions": [r.description or "" for r in i.resources],
         "resource_uris": [r.uri or "" for r in i.resources],
     }
+
+
+def _people(u: Unit) -> bool:
+    """Whether a message's times are rounded to the hour: it carries a people code."""
+    return u.withheld == "people_code"
+
+
+def _exact(message_id: str, table: str, index: int | None, name: str, value: str) -> dict:
+    return {"message_id": message_id, "table": table, "index": index, "field": name, "value": value}
+
+
+def _info_times(u: Unit, k: int, i: Info, people_times: list[dict]) -> dict[str, Any]:
+    """A language block's times, rounded to the hour (exact values kept privately) for people."""
+    out: dict[str, Any] = {"times_rounded": _people(u)}
+    for name in ("effective", "onset", "expires"):
+        value = getattr(i, name)
+        if _people(u) and value:
+            people_times.append(_exact(u.message_id, "infos", k, name, value))
+            value = privacy.hour_floor(value)
+        out[name] = value
+    return out
 
 
 def text_table_for(kind: str) -> str:
@@ -700,6 +732,7 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
             by_utc[(_strip(u.first.sender), _strip(u.first.identifier), t.timestamp())] = u
         by_ident[(_strip(u.first.sender), _strip(u.first.identifier))].append(u)
     ref_rows: list[dict] = []
+    people_times: list[dict[str, Any]] = []
     resolved_pairs: list[tuple[str, str]] = []
     ref_stats: Counter = Counter()
     by_id = {u.message_id: u for u in units}
@@ -726,13 +759,17 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
             else:
                 ref_stats[how] += 1
                 resolved_pairs.append((u.message_id, target.message_id))
+            ref_people = _people(u) or (target is not None and _people(target))
+            if ref_people and ref.sent:
+                people_times.append(_exact(u.message_id, "references", k, "ref_sent", ref.sent))
             ref_rows.append(
                 {
                     "message_id": u.message_id,
                     "ref_index": k,
                     "record_id": u.first.record_id,
                     "source": ENDPOINT,
-                    "ref_sent": ref.sent,
+                    "ref_sent": privacy.hour_floor(ref.sent) if ref_people else ref.sent,
+                    "times_rounded": ref_people,
                     "resolved": target is not None,
                     "resolved_by": how if target is not None else None,
                     "ref_message_id": target.message_id if target else None,
@@ -773,12 +810,17 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
         configs = {u.config for u in group}
         if group[0].config == "alerts":
             shapes_alerts[shape] += 1
+        first_t, last_t = _utc(group[0].first.sent_utc), _utc(group[-1].first.sent_utc)
+        thread_people = any(_people(x) for x in group)
+        if thread_people:
+            first_t, last_t = privacy.hour_floor_utc(first_t), privacy.hour_floor_utc(last_t)
         row = {
             "thread_id": tid,
             "record_id": group[0].first.record_id,
             "source": ENDPOINT,
-            "first_sent_utc": _utc(group[0].first.sent_utc),
-            "last_sent_utc": _utc(group[-1].first.sent_utc),
+            "first_sent_utc": first_t,
+            "last_sent_utc": last_t,
+            "times_rounded": thread_people,
             "n_messages": len(group),
             "n_alerts": types["Alert"],
             "n_updates": types["Update"],
@@ -853,9 +895,7 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
                 "certainty": i.certainty,
                 "event_code_names": [p.name for p in i.event_codes],
                 "event_code_values": [p.value for p in i.event_codes],
-                "effective": i.effective,
-                "onset": i.onset,
-                "expires": i.expires,
+                **_info_times(u, k, i, people_times),
                 "parameter_names": [p.name for p in kept],
                 "parameter_values": [p.value for p in kept],
                 "n_resources": len(i.resources),
@@ -901,6 +941,18 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
         ptexts = info_measure_texts(p) if p else []
         resolved = resolved_by_message[u.message_id]
         sent_utc = _utc(u.first.sent_utc)
+        sent = u.first.sent or None
+        rounded = _people(u)
+        if rounded:
+            if sent:
+                people_times.append(_exact(u.message_id, "messages", None, "sent", sent))
+            if sent_utc is not None:
+                people_times.append(
+                    _exact(u.message_id, "messages", None, "sent_utc", u.first.sent_utc)
+                )
+            sent, sent_utc_out = privacy.hour_floor(sent), privacy.hour_floor_utc(sent_utc)
+        else:
+            sent_utc_out = sent_utc
         t["messages"].append(
             {
                 "message_id": u.message_id,
@@ -910,9 +962,10 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
                 "source": ENDPOINT,
                 "retrieved_at": u.first.retrieved_at,
                 "config": u.config,
-                "sent": u.first.sent or None,
-                "sent_utc": sent_utc,
+                "sent": sent,
+                "sent_utc": sent_utc_out,
                 "year": sent_utc.year if sent_utc else None,
+                "times_rounded": rounded,
                 "status": u.first.status,
                 "msg_type": u.first.msg_type,
                 "scope": u.first.scope,
@@ -1010,12 +1063,18 @@ def build(parsed: list[Parsed], overrides: Mapping[int, sd.Override] | None = No
     raw_senders = [
         {"sender": snd, "cog_ids": sorted(cogs)} for snd, cogs in sorted(cogs_by_sender.items())
     ]
+    summary["people_times"] = {
+        "messages_rounded": sum(1 for u in units if _people(u)),
+        "exact_values_kept_private": len(people_times),
+        "by_field": dict(Counter(f"{x['table']}.{x['field']}" for x in people_times)),
+    }
     b = Build(
         units=units,
         tables=tables,
         summary=summary,
         raw_senders=raw_senders,
         raw_identifiers=raw_identifiers,
+        people_times=people_times,
     )
     from warntext.describe import describe
 
@@ -1043,6 +1102,11 @@ def write(b: Build, out_dir: Path | str, private_dir: Path | str) -> dict[str, i
     )
     (private_dir / "identifiers.json").write_text(
         json.dumps(b.raw_identifiers, indent=0) + "\n", encoding="utf-8"
+    )
+    pq.write_table(
+        pa.Table.from_pylist(b.people_times, schema=PEOPLE_TIMES_SCHEMA),
+        private_dir / "people_times.parquet",
+        compression="zstd",
     )
     return counts
 

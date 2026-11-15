@@ -15,6 +15,11 @@
    parameters such as ``UserName``, ``Email`` or ``AssignedAddress`` are never kept.
 4. **``contact`` is dropped everywhere**, as are the message-level ``note``, ``source`` and
    ``addresses`` fields, which some senders fill with an operator's name or address.
+5. **Messages with a people code carry no time finer than the hour.** In the record layer their
+   sent, effective, onset and expiry times (and the times of references and threads that touch
+   them) are rounded down to the hour; the county stays. The exact times stay in a private
+   local table. The date and the county already point to an event; the minute adds little to
+   that, and the hour of day is kept as a research variable.
 
 The functions here return names and reasons, never the matched text.
 """
@@ -23,6 +28,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from datetime import datetime
 
 from warntext import patterns
 from warntext.schema import Info, Message, Pair
@@ -157,3 +163,39 @@ def withheld(m: Message) -> tuple[str | None, list[str]]:
     if hits:
         return "personal_pattern", hits
     return None, hits
+
+
+# --- times of messages about people ------------------------------------------------------
+
+_CAP_TIME = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$")
+
+
+def hour_floor(value: str | None) -> str | None:
+    """A CAP time rounded down to the hour, in its own offset; None when it is not a time.
+
+    ``2024-05-01T10:47:12-05:00`` becomes ``2024-05-01T10:00:00-05:00``. A value that does not
+    read as a time is dropped rather than released as it is.
+    """
+    if value is None:
+        return None
+    m = _CAP_TIME.match(value.strip())
+    if not m:
+        return None
+    return f"{m.group(1)}:00:00{m.group(5) or ''}"
+
+
+def hour_floor_utc(t: datetime | None) -> datetime | None:
+    return None if t is None else t.replace(minute=0, second=0, microsecond=0)
+
+
+def finer_than_hour(value: str | datetime | None) -> bool:
+    """Whether a released time says more than its hour (a text that is not a time does too)."""
+    if value is None:
+        return False
+    if isinstance(value, datetime):
+        return bool(value.minute or value.second or value.microsecond)
+    m = _CAP_TIME.match(str(value).strip())
+    if not m:
+        return True
+    fraction = (m.group(4) or ".0").strip(".0")
+    return m.group(2) != "00" or m.group(3) != "00" or bool(fraction)
