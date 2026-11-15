@@ -277,7 +277,7 @@ def test_every_invented_example_is_coded_by_version_2_as_the_guide_says():
 def test_the_two_known_misses_of_version_2_stay_as_frozen():
     # The settled definitions say a place written only as the speaker is not a location, and a
     # promised update is not time, with or without its hour. Version 2 is frozen with two
-    # narrow misses of them (codebook 2.6 and 2.3); a later version would fix them and flip
+    # narrow misses of them (codebook 2.2 and 2.3); a later version would fix them and flip
     # these asserts.
     assert cd.code_text("City of Sampleton: boil water before use.")["location"]
     assert cd.code_text("Water main break on Oak Road. Next update at 5 PM.")["time"]
