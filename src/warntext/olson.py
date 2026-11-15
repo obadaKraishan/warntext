@@ -132,8 +132,13 @@ def compare(
     m = [r for r in m if r["sent_utc"] is not None and START <= r["sent_utc"] < END]
     steps.append(("sent June 2012 to April 2022", len(m)))
     steps.append(("  their corpus", PUBLISHED["corpus"]))
-    m = [r for r in m if r["config"] == "alerts"]
-    steps.append(("no tests or demos", len(m)))
+
+    def about_test(r: dict) -> bool:
+        u = units.get(r["message_id"], {})
+        return any(x.get("about_test") for x in u.values())
+
+    m = [r for r in m if r["config"] == "alerts" and not about_test(r)]
+    steps.append(("no tests or demos (by code, or a test's words)", len(m)))
     drop = MISSING_CODES if people == "missing" else PEOPLE_CODES
 
     def about_missing(r: dict) -> bool:

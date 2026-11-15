@@ -34,6 +34,7 @@ def unit(mid, name, coded=True, same=None, **codes):
         "coded": coded,
         "same_as_wea90": same,
         "about_missing_person": False,
+        "about_test": False,
         "hazard_category": "wildfire",
         "n_actions": 1,
         "guidance": True,
@@ -68,7 +69,7 @@ def test_the_filters_in_order_and_identical_texts_once():
     steps = dict(r["steps"])
     assert steps["phone alerts (a 90- or 360-character text)"] == 8
     assert steps["sent June 2012 to April 2022"] == 7
-    assert steps["no tests or demos"] == 6
+    assert steps["no tests or demos (by code, or a test's words)"] == 6
     assert steps["no missing-person or AMBER alerts"] == 5  # LEW stays, as in the article
     assert steps["alerts only (no updates or cancels)"] == 4
     assert steps["  identical 90 and 360 texts counted once (as 90)"] == 1

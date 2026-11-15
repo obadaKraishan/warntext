@@ -303,3 +303,26 @@ def test_a_unit_without_hazard_words_takes_its_message_s_category():
 def test_road_closures_and_burn_bans_name_their_event():
     assert code("Oak Road is closed. Use another route.")["hazard_category"] == "public_safety"
     assert code("Burn ban in effect for Sampleton County.")["hazard_category"] == "wildfire"
+
+
+def test_an_opener_keeps_its_hazard_words_and_a_jurisdiction_opener_is_a_place():
+    c = code("Sampleton County Flood Warning: move to higher ground now.")
+    assert c["source_named"] and c["hazard_category"] == "atmospheric" and c["loc_boundary"]
+    c = code("Sampleton County OEM: move to higher ground now.")
+    assert c["source_named"] and not c["loc_boundary"]  # an agency's name is not a place
+
+
+def test_tests_sent_under_a_real_code_are_flagged():
+    assert code("This is a test of the invented alert system. No action required.")["about_test"]
+    assert not code("Test your smoke alarms.")["about_test"]
+
+
+def test_category_cues_and_named_places_in_all_caps():
+    c = code("Police are searching the area near Oak Road.")
+    assert (c["hazard"], c["hazard_category"], c["hazard_category_source"]) == (
+        False,
+        "law_enforcement",
+        "cue_words",
+    )
+    assert code("BOIL WATER NOTICE FOR RESIDENTS OF EXAMPLEVILLE.")["loc_boundary"]
+    assert not code("STAY INSIDE FOR SAFETY.")["loc_boundary"]

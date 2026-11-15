@@ -193,11 +193,11 @@ def find_source(text: str, ctx: Context) -> list[tuple[int, int]]:
         if not m:
             continue
         if _names_an_organization(m.group(1), opener=True):
-            spans.append(m.span(1))
+            spans.append(_organization_part(m.group(1), m.start(1)))
     for rx in (_SPEAKER, _SPEAKER_VERB):
         for m in rx.finditer(text):
             if _names_an_organization(m.group(1)):
-                spans.append(m.span(1))
+                spans.append(_organization_part(m.group(1), m.start(1)))
     for m in _PLACE_AGENCY.finditer(text):
         if not _NOT_A_PLACE.match(m.group(1).split()[0]):
             spans.append(m.span())
@@ -243,6 +243,38 @@ def _names_an_organization(name: str, opener: bool = False) -> bool:
     if not _JURISDICTION.search(name) or _STATE_OF.search(name):
         return False
     return opener or not _ALERT_WORDS.search(name)
+
+
+def jurisdiction_opener(text: str) -> bool:
+    """Whether the text opens with a jurisdiction's name and no agency ("Sampleton County: ...").
+
+    Such an opener names both the sender and the area, so it counts as a source and as a
+    boundary location; an agency's name ("Sampleton County OEM:") counts only as a source.
+    """
+    m = _OPENER.search(text)
+    if not m or not _JURISDICTION.search(m.group(1)) or _STATE_OF.search(m.group(1)):
+        return False
+    head = m.group(1)
+    return not (
+        _AGENCY.search(head)
+        or _ACRONYM_KNOWN.search(head)
+        or _ACRONYM_ENDING.search(head)
+        or _ACRONYM_BARE.search(head)
+    )
+
+
+def _organization_part(name: str, start: int) -> tuple[int, int]:
+    """The span of a name up to its last agency, acronym or jurisdiction word.
+
+    "Sampleton County Flood Warning" gives "Sampleton County": the hazard and alert words after
+    the organization stay in the text for the other codes.
+    """
+    ends = [
+        m.end()
+        for rx in (_AGENCY, _ACRONYM_KNOWN, _ACRONYM_ENDING, _ACRONYM_BARE, _JURISDICTION)
+        for m in rx.finditer(name)
+    ]
+    return (start, start + (max(ends) if ends else len(name)))
 
 
 def _merge(spans: Iterable[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -329,6 +361,17 @@ HAZARD_WORDS: dict[str, re.Pattern[str]] = {
         r"debris\s+flows?|rock\s?slides?|rock\s?falls?|avalanches?|sinkholes?|volcan\w+|"
         r"eruptions?|lahars?|ash\s?fall)\b"
     ),
+}
+#: Words that point to a category's domain without naming a hazard ("police are searching",
+#: "water service"): used for the category only, after hazard words and before event codes.
+CATEGORY_CUES: dict[str, re.Pattern[str]] = {
+    "law_enforcement": _rx(r"\b(?:police|sheriff|deputies|officers|law\s+enforcement|swat)\b"),
+    "public_safety": _rx(
+        r"\b(?:water\s+(?:service|main|pressure|system|supply)|electric(?:ity|al)?\s+service|"
+        r"power|phone\s+lines|road\s+work|detour)\b"
+    ),
+    "public_health": _rx(r"\b(?:health|vaccin\w*|clinic|testing)\b"),
+    "wildfire": _rx(r"\b(?:smoke|evacuation\s+zones?|red\s+flag)\b"),
 }
 #: Hazard categories from SAME event codes, used when no hazard word decides.
 CODE_CATEGORY = {
@@ -665,6 +708,12 @@ _NOT_A_PLACE_NAME = _rx(
     r"progress|case|order|time|minutes|hours|preparation)$"
 )
 _BLOCK_OF = _rx(r"\b\d+\s+block\s+of\b")
+#: The same in an all-caps text, where only the word's own kind can tell a name.
+_CAPS_PLACE = re.compile(
+    r"\b(?:IN|NEAR|OF|AROUND|OUTSIDE|THROUGHOUT|ACROSS|WITHIN|FOR|FROM|INTO|TOWARD)\s+(?:THE\s+)?"
+    r"(?:(?:NORTH|SOUTH|EAST|WEST|NORTHERN|SOUTHERN|EASTERN|WESTERN|CENTRAL|DOWNTOWN)\s+)?"
+    r"([A-Z]{4,})\b"
+)
 _VAGUE = _rx(
     r"\b(?:in\s+your\s+area|in\s+the\s+area|your\s+area|this\s+area|near\s+you|"
     r"the\s+affected\s+areas?|affected\s+areas?|nearby|your\s+location|local\s+area|"
@@ -685,6 +734,21 @@ def location_kinds(text: str, place_words: Iterable[str] = ()) -> dict[str, bool
         for m in _NAMED_PLACE.finditer(text):
             first = m.group(1).split()[0].split("-")[0]
             if not _NOT_A_PLACE_NAME.match(first) and not _ROAD_WORDS.fullmatch(first):
+                boundary = True
+                break
+    if not boundary and not mixed:
+        for m in _CAPS_PLACE.finditer(text):
+            w = m.group(1)
+            if not (
+                _NOT_A_PLACE_NAME.match(w)
+                or _ROAD_WORDS.fullmatch(w)
+                or _EN.fullmatch(w)
+                or _VERB.fullmatch(w)
+                or _ALERT_WORDS.fullmatch(w)
+                or _LANDMARK.fullmatch(w)
+                or w.upper() in _NOT_ACRONYMS
+                or any(rx.fullmatch(w) for rx in HAZARD_WORDS.values())
+            ):
                 boundary = True
                 break
     named = any(not _ROAD_GENERIC.match(m.group(1)) for m in _ROAD_NAMED.finditer(text))
@@ -962,6 +1026,15 @@ _MISSING_PERSON = _rx(
 )
 
 
+#: Words of a test, drill or exercise sent under a real event code (Olson et al. removed tests
+#: and demonstrations whatever their code).
+_ABOUT_TEST = _rx(
+    r"\bthis\s+is\s+(?:only\s+)?a\s+test\b|\btest(?:ing)?\s+(?:message|alert|of\s+the|only)\b|"
+    r"\b(?:a|this)\s+(?:drill|exercise)\b|\bno\s+action\s+(?:is\s+)?(?:required|needed|necessary)\b|"
+    r"\bdisregard\b|\bsent\s+in\s+error\b|\bonly\s+a\s+test\b"
+)
+
+
 # --- one unit ----------------------------------------------------------------------------
 
 
@@ -1012,6 +1085,7 @@ CODE_FIELDS = (
     "evac_pre_evacuation",
     "complete",
     "about_missing_person",
+    "about_test",
 )
 
 
@@ -1021,11 +1095,17 @@ def code_text(text: str, ctx: Context | None = None) -> dict[str, Any]:
     spans = find_source(text, ctx)
     rest = blank(text, spans)
     category, cat_source = hazard_category(rest, ctx.event_codes)
+    block_rest = rest
     if cat_source != "words" and ctx.block_text and ctx.block_text != text:
         block_rest = blank(ctx.block_text, find_source(ctx.block_text, ctx))
         block_category, block_source = hazard_category(block_rest, ctx.event_codes)
         if block_source == "words":
             category, cat_source = block_category, "message_words"
+    if cat_source not in ("words", "message_words"):
+        for cue_category, rx in CATEGORY_CUES.items():
+            if rx.search(block_rest):
+                category, cat_source = cue_category, "cue_words"
+                break
     chars = bool(_CHARACTERISTICS.search(rest))
     impacts = bool(_IMPACTS.search(rest))
     actions = guidance_actions(rest)
@@ -1033,6 +1113,9 @@ def code_text(text: str, ctx: Context | None = None) -> dict[str, Any]:
     info = [a for a in actions if _INFO_VERBS.match(a)]
     times = time_kinds(rest)
     places = location_kinds(rest, ctx.place_words | place_words_of([ctx.organization]))
+    if jurisdiction_opener(text):
+        places["loc_boundary"] = places["location"] = True
+        places["loc_vague_or_none"] = False
     links = link_kinds(text)
     n_abbr = abbreviations(text)
     letters = [ch for ch in text if ch.isalpha()]
@@ -1059,6 +1142,7 @@ def code_text(text: str, ctx: Context | None = None) -> dict[str, Any]:
         "all_caps": caps > 0.9,
         **evacuation_terms(rest),
         "about_missing_person": bool(_MISSING_PERSON.search(text)),
+        "about_test": bool(_ABOUT_TEST.search(text)),
     }
     out["complete"] = all(
         out[k] for k in ("hazard", "location", "time", "source_named", "guidance")
