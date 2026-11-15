@@ -84,7 +84,10 @@ def test_parameters_are_split_into_kept_text_and_dropped():
 
 def test_allowed_name_reads_case_variants():
     assert privacy.allowed_name("TimeZone") == "timezone"
+    assert privacy.allowed_name("WeaHandling") == "WEAHandling"
     assert privacy.allowed_name("UserName") is None
+    assert privacy.is_text_parameter("CmamLongText")
+    assert not privacy.is_text_parameter("UserName")
 
 
 def test_message_texts_cover_the_dropped_fields():

@@ -52,21 +52,25 @@ ALLOWED_PARAMETERS: dict[str, re.Pattern[str]] = {
     "timezone": re.compile(r"[A-Za-z][A-Za-z0-9/_+-]{1,39}"),
     "EASHeader": re.compile(r"ZCZC-[A-Z]{3}-[A-Z]{3}(-\d{6})+\+\d{4}-\d{7}-[A-Z0-9/ ._-]{1,8}-?"),
 }
-#: Case variants seen in the archive, read as the allowed name.
-PARAMETER_ALIASES = {"TimeZone": "timezone", "Timezone": "timezone"}
+#: Allowed names by their case-folded form: senders write ``TimeZone`` or ``WeaHandling`` too.
+_ALLOWED_FOLDED = {name.casefold(): name for name in ALLOWED_PARAMETERS}
 #: Parameters whose value is part of the message itself: kept in the text layer only.
-TEXT_PARAMETERS = frozenset(
-    {"CMAMtext", "CMAMlongtext", "CMAMText", "EASText", "ShortText", "EASDescription"}
-)
+TEXT_PARAMETERS = frozenset({"CMAMtext", "CMAMlongtext", "EASText", "ShortText", "EASDescription"})
+_TEXT_FOLDED = {name.casefold() for name in TEXT_PARAMETERS}
+
+
+def is_text_parameter(name: str) -> bool:
+    """Whether a parameter holds part of the message's text, in any letter case."""
+    return name.casefold() in _TEXT_FOLDED
+
 
 #: The text fields of an info block, in the order the text tables hold them.
 INFO_TEXT_FIELDS = ("event", "headline", "description", "instruction", "web")
 
 
 def allowed_name(name: str) -> str | None:
-    """The allow-listed name a parameter is kept under, or None."""
-    name = PARAMETER_ALIASES.get(name, name)
-    return name if name in ALLOWED_PARAMETERS else None
+    """The allow-listed name a parameter is kept under (in any letter case), or None."""
+    return _ALLOWED_FOLDED.get(name.casefold())
 
 
 def split_parameters(params: Iterable[Pair]) -> tuple[list[Pair], list[Pair], list[str]]:
@@ -88,7 +92,7 @@ def split_parameters(params: Iterable[Pair]) -> tuple[list[Pair], list[Pair], li
                 kept.append(Pair(name=name, value=p.value.strip()))
             else:
                 dropped.append(f"{name} (unexpected value)")
-        elif p.name in TEXT_PARAMETERS:
+        elif is_text_parameter(p.name):
             text.append(p)
         else:
             dropped.append(p.name)
@@ -99,7 +103,7 @@ def info_texts(info: Info) -> list[str]:
     """Every piece of text in one info block that could reach a text table."""
     out = [getattr(info, f) for f in INFO_TEXT_FIELDS]
     out += [info.wea_short, info.wea_long]
-    out += [p.value for p in info.parameters if p.name in TEXT_PARAMETERS]
+    out += [p.value for p in info.parameters if is_text_parameter(p.name)]
     out += [a.description for a in info.areas]
     out += [r.description for r in info.resources] + [r.uri for r in info.resources]
     out += [info.contact, info.sender_name]
@@ -132,7 +136,7 @@ def pattern_hits(m: Message) -> list[str]:
     for i in m.infos:
         texts += [getattr(i, f) for f in INFO_TEXT_FIELDS]
         texts += [i.wea_short, i.wea_long]
-        texts += [p.value for p in i.parameters if p.name in TEXT_PARAMETERS]
+        texts += [p.value for p in i.parameters if is_text_parameter(p.name)]
         texts += [a.description for a in i.areas]
         texts += [r.uri for r in i.resources]
     hits: set[str] = set()

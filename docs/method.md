@@ -49,10 +49,10 @@ CAP links an update or a cancellation to what it follows through `references`
 1. `exact`: the same triple is in the corpus;
 2. `same_time_other_form`: the same sender and identifier and the same instant written another
    way (`Z` against an offset);
-3. `sender_and_identifier`: the sender and identifier match exactly one message. Most resolved
-   references are of this kind: senders often write a different sent time in the reference
-   (usually within a day of the referenced message's). Because no sender reuses an identifier in
-   the archive (section 10), the match is unambiguous.
+3. `sender_and_identifier`: the sender and identifier match exactly one message, but the
+   reference gives another sent time (some senders write the time of the update, usually within
+   a day of the referenced message's). Because no sender reuses an identifier in the archive
+   (section 10), the match is unambiguous.
 
 A reference to the weather service's sender is outside the corpus and counted as such. A thread
 is a connected set of messages; its `thread_id` is its earliest message. Thread shapes:
@@ -138,8 +138,9 @@ local part of a person-shaped sender address, are withheld (`identifier_withheld
    | `timezone` (also `TimeZone`) | the zone of the message's local times | a zone name |
    | `EASHeader` | the SAME header: originator, event, locations, duration, time, station | the standard `ZCZC-...` form only |
 
-   Text layer: `CMAMtext`, `CMAMlongtext` (the 90- and 360-character phone texts), `CMAMText`,
-   `EASText`, `ShortText`, `EASDescription`. Dropped, among others: `UserName`,
+   Names are matched in any letter case (`TimeZone`, `WeaHandling`). Text layer, in any letter
+   case: `CMAMtext`, `CMAMlongtext` (the 90- and 360-character phone texts), `EASText`,
+   `ShortText`, `EASDescription`. Dropped, among others: `UserName`,
    `AccountName`, `AccountPassword`, `AssignedAddress`, `Email`, `Email To`, `SMS`,
    `DA Page Address`, `DA Page Customer ID`, `EMnet Nodes`, `OriginatingSystem`, `StationID`,
    `route` and the vendor settings that come with them.

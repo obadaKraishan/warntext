@@ -125,7 +125,8 @@ configurations; it is listed under its first message's).
 `event`, `headline`, `description`, `instruction`, `web`, `audience`, `wea_short`
 (`CMAMtext`), `wea_long` (`CMAMlongtext`), `text_parameter_names` and
 `text_parameter_values` (the broadcast and short texts some senders add: `EASText`,
-`ShortText`, `EASDescription`, `CMAMText`), `area_descriptions`, `resource_descriptions`,
+`ShortText`, `EASDescription`, and the phone texts when a sender writes their names in another
+letter case), `area_descriptions`, `resource_descriptions`,
 `resource_uris`.
 
 ## What no table holds

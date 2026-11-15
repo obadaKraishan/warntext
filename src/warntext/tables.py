@@ -275,7 +275,7 @@ def text_of(m: Message) -> str:
     for i in m.infos:
         parts += [getattr(i, f) or "" for f in ("headline", "description", "instruction")]
         parts += [i.wea_short or "", i.wea_long or ""]
-        parts += [p.value for p in i.parameters if p.name in privacy.TEXT_PARAMETERS]
+        parts += [p.value for p in i.parameters if privacy.is_text_parameter(p.name)]
     return " ".join(" ".join(parts).lower().split())
 
 
@@ -512,13 +512,13 @@ def _primary(m: Message) -> Info | None:
 
 def info_measure_texts(i: Info) -> list[str | None]:
     out = [i.headline, i.description, i.instruction, i.wea_short, i.wea_long]
-    out += [p.value for p in i.parameters if p.name in privacy.TEXT_PARAMETERS]
+    out += [p.value for p in i.parameters if privacy.is_text_parameter(p.name)]
     return out
 
 
 def text_row(u: Unit, i: Info, index: int) -> dict[str, Any]:
     """One text-layer row for a language block."""
-    text_params = [p for p in i.parameters if p.name in privacy.TEXT_PARAMETERS]
+    text_params = [p for p in i.parameters if privacy.is_text_parameter(p.name)]
     text_params = [p for p in text_params if p.name not in ("CMAMtext", "CMAMlongtext")]
     return {
         "message_id": u.message_id,
