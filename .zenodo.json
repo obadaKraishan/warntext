@@ -1,0 +1,28 @@
+{
+  "upload_type": "software",
+  "title": "WarnText: software and documentation for a research corpus of US public alert messages",
+  "creators": [
+    {
+      "name": "Kraishan, Obada",
+      "affiliation": "College of Media and Communication, Texas Tech University"
+    }
+  ],
+  "description": "<p>WarnText builds and checks a research corpus of the public alert messages sent in the United States through the Integrated Public Alert and Warning System, read from FEMA's OpenFEMA dataset IPAWS Archived Alerts (version 1): one row per message with its alerting authority, time, place, channels, the updates and cancellations that follow it, and rule-based content codes from the warning literature. It is a research record, not an alerting service.</p><p>This archive holds the code and the documents only (method, schema, codebook, data card). It holds no data: the data are released on Hugging Face under OpenFEMA's terms (https://www.fema.gov/about/openfema/terms-conditions), which let FEMA ask users to destroy any copy, so no copy is kept in an archive that cannot be withdrawn.</p><p>This product uses the Federal Emergency Management Agency's OpenFEMA API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for the data or analyses derived from these data after the data have been retrieved from the Agency's website(s).</p>",
+  "license": "Apache-2.0",
+  "access_right": "open",
+  "keywords": [
+    "emergency alerts",
+    "Wireless Emergency Alerts",
+    "crisis communication",
+    "risk communication",
+    "communication research",
+    "dataset tools"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://huggingface.co/datasets/obadakr/warntext",
+      "relation": "isSupplementTo",
+      "resource_type": "dataset"
+    }
+  ]
+}
