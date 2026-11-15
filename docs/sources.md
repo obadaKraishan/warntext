@@ -146,7 +146,7 @@ The page's own example citation:
 > in part. Your continued use of or access to the FEMA API services following posting of any
 > changes to these terms, constitutes acceptance of those modified terms.
 
-What this means for WarnText, in short (the decisions are Obada's; see section 5):
+What this means for WarnText, in short (the decisions are the maintainer's; see section 5):
 - Every release carries the required statement word for word, the endpoint with its version,
   and the date and time of retrieval of the records it holds (per weekly update).
 - No FEMA or DHS logo or seal anywhere.
@@ -238,7 +238,7 @@ and NOTICE say that WarnText is not made, endorsed or checked by FEMA or DHS.
      page we read grants a license for these messages, and FEMA's own reuse page says material
      it did not create may need "permission from the original source". Whether a short alert
      message is original enough to be protected, and whether a given state claims copyright in
-     its agencies' works, varies and was not settled here. This is a decision for Obada, and
+     its agencies' works, varies and was not settled here. This is a decision for the maintainer, and
      possibly a question for the university's library or general counsel.
   2. *Whether a public, citable copy fits "statistical research or as a reporting record".* A
      research corpus is research use, but WarnText would pass the text on to others, and the

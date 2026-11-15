@@ -62,7 +62,7 @@ CAP triple's hash), `resolved` (the referenced message is in the archive), `ref_
 `event_code_same`, `sender`.
 
 ## Configurations
-How the tables are split depends on decision 4 in the report (scope): one configuration with
+How the tables are split depends on the scope decision (`method.md`, section 7): one configuration with
 everything (A); the weather service's messages in their own configuration (B); or no weather
 messages (C). Tests and demonstrations (event codes `RWT`, `RMT`, `DMO`, and `NPT`/`NMN` if
 present) are kept in their own configuration in every option, because they are sent with
@@ -73,4 +73,4 @@ status `Actual`.
 - vendor parameters that can name the sending agency's staff or their addresses (for example
   `UserName`, `Email`, `Email To`, `SMS`, `AssignedAddress`);
 - the XML signature (`signed` says whether there was one);
-- the text of messages withheld under the people rule (decision 5).
+- the text of messages withheld under the people rule (`method.md`, section 8).
