@@ -249,8 +249,8 @@ and NOTICE say that WarnText is not made, endorsed or checked by FEMA or DHS.
   4. *The alerts about people.* The re-identification clause and the privacy and publicity
      rights the government-works page mentions both point away from republishing named people's
      details, whatever the dataset page says about personal information.
-- **A clean way to ask.** The dataset page gives contacts for questions about the data
-  (`OpenFEMA@fema.dhs.gov`, and `IPAWS@fema.dhs.gov` for IPAWS questions). A short written
+- **A clean way to ask.** The dataset page names FEMA's contacts for questions about the data and
+  about IPAWS; FEMA's own contact page is https://www.fema.gov/about/contact. A short written
   question to them on redistribution, citation and the alerts about people would settle the
   FEMA side; it would not settle the state and local authors' rights.
 
