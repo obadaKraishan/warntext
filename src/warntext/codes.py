@@ -795,6 +795,12 @@ _NOW = _rx(
 )
 #: "At this time" is time only as the time of an instruction ("avoid travel at this time").
 _AT_THIS_TIME = _rx(r"\bat\s+this\s+time\b")
+#: A clause about something that already happened: its clock time or day is not time ("At 2 PM
+#: a brush fire started near Oak Road").
+_PAST_EVENT = _rx(
+    r"\b(?:occurred|happened|started|began|broke\s+out|ignited|took\s+place|was\s+(?:reported|"
+    r"issued|sent|found|located|struck|hit)|were\s+(?:reported|issued|sent|found))\b"
+)
 _NOT_NOW = _rx(
     r"\bnow\s+(?:open|opened|closed|lifted|over|contained|clear|safe|reopened|been|in\s+effect|"
     r"available|back|cancel+ed|resolved|restored|expired)\b|\bimmediate\s+(?:area|vicinity)\b"
@@ -843,7 +849,7 @@ def time_kinds(text: str) -> dict[str, bool]:
                 out["time_expiry"] = True
         elif acts and (absolute or re.search(r"\bbefore\b", clause, IC)):
             out["time_action"] = True
-        elif absolute and not _EXPIRY.search(clause):
+        elif absolute and not _EXPIRY.search(clause) and not _PAST_EVENT.search(clause):
             out["time_impact"] = True
     return out
 

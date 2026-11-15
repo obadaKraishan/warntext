@@ -410,6 +410,10 @@ def test_v2_time_kinds():
     assert not code("Shelter within 1/2 mile of Oak Road.")["time"]
     assert not code("The boil order has been lifted.")["time"]
     assert code("Rockslide on I-40, one lane opening soon.")["time_impact"]
+    assert not code("At 2 PM a brush fire started near Oak Road.")["time"]
+    assert not code("A gas leak was reported this morning on Oak Road.")["time"]
+    assert code("A brush fire started near Oak Road. Leave by 5 PM.")["time_action"]
+    assert code("Heavy rain tonight on Oak Road.")["time_impact"]
 
 
 def test_v2_named_places_only():
