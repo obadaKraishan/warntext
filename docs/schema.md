@@ -133,7 +133,8 @@ points to its message by `ref_message_id`.
 configurations; it is listed under its first message's).
 
 ## `codes` (record layer; one row per message, language block and unit; real alerts only)
-The content codes of `codebook.md` (version 1), computed by rule for every real alert, including
+The content codes of `codebook.md` (the version is in `codebook_version`: 1 in release 0.1.0,
+2 in later builds), computed by rule for every real alert, including
 the messages whose text is withheld. A unit is `wea90` (the 90-character phone text), `wea360`
 (the 360-character one) or `full` (headline, description and instruction); a block that lacks a
 unit has no row for it. No cell holds text: only yes or no, counts, kinds and categories.

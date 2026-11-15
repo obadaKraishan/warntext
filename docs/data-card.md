@@ -173,9 +173,10 @@ The field list is in `schema.md`, and how each field is derived in `method.md`.
   settled.
 - Sender kinds rest on FEMA's list where an authority is on it, and on names and email domains
   where it is not; 32 real alerts have an unknown kind.
-- The content codes are rules (codebook version 1), checked against the published shares of
-  Olson et al. (2024) and, before they are called reliable, against a hand-coded sheet;
-  some codes are marked experimental (`codebook.md`).
+- The content codes are rules (codebook version 1 in release 0.1.0; version 2 is being
+  checked), compared with the published shares of Olson et al. (2024) and, before they are
+  called reliable, with a blind hand-coded sheet; codes under the bar are marked experimental
+  and left out (`codebook.md`).
 - References often give a different sent time from the referenced message's; they are matched
   by the sender's identifier, which is unique in the archive.
 - The people patterns over-withhold by design and can still miss a detail written in an unusual
