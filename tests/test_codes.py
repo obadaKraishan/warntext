@@ -414,6 +414,10 @@ def test_v2_time_kinds():
     assert not code("A gas leak was reported this morning on Oak Road.")["time"]
     assert code("A brush fire started near Oak Road. Leave by 5 PM.")["time_action"]
     assert code("Heavy rain tonight on Oak Road.")["time_impact"]
+    assert not code("Updates at sampletoncounty.gov.")["time"]
+    assert not code("Water main break. Updates to follow.")["time"]
+    assert not code("Boil water before use.")["time"]
+    assert code("Leave before the water rises.")["time_action"]
 
 
 def test_v2_named_places_only():

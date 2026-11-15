@@ -805,11 +805,16 @@ _NOT_NOW = _rx(
     r"\bnow\s+(?:open|opened|closed|lifted|over|contained|clear|safe|reopened|been|in\s+effect|"
     r"available|back|cancel+ed|resolved|restored|expired)\b|\bimmediate\s+(?:area|vicinity)\b"
 )
+#: Until when it lasts. A promised update ("next update at 5 PM", "updates to follow") is not a
+#: time of the danger, the action or its end, so it does not count (codebook 2.3).
 _EXPIRY = _rx(
     r"\b(?:expires?|expired|expiration|until\s+further\s+notice|in\s+effect\s+until|"
     r"remains?\s+in\s+effect\s+(?:until|through|till)|valid\s+(?:until|through)|"
-    r"will\s+be\s+lifted|next\s+update|updates?\s+(?:will|at|by|to\s+follow)|"
-    r"more\s+information\s+(?:will|to\s+follow))\b"
+    r"will\s+be\s+lifted)\b"
+)
+#: "Before" that names a use, not a time: "boil water before use", "before drinking".
+_BEFORE_USE = _rx(
+    r"\bbefore\s+(?:use|using|drinking|consum\w*|cooking|eating|brushing|making|preparing)\b"
 )
 _UNTIL = _rx(r"\b(?:until|till|til)\b")
 _IMPACT = _rx(
@@ -847,7 +852,7 @@ def time_kinds(text: str) -> dict[str, bool]:
                 out["time_action"] = True
             else:
                 out["time_expiry"] = True
-        elif acts and (absolute or re.search(r"\bbefore\b", clause, IC)):
+        elif acts and (absolute or re.search(r"\bbefore\b", _BEFORE_USE.sub(" ", clause), IC)):
             out["time_action"] = True
         elif absolute and not _EXPIRY.search(clause) and not _PAST_EVENT.search(clause):
             out["time_impact"] = True
