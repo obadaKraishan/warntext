@@ -106,6 +106,54 @@ def build_rows(
     return rows
 
 
+def _utc_seconds(value: str | None) -> float | None:
+    from datetime import datetime
+
+    try:
+        return datetime.fromisoformat((value or "").replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def crosscheck(items: Iterable[tuple[Any, Mapping[str, Any]]]) -> dict[str, Any]:
+    """Compare what the parser reads from the XML with OpenFEMA's own JSON fields.
+
+    Counts mismatches per field and kind of sender; a record that cannot be parsed counts once
+    under ``unparsed``.
+    """
+    fields = (
+        ("identifier", "identifier"),
+        ("sender", "sender"),
+        ("status", "status"),
+        ("msg_type", "msgType"),
+        ("scope", "scope"),
+    )
+    n = 0
+    mismatches: Counter = Counter()
+    for line, rec in items:
+        n += 1
+        try:
+            m = cap.parse_record(rec)
+        except cap.CapParseError:
+            mismatches[f"{line.kind}:unparsed"] += 1
+            continue
+        for ours, theirs in fields:
+            if (getattr(m, ours) or "") != (rec.get(theirs) or ""):
+                mismatches[f"{line.kind}:{theirs}"] += 1
+        a, b = _utc_seconds(m.sent), _utc_seconds(rec.get("sent"))
+        if a is None or b is None or abs(a - b) > 1:
+            mismatches[f"{line.kind}:sent_utc"] += 1
+        ours_codes = sorted(p.value for i in m.infos for p in i.event_codes)
+        theirs_codes = sorted(
+            str(d.get("value")) for i in (rec.get("info") or []) for d in (i.get("eventCode") or [])
+        )
+        if ours_codes != theirs_codes:
+            mismatches[f"{line.kind}:eventCode"] += 1
+        if len(m.infos) != len(rec.get("info") or []):
+            mismatches[f"{line.kind}:info_count"] += 1
+    return {"records": n, "mismatches": dict(mismatches)}
+
+
 def _share(counter: Mapping[Any, float], total: float, digits: int = 4) -> dict:
     return {str(k): round(v / total, digits) for k, v in counter.items()} if total else {}
 

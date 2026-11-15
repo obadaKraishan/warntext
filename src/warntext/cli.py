@@ -95,10 +95,13 @@ def cmd_profile(args: argparse.Namespace) -> int:
     plan = _load_plan(args.plan)
     counts = {(s["year"], s["kind"]): s["count"] for s in plan["strata"]}
     raw = Path(args.raw)
-    rows = pf.build_rows(sm.iter_records(raw, raw / "manifest.csv"), counts)
+    items = list(sm.iter_records(raw, raw / "manifest.csv"))
+    rows = pf.build_rows(items, counts)
+    summary = pf.summarize(rows)
+    summary["crosscheck_with_openfema_fields"] = pf.crosscheck(items)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(pf.summarize(rows), indent=1) + "\n", encoding="utf-8")
+    out.write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8")
     print(f"Profile of {len(rows)} records (aggregates only) written to {out}.")
     return 0
 

@@ -143,3 +143,33 @@ def test_event_groups():
     out = profile.summarize(rows())
     assert out["event_group_other"]["sample_count"] == {"non_weather_hazard": 3, "about_people": 1}
     assert out["event_group_nws"]["sample_count"] == {"weather": 1}
+
+
+def test_crosscheck_counts_mismatches_with_the_json_fields():
+    good = {
+        "id": "a",
+        "originalMessage": WEATHER_SERVICE,
+        "identifier": "EX-NWS-1",
+        "sender": "w-nws.webmaster@noaa.gov",
+        "status": "Actual",
+        "msgType": "Alert",
+        "scope": "Public",
+        "sent": "2015-03-01T14:00:00.000Z",
+        "info": [{"eventCode": [{"id": "x", "name": "SAME", "value": "WSW"}]}],
+    }
+    bad = {**good, "status": "Test", "sent": "2015-03-01T15:00:00.000Z", "info": []}
+    out = profile.crosscheck(
+        [
+            (Line(2015, "nws", 0), good),
+            (Line(2015, "nws", 0), bad),
+            (Line(2015, "nws", 0), {"id": "c", "originalMessage": MALFORMED}),
+        ]
+    )
+    assert out["records"] == 3
+    assert out["mismatches"] == {
+        "nws:status": 1,
+        "nws:sent_utc": 1,
+        "nws:eventCode": 1,
+        "nws:info_count": 1,
+        "nws:unparsed": 1,
+    }
