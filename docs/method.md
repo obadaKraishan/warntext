@@ -93,8 +93,8 @@ The options, each with tests and demos in their own configuration:
 What each costs a researcher: (A) and (B) add the weather service's warnings, which the Iowa
 Environmental Mesonet already archives more completely (from 1986 to 2008 by type) and which in
 this archive stop in July 2023 except for phone alerts; but (B) keeps the weather service's
-Wireless Emergency Alerts (about 20% of its records carry a phone text, est.) next to everyone
-else's, which matters for studies of phone warnings. (C) is the corpus warning researchers have
+Wireless Emergency Alerts (1.5% of its records carry a phone text, about 71,000, est.) next to
+everyone else's, which matters for studies of phone warnings. (C) is the corpus warning researchers have
 coded by hand (Olson et al. 2024 excluded the weather service), is small enough to read through
 the API (section 9), but loses the weather service entirely. (A) and (B) need a download of
 roughly 45 GB as served (est.); (C) about 1.9 GB.
@@ -148,7 +148,7 @@ email address or phone number.
   more; of 25 referenced messages looked up, 23 were in the archive (16 of 18 for other senders,
   7 of 7 for the weather service).
 - Languages (est.): others 8.0% English and Spanish, the rest English (4.6% have no info block);
-  the weather service 0.4% English and Spanish, all from its phone alerts.
+  the weather service 0.4% English and Spanish.
 - Channels asked for (est.), other senders: EAS only 44%, WEA only 28%, WEA with EAS 13%, EAS
   with NWEM 7%, none 8%. Weather service: 96% none (public feed only), 3% EAS, 1% WEA.
 - Text fields, other senders (est.): headline missing 12.8%, description missing 18.5%,
