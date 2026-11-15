@@ -146,6 +146,9 @@ the hour and the county.
   (alpha 0.86), the hazard category, links and their kinds, abbreviations, all caps, the
   evacuation wordings and the two flags. Source (0.41), guidance (0.63), time (0.72), location
   (0.73), hazard description (0.52), completeness and their parts are experimental and left out.
+  A second blind sheet (99 texts, one coder), scored against version 2 of the rules, puts the
+  hazard under the bar: 0.65 for version 2, and between 0.56 and 0.72 for version 1 (method,
+  section 17).
 - **Organization names:** FEMA's for every authority on its list; the senders' own names only
   where the maintainer read and accepted them (13 names), blank otherwise (3 names, 8 real alerts
   and 3,698 tests, `organization_source` `sender_name_unreviewed`); the AMBER clearinghouse's
@@ -173,8 +176,8 @@ The field list is in `schema.md`, and how each field is derived in `method.md`.
   settled.
 - Sender kinds rest on FEMA's list where an authority is on it, and on names and email domains
   where it is not; 32 real alerts have an unknown kind.
-- The content codes are rules (codebook version 1 in release 0.1.0; version 2 is being
-  checked), compared with the published shares of Olson et al. (2024) and, before they are
+- The content codes are rules (codebook version 1 in release 0.1.0; version 2 was checked on a
+  second blind sheet and is not released), compared with the published shares of Olson et al. (2024) and, before they are
   called reliable, with a blind hand-coded sheet; codes under the bar are marked experimental
   and left out (`codebook.md`).
 - References often give a different sent time from the referenced message's; they are matched

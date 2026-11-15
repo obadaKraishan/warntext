@@ -91,4 +91,9 @@ then for that code only, on these terms:
   beside the rules' alpha on the same rows; it is used only at .80 or above. The rules are not
   changed after the second sheet is scored.
 
+**On the second sheet** (method, section 17) five codes stayed under .80: hazard (0.65), hazard
+description (0.57), source (0.64), guidance (0.7997) and location (0.55); time reached 0.82.
+Whether a pass is weighed for any of them is the maintainer's decision. Since the sheet has now
+been scored, a model's prompt written after that score would need its own fresh blind sheet.
+
 Nothing is downloaded or run until the maintainer decides.

@@ -29,7 +29,8 @@ drafts are in [`docs/`](docs/).
 - Content codes from the warning literature for every real alert's phone and full texts
   (hazard, location, time, source and guidance with their kinds, hazard category, completeness
   and style), coded by rules and checked against a blind hand-coded sheet; release 0.1.0 carries
-  version 1's codes that passed, and version 2 is being checked against a second sheet.
+  version 1's codes that passed. Version 2 of the rules was checked against a second blind sheet,
+  where its hazard code fell under the bar, so it is not released.
 - Later: a weekly update.
 
 See [`docs/data-card.md`](docs/data-card.md) (draft), [`docs/schema.md`](docs/schema.md),

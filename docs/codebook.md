@@ -9,10 +9,10 @@ texts measures the rules against a person's coding before any code is called rel
 **What changed from version 1.** The first hand sheet showed that the rules and a reader took
 some definitions differently. Version 2 settles the six definitions the sheet measures
 (section 2, the boxes headed "Settled"), changes the rules where the sheet's rows showed a clear
-cause (section 7), and is checked against a second blind sheet of 100 new texts. The first sheet
-has been read to build version 2, so its scores for version 2 are a development figure, not a
-check (section 5). Version 0.1.0 of the dataset carries version 1's codes; version 2's codes are
-built separately and join a release only for the codes that pass the second sheet.
+cause (section 7), and was checked against a second blind sheet of 100 new texts (section 5). The
+first sheet has been read to build version 2, so its scores for version 2 are a development
+figure, not a check. On the second sheet only `time` reached .80, and `hazard` did not, so no code
+of version 2 is released: version 0.1.0 of the dataset carries version 1's codes.
 
 The definitions below are this project's own words. Each says which study it follows; none
 copies a study's wording, statements or templates. Every example is invented: the places,
@@ -428,6 +428,26 @@ those 100 texts, not how well they code new ones:
 The check is **the second hand sheet**: 100 new texts, none from a text group on the first sheet,
 coded blind with the settled definitions and scored once. A code at .80 or above on it is released
 with version 2's rules; no rule changes after it is scored.
+
+**The second hand sheet: the check of version 2** (coded blind by the maintainer, one coder;
+99 texts, one left blank as not English; method, section 17):
+
+| code | alpha | agreement | at .80 |
+|---|---:|---:|---|
+| `hazard` | 0.65 | 0.85 | under |
+| `hazard_description` | 0.57 | 0.83 | under |
+| `source_named` | 0.64 | 0.83 | under |
+| `guidance` | 0.7997 | 0.93 | under, by one row |
+| `time` | 0.82 | 0.91 | reached |
+| `location` | 0.55 | 0.84 | under |
+
+A release carries the codes of one codebook version, and the hazard is the base of its
+description and of `complete`. Version 2's `hazard` is under .80, so no code of version 2 is
+released, `time` included, and version 0.1.0 keeps version 1's codes and statuses. Version 1 and
+version 2 code the hazard differently on 3 of the second sheet's units, so version 1's hazard
+alpha on that sheet would lie between 0.56 and 0.72 (method, section 17); release 0.1.0 marks it
+released on the first sheet's 0.86. The rules' language check looks for Spanish only: the text
+left blank is coded in both versions' tables.
 
 **Against the published shares.** `warntext compare-olson` applies Olson et al.'s filters to the
 corpus and sets the rules' shares beside the published ones (method, section 13). Version 2's

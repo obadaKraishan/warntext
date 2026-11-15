@@ -558,7 +558,7 @@ categories, 15,277 characters, median 91). It holds no text group and no text th
 used (1,208 units left out for that). It is the same workbook, blind, with the settled
 definitions on a second visible sheet and a plain-text guide beside it; the key is in its own
 file. It is not read until it comes back filled, no rule changes after it is scored, and a code at
-.80 or above on it is released with version 2's rules.
+.80 or above on it is released with version 2's rules. Its result is in section 17.
 
 ## 16. Where WarnText's coding parts from Olson et al.'s
 
@@ -607,3 +607,62 @@ The counts are over all 71,408 coded units of version 2's tables, each read wher
 The two known misses are not choices of definition: there version 2 does not do what the settled
 definitions say. The rules are frozen for the second hand sheet, which measures them as misses
 if such texts are on it; a later version would fix them and need a new blind sheet.
+
+## 17. The second hand sheet: the check of version 2
+
+The maintainer coded the second sheet (section 15) blind to the rules, with the settled
+definitions, and `warntext sheet-check` scored it once against version 2's tables. One text was
+not in English, so he left its row blank, as the guide asks, and 99 rows are scored. (The rules'
+language check looks for Spanish only; that unit is coded in version 2's tables and in release
+0.1.0.) **One coder:** each alpha measures the rules against one person, not the agreement of two
+people.
+
+| code | alpha | 95% interval | agreement | both yes | both no | he yes, rules no | he no, rules yes | .80 |
+|---|---:|---|---:|---:|---:|---:|---:|---|
+| hazard | 0.65 | 0.47 to 0.80 | 0.85 | 61 | 23 | 11 | 4 | under |
+| hazard description | 0.57 | 0.38 to 0.75 | 0.83 | 19 | 63 | 17 | 0 | under |
+| source | 0.64 | 0.47 to 0.79 | 0.83 | 29 | 53 | 14 | 3 | under |
+| guidance | 0.7997 | 0.64 to 0.93 | 0.93 | 73 | 19 | 7 | 0 | under |
+| time | 0.82 | 0.70 to 0.92 | 0.91 | 41 | 49 | 5 | 4 | reached |
+| location | 0.55 | 0.33 to 0.73 | 0.84 | 68 | 15 | 9 | 7 | under |
+
+The interval comes from 2,000 bootstrap resamples of the 99 rows' pairs. Only `time` reaches .80.
+`guidance` falls short by one row: with one more row agreed it would stand at 0.83. As on the
+first sheet, the rules miss more than they add, except for time and location, which err both
+ways. By what the differing rows are (unit, period and category; no text is quoted):
+- **Hazard** (15 rows): 11 texts where he saw a hazard and the rules found none, 6 of them in
+  texts with no hazard category from any source; 4 the other way. They are spread over the three
+  units (4 at 90 characters, 5 at 360, 6 full texts) and both periods (7 before 2020, 8 after).
+- **Hazard description** (17 rows, all one way: he saw a description, the rules did not): 13 in
+  texts whose hazard category the rules found in the unit's own words, so a hazard was named;
+  spread over the units (6, 7, 4), 11 sent from 2020 on, 5 atmospheric and 4 public safety.
+- **Source** (17 rows; 14 he yes, rules no): 7 in 90-character texts, 6 wildfire texts, 11 sent
+  from 2020 on.
+- **Guidance** (7 rows, all he yes, rules no): 5 in 90-character texts.
+- **Location** (16 rows, both ways, 9 and 7): 8 in full texts, spread over the categories.
+
+**What is released.** A release carries the codes of one codebook version. Version 2's `hazard`
+is under .80, and the hazard is the base of its description and of `complete`, so no code of
+version 2 is released: release 0.1.0 keeps version 1's codes and statuses (section 14). `time`
+reached .80 with version 2 but is not released, because it would need version 2 in the release.
+No rule was changed after the sheet; a later version of the rules would need a third blind sheet.
+
+**The two checks.** Each sheet is the check of one version of the rules, coded by one person, on
+different texts drawn with the same strata, so the columns compare two versions on two samples,
+not the versions alone. Version 2's scores on the first sheet are a development figure, not a
+check (codebook, section 5), and are not in this table.
+
+| code | first sheet, version 1 (100 texts) | second sheet, version 2 (99 texts) |
+|---|---|---|
+| hazard | 0.86 (0.74 to 0.96) | 0.65 (0.47 to 0.80) |
+| hazard description | 0.52 (0.33 to 0.69) | 0.57 (0.38 to 0.75) |
+| source | 0.41 (0.22 to 0.60) | 0.64 (0.47 to 0.79) |
+| guidance | 0.63 (0.46 to 0.78) | 0.80 (0.64 to 0.93; 0.7997, under) |
+| time | 0.72 (0.56 to 0.85) | 0.82 (0.70 to 0.92) |
+| location | 0.73 (0.56 to 0.88) | 0.55 (0.33 to 0.73) |
+
+**Version 1's hazard on the second sheet.** The second sheet was scored once, against version 2.
+Version 1 and version 2 code the hazard differently on 3 of its 100 units, so version 1 would
+differ from the coder on 12 to 18 of the 99 rows, and its alpha there would lie between 0.56 and
+0.72 whichever way those 3 rows fall: under .80. Release 0.1.0 marks version 1's hazard released
+on the first sheet's figure; both figures are given here so that a user can weigh them.

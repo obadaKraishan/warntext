@@ -114,7 +114,17 @@ All notable changes to this project are recorded here. The format follows
   a development figure (not a check), the shares beside Olson et al. for the first rules,
   version 1 and version 2, and each change with its reason.
 - The hand sheet guide, version 2: one page with the settled definitions, two invented examples
-  each and three invented edge cases.
+  each and six invented edge cases (three of them added before the second sheet was coded: the
+  event's own name is not its description, a place written only as the speaker is not a
+  location, a promised update is not time), and "no named hazard, no description" in the
+  description's definition. A test checks that version 2 codes every invented example as the
+  guide says.
+- The codebook and the method: why the event's own name is not its description, version 2's two
+  known misses with their counts, and where WarnText's definitions part from Olson et al.'s,
+  counted over every coded unit.
+- The second hand sheet, scored once against version 2 (99 texts; one not in English left
+  blank): only `time` reaches .80, and `hazard` (0.65) does not, so no code of version 2 is
+  released and release 0.1.0 is unchanged (method, section 17).
 - `warntext sheet --name` and `--exclude-key`: a later sheet with its own file names that leaves
   out every text group and text an earlier sheet used. A sheet's workbook now carries the
   definitions on a second visible worksheet, and a plain-text guide sits beside it.
