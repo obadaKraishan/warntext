@@ -39,7 +39,7 @@ After the backfill, the weekly update reads only new records: about 300 a week a
 rate (one to three calls).
 
 ## Disk
-The Kraishan drive has about 1.6 TB free. Raw answers would take about 1.2 GB (route 1) or
+The external data drive has about 1.6 TB free. Raw answers would take about 1.2 GB (route 1) or
 about 48 GB (routes 2 and 3), written once and checked on disk; the parsed tables a fraction of
 that.
 
