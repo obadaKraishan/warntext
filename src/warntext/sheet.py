@@ -132,6 +132,21 @@ def _allocate(sizes: Mapping[Any, int], total: int) -> dict[Any, int]:
     return out
 
 
+#: The share of the sheet for each period, when each has enough texts.
+PERIOD_SHARE = {"before_2020": 0.4, "2020_on": 0.6}
+
+
+def _allocate_shares(sizes: Mapping[str, int], total: int) -> dict[str, int]:
+    """``total`` split by ``PERIOD_SHARE``, moving rows to the other period when one is short."""
+    want = {p: round(total * PERIOD_SHARE[p]) for p in sizes}
+    want[next(iter(want))] += total - sum(want.values())
+    out = {p: min(want[p], sizes[p]) for p in sizes}
+    for p in sizes:
+        spare = total - sum(out.values())
+        out[p] += min(spare, sizes[p] - out[p])
+    return out
+
+
 def draw(items: Sequence[Item], seed: int, total: int = ROWS) -> list[Item]:
     """A seeded, stratified draw of distinct texts, one per text group."""
     rng = random.Random(seed)
@@ -139,7 +154,13 @@ def draw(items: Sequence[Item], seed: int, total: int = ROWS) -> list[Item]:
     by_cell: dict[tuple[str, str], list[Item]] = defaultdict(list)
     for it in items:
         by_cell[(it.category, it.period)].append(it)
-    alloc = _allocate({k: len(v) for k, v in by_cell.items()}, total)
+    # Periods first (older texts are few, but their formats differ), then categories within
+    # each period by the square root of their size.
+    alloc: dict[tuple[str, str], int] = {}
+    periods = {p: sum(len(v) for k, v in by_cell.items() if k[1] == p) for p in PERIOD_SHARE}
+    for p, n in _allocate_shares(periods, total).items():
+        sizes = {k: len(v) for k, v in by_cell.items() if k[1] == p}
+        alloc.update(_allocate(sizes, n))
     chosen: list[Item] = []
     seen_messages: set[str] = set()
     seen_texts: set[str] = set()

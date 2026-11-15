@@ -115,8 +115,9 @@ def test_allocation_gives_every_cell_one_and_never_more_than_it_has():
 
 
 def test_the_workbook_is_blind_and_the_key_is_apart(tmp_path):
-    messages, codes, texts = corpus(6)
+    messages, codes, texts = corpus(24)
     chosen = sh.draw(sh.candidates(messages, codes, texts), seed=3, total=6)
+    assert len(chosen) == 6
     paths = sh.write(chosen, tmp_path)
     visible = next(s for s in xlsx.read_workbook(paths["workbook"]) if not s.hidden)
     header = visible.rows[0][1]
@@ -177,3 +178,14 @@ def test_a_filled_sheet_with_a_wrong_value_or_column_is_refused(tmp_path):
     xlsx.write_workbook(tmp_path / "c.xlsx", xlsx.Sheet(name="Hand sheet", rows=rows))
     with pytest.raises(SystemExit, match="is missing"):
         sh.read_filled(tmp_path / "c.xlsx")
+
+
+def test_periods_take_their_share_and_lend_rows_when_short():
+    assert sh._allocate_shares({"before_2020": 500, "2020_on": 900}, 100) == {
+        "before_2020": 40,
+        "2020_on": 60,
+    }
+    assert sh._allocate_shares({"before_2020": 10, "2020_on": 900}, 100) == {
+        "before_2020": 10,
+        "2020_on": 90,
+    }
