@@ -321,3 +321,60 @@ def test_compare_olson_writes_aggregates(tmp_path, capsys):
     assert set(data) == {"main", "all_people_codes_out", "unique_texts"}
     assert "texts (theirs 6,080)" in capsys.readouterr().out
     assert "Leave now" not in (tmp_path / "olson_compare.md").read_text()
+
+
+def test_sheet_and_sheet_check_commands(tmp_path, capsys):
+    from cap_samples import invented
+    from test_sheet import filled_sheet
+    from test_tables import COUNTY, record, run
+    from warntext import tables
+
+    recs = [
+        record(
+            invented(
+                identifier=f"EX-{k}",
+                sender=COUNTY,
+                sent=f"2021-05-0{k}T10:00:00-05:00",
+                headline=f"Invented headline {k}",
+                parameters=(("CMAMtext", f"Brush fire {k}. Leave now."),),
+            ),
+            f"r0{k}",
+        )
+        for k in range(1, 5)
+    ]
+    tables.write(run(recs), tmp_path / "t", tmp_path / "p")
+    out = tmp_path / "sheet"
+    assert (
+        cli.main(
+            [
+                "sheet",
+                "--tables",
+                str(tmp_path / "t"),
+                "--out",
+                str(out),
+                "--seed",
+                "5",
+                "--rows",
+                "4",
+            ]
+        )
+        == 0
+    )
+    assert "texts on the sheet" in capsys.readouterr().out
+    key = out / "hand_sheet_key.csv"
+    assert key.exists() and (out / "hand_sheet.xlsx").exists()
+    filled = filled_sheet(tmp_path / "filled.xlsx", {n: ["yes"] * 6 for n in range(1, 5)})
+    res = tmp_path / "check.json"
+    args = [
+        "sheet-check",
+        "--sheet",
+        str(filled),
+        "--key",
+        str(key),
+        "--tables",
+        str(tmp_path / "t"),
+    ]
+    assert cli.main([*args, "--out", str(res)]) == 0
+    printed = capsys.readouterr().out
+    assert "hazard: 4 rows" in printed and "Brush fire" not in printed
+    assert json.loads(res.read_text())["rows_in_key"] == 4

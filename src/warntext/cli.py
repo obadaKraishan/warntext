@@ -23,6 +23,7 @@ from warntext import probe as pr
 from warntext import profile as pf
 from warntext import rebuild as rb
 from warntext import sample as sm
+from warntext import sheet as sh
 from warntext import tables as tb
 
 NWS_FILTER = f"sender eq '{sm.NWS_SENDER}'"
@@ -296,6 +297,48 @@ def cmd_compare_olson(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sheet(args: argparse.Namespace) -> int:
+    """Draw the hand sheet (blind workbook and key) from the local tables. Prints counts only."""
+    tables = Path(args.tables) / "alerts"
+    messages = pq.read_table(tables / "messages.parquet").to_pylist()
+    codes = pq.read_table(tables / "codes.parquet").to_pylist()
+    texts = []
+    for name in ("text_federal", "text_other"):
+        texts += pq.read_table(tables / f"{name}.parquet").to_pylist()
+    items = sh.candidates(messages, codes, texts)
+    groups = {m["message_id"]: m["text_group"] for m in messages}
+    items = sh.one_per_text_group(items, groups, args.seed)
+    chosen = sh.draw(items, args.seed, args.rows)
+    paths = sh.write(chosen, args.out)
+    made = {"seed": args.seed, "candidates": len(items), **sh.strata(chosen)}
+    (Path(args.out) / "hand_sheet_strata.json").write_text(
+        json.dumps(made, indent=1) + "\n", encoding="utf-8"
+    )
+    print(
+        f"{made['rows']} texts on the sheet from {len(items):,} candidates; by unit "
+        f"{made['by_unit']}; workbook {paths['workbook']}, key {paths['key']}."
+    )
+    return 0
+
+
+def cmd_sheet_check(args: argparse.Namespace) -> int:
+    """Compare a filled hand sheet with the rules: alpha per code and the rows that differ."""
+    filled = sh.read_filled(args.sheet)
+    key = sh.read_key(args.key)
+    codes = pq.read_table(Path(args.tables) / "alerts" / "codes.parquet").to_pylist()
+    result = sh.check(filled, key, codes)
+    if args.out:
+        Path(args.out).write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
+    for field, r in result["codes"].items():
+        a = "n/a" if r["alpha"] is None else f"{r['alpha']:.2f}"
+        mark = "meets" if r["passes"] else "below"
+        print(
+            f"{field}: {r['rows_coded']} rows, agreement {r['agreement']}, alpha {a} "
+            f"({mark} {sh.BAR:.2f}); rows that differ: {r['rows_that_differ']}"
+        )
+    return 0
+
+
 def _client_options(
     p: argparse.ArgumentParser,
     since_required: bool = True,
@@ -403,6 +446,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tables", required=True)
     p.add_argument("--out", required=True)
     p.set_defaults(func=cmd_compare_olson)
+
+    p = sub.add_parser("sheet", help="draw the blind hand sheet and its key (local files)")
+    p.add_argument("--tables", required=True)
+    p.add_argument("--out", required=True, help="a folder under data/interim (never tracked)")
+    p.add_argument("--seed", type=int, required=True)
+    p.add_argument("--rows", type=int, default=sh.ROWS)
+    p.set_defaults(func=cmd_sheet)
+
+    p = sub.add_parser("sheet-check", help="alpha per code between a filled sheet and the rules")
+    p.add_argument("--sheet", required=True, help="the filled hand_sheet.xlsx")
+    p.add_argument("--key", required=True, help="hand_sheet_key.csv")
+    p.add_argument("--tables", required=True)
+    p.add_argument("--out", help="JSON file for the result (counts and row numbers only)")
+    p.set_defaults(func=cmd_sheet_check)
 
     p = sub.add_parser("profile", help="aggregate the sample (no text)")
     p.add_argument("--plan", required=True)
