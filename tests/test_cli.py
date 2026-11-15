@@ -228,3 +228,46 @@ def test_backfill_prints_one_line_per_page_without_text(tmp_path, capsys, monkey
     out = capsys.readouterr().out
     assert "2012 page 0: 1 records" in out
     assert "1 pages and 1 records in all" in out
+
+
+def test_build_and_text_commands_end_to_end(tmp_path, capsys, monkeypatch):
+    from cap_samples import invented
+    from test_check_rebuild import FakeClient, Resp
+    from test_tables import COUNTY, record
+    from warntext import backfill
+    from warntext import client as cl
+
+    rec = record(invented(identifier="EX-1", sender=COUNTY), "r01")
+
+    class PageResp:
+        status = 200
+        seconds = 0.1
+        content = json.dumps({"metadata": {}, probe.ENTITY: [rec]}).encode()
+
+    class PageClient:
+        def get(self, url, params):
+            return PageResp()
+
+        def clock(self):
+            return "2026-11-15T15:00:00.000Z"
+
+    raw = tmp_path / "raw"
+    backfill.run(PageClient(), {2024: 1}, "2026-11-14T00:00:00.000Z", raw)
+    out = tmp_path / "tables"
+    args = ["build", "--raw", str(raw), "--out", str(out), "--private", str(tmp_path / "p")]
+    assert cli.main([*args, "--summary", str(tmp_path / "summary.json")]) == 0
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    assert summary["messages"] == 1
+    assert "Invented" not in (tmp_path / "summary.json").read_text()
+
+    fake = FakeClient([Resp([rec])])
+    fake.budget = cl.Budget(max_calls=10)
+    monkeypatch.setattr(cli, "_client", lambda a: fake)
+    capsys.readouterr()
+    rebuilt = tmp_path / "rebuilt"
+    args = ["text", "--records", str(out / "alerts"), "--out", str(rebuilt), "--since", "x"]
+    assert cli.main([*args, "--limit", "5", "--ids", "r01"]) == 0
+    assert "'rebuilt': 1" in capsys.readouterr().out
+    assert (rebuilt / "text_other.parquet").exists()
+    fake.budget = cl.Budget(max_calls=0)
+    assert cli.main(args) == 2

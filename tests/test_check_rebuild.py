@@ -1,0 +1,186 @@
+"""The release check and the text rebuild, on invented messages and mocked answers."""
+
+import copy
+import json
+
+import pytest
+
+from cap_samples import invented
+from test_tables import BASE, COUNTY, record, run
+from warntext import check, cli, probe, rebuild, tables
+
+
+@pytest.fixture()
+def built():
+    records = [
+        record(invented(identifier="EX-1", sender=COUNTY), "r01"),
+        record(invented(identifier="EX-2", sender=COUNTY, code="CAE"), "r02"),
+        record(
+            invented(identifier="EX-3", sender=BASE, sender_name="Example Air Force Base"),
+            "r03",
+            cog=202,
+        ),
+        record(invented(identifier="EX-4", sender=COUNTY, code="RWT"), "r04"),
+    ]
+    b = run(records)
+    return b.tables, [x["sender"] for x in b.raw_senders]
+
+
+def test_clean_tables_pass(built):
+    t, senders = built
+    assert check.check(t, senders, {2024: 4}) == []
+
+
+def test_a_count_that_differs_from_the_server_fails(built):
+    t, senders = built
+    out = check.check(t, senders, {2024: 5, 2023: 1})
+    assert any("2024 has 4 records" in f for f in out)
+    assert any("2023 has 0 records" in f for f in out)
+
+
+def test_text_of_a_withheld_message_fails(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    good = t["alerts"]["text_other"][0]
+    t["alerts"]["text_other"].append({**good, "message_id": "r02"})
+    out = check.check(t, senders, None)
+    assert any("withheld message(s) have text" in f for f in out)
+    area = next(a for a in t["alerts"]["areas"] if a["message_id"] == "r02")
+    area["polygons"] = ["1,1 2,2 1,1"]
+    assert any("keep shapes" in f for f in check.check(t, senders, None))
+
+
+def test_a_dropped_parameter_fails(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    info = t["alerts"]["infos"][0]
+    info["parameter_names"] = [*info["parameter_names"], "UserName", "EAS-ORG"]
+    info["parameter_values"] = [*info["parameter_values"], "invented", "free text"]
+    out = check.check(t, senders, None)
+    assert any("'UserName': 1" in f and "EAS-ORG (unexpected value)" in f for f in out)
+
+
+def test_a_raw_sender_value_anywhere_fails(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    t["alerts"]["messages"][0]["organization"] = COUNTY.upper()
+    t["alerts"]["text_other"][0]["description"] = f"Invented, write to {COUNTY}."
+    out = check.check(t, senders, None)
+    assert any("alerts/messages: 1 cell(s) hold a raw sender value" in f for f in out)
+    assert any("alerts/text_other: 1 cell(s)" in f for f in out)
+
+
+def test_a_text_row_of_the_wrong_kind_or_message_fails(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    row = t["alerts"]["text_federal"][0]
+    t["alerts"]["text_other"].append(dict(row))
+    t["alerts"]["text_federal"].append({**row, "message_id": "nope", "info_index": 9})
+    out = check.check(t, senders, None)
+    assert any("text_other: 1 row(s) of the wrong sender kind" in f for f in out)
+    assert any("not in the tables" in f for f in out)
+    assert any("text rows: 1 duplicated" in f for f in out)
+
+
+def test_duplicated_ids_and_missing_sources_fail(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    t["tests"]["messages"].append(dict(t["alerts"]["messages"][0]))
+    t["alerts"]["threads"][0]["source"] = None
+    out = check.check(t, senders, None)
+    assert any("messages.message_id: 1 duplicated" in f for f in out)
+    assert any("messages.record_ids: 1 duplicated" in f for f in out)
+    assert any("without a source" in f for f in out)
+
+
+def test_the_check_command_reads_parquet_and_fails_loudly(built, tmp_path, capsys):
+    t, senders = built
+    b = tables.Build(units=[], tables=t, summary={}, raw_senders=[{"sender": s} for s in senders])
+    tables.write(b, tmp_path / "tables", tmp_path / "private")
+    counts = tmp_path / "counts.json"
+    counts.write_text(
+        json.dumps(
+            {
+                "facts": {"until": "2025-01-01T00:00:00.000Z"},
+                "counts": [{"name": "other:2024", "count": 4}],
+            }
+        )
+    )
+    args = ["check", "--tables", str(tmp_path / "tables"), "--private", str(tmp_path / "private")]
+    assert cli.main([*args, "--counts", str(counts)]) == 0
+    assert "Release check passed" in capsys.readouterr().out
+    counts.write_text(counts.read_text().replace('"count": 4', '"count": 3'))
+    assert cli.main([*args, "--counts", str(counts)]) == 1
+    assert "RELEASE CHECK FAILED" in capsys.readouterr().out
+
+
+class Resp:
+    def __init__(self, records, status=200):
+        self.status = status
+        self.content = json.dumps({"metadata": {}, probe.ENTITY: records}).encode()
+
+    def json(self):
+        return json.loads(self.content)
+
+
+class FakeClient:
+    def __init__(self, answers):
+        self.answers = list(answers)
+        self.params = []
+
+    def get(self, url, params):
+        self.params.append(params)
+        return self.answers.pop(0)
+
+    def clock(self):
+        return "2026-11-16T00:00:00.000Z"
+
+
+def test_rebuild_reads_by_record_id_and_skips_withheld(built):
+    t, _ = built
+    messages = [r for c in t.values() for r in c["messages"]]
+    todo = rebuild.wanted(messages, None)
+    assert {m["message_id"] for m in todo} == {"r01", "r03", "r04"}
+    assert {m["message_id"] for m in rebuild.wanted(messages, {"federal"})} == {"r03"}
+    recs = {
+        "r01": record(invented(identifier="EX-1", sender=COUNTY), "r01"),
+        "r03": record(
+            invented(identifier="EX-3", sender=BASE, sender_name="Example Air Force Base"), "r03"
+        ),
+        # the source now holds a phone number in this one: it is withheld again
+        "r04": record(
+            invented(identifier="EX-4", sender=COUNTY, code="RWT", description="Call 555-555-0100"),
+            "r04",
+        ),
+    }
+    todo = sorted(todo, key=lambda m: m["message_id"])
+    client = FakeClient([Resp([recs["r01"], recs["r03"]]), Resp([recs["r04"]])])
+    rows, stats = rebuild.rebuild(client, todo, batch=2)
+    assert client.params[0]["$filter"] == "id eq 'r01' or id eq 'r03'"
+    assert client.params[0]["$select"] == "id,sent,originalMessage"
+    assert stats == {"rebuilt": 2, "withheld_now": 1}
+    assert [r["message_id"] for r in rows["text_federal"]] == ["r03"]
+    assert [r["message_id"] for r in rows["text_other"]] == ["r01"]
+    local = next(r for r in t["alerts"]["text_other"] if r["message_id"] == "r01")
+    again = rows["text_other"][0]
+    assert {k: v for k, v in again.items() if k != "retrieved_at"} == {
+        k: v for k, v in local.items() if k != "retrieved_at"
+    }
+
+
+def test_rebuild_counts_missing_and_unreadable_and_stops_on_errors(built):
+    t, _ = built
+    todo = [m for m in rebuild.wanted(t["alerts"]["messages"], None) if m["message_id"] == "r01"]
+    broken = {"id": "r01", "originalMessage": "<alert"}
+    _, stats = rebuild.rebuild(FakeClient([Resp([broken])]), todo)
+    assert stats == {"unparsed": 1}
+    _, stats = rebuild.rebuild(FakeClient([Resp([])]), todo)
+    assert stats == {"not_found": 1}
+    with pytest.raises(RuntimeError, match="Nothing was written"):
+        rebuild.rebuild(FakeClient([Resp([], status=500)]), todo)
+
+
+def test_rebuild_write(tmp_path):
+    counts = rebuild.write({"text_federal": [], "text_other": []}, tmp_path / "out")
+    assert counts == {"text_federal": 0, "text_other": 0}
+    assert (tmp_path / "out" / "text_other.parquet").exists()

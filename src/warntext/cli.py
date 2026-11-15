@@ -11,12 +11,17 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+import pyarrow.parquet as pq
+
 from warntext import __version__
 from warntext import backfill as bf
+from warntext import check as ck
 from warntext import client as cl
 from warntext import probe as pr
 from warntext import profile as pf
+from warntext import rebuild as rb
 from warntext import sample as sm
+from warntext import tables as tb
 
 NWS_FILTER = f"sender eq '{sm.NWS_SENDER}'"
 
@@ -177,6 +182,62 @@ def cmd_backfill(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_build(args: argparse.Namespace) -> int:
+    """Parse the backfill and write both layers as Parquet, with a summary of aggregates."""
+    b = tb.build_from_raw(args.raw)
+    counts = tb.write(b, args.out, args.private)
+    b.summary["rows_written"] = counts
+    out = Path(args.summary)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(b.summary, indent=1, default=str) + "\n", encoding="utf-8")
+    print(
+        f"{b.summary['records']:,} records, {b.summary['messages']:,} messages; tables in "
+        f"{args.out}, summary (aggregates only) in {out}."
+    )
+    return 0
+
+
+def cmd_check(args: argparse.Namespace) -> int:
+    """The release check. Exits 1, loudly, on any failure."""
+    server = None
+    if args.counts:
+        counts, _ = read_year_counts(args.counts)
+        server = {y: n for y, (n, _how) in counts.items()}
+    failures = ck.check(ck.load(args.tables), ck.read_sender_values(args.private), server)
+    if failures:
+        print(f"RELEASE CHECK FAILED: {len(failures)} problem(s).")
+        for f in failures:
+            print(f"  FAIL {f}")
+        return 1
+    print(
+        "Release check passed: counts, withheld text, parameters, sender values, sender "
+        "kinds, ids, sources."
+    )
+    return 0
+
+
+def cmd_text(args: argparse.Namespace) -> int:
+    """Rebuild the text layer from the record layer, reading each message from FEMA's API."""
+    messages = pq.read_table(Path(args.records) / "messages.parquet").to_pylist()
+    kinds = set(args.kinds.split(",")) if args.kinds else None
+    todo = rb.wanted(messages, kinds)
+    if args.ids:
+        keep = set(args.ids.split(","))
+        todo = [m for m in todo if m["message_id"] in keep]
+    if args.limit:
+        todo = todo[: args.limit]
+    c = _client(args)
+    need = -(-len(todo) // args.batch)
+    left = c.budget.max_calls - c.budget.calls
+    if need > left:
+        print(f"Rebuilding needs {need} calls but only {left} are left under the cap.")
+        return 2
+    rows, stats = rb.rebuild(c, todo, batch=args.batch)
+    counts = rb.write(rows, args.out)
+    print(f"{dict(stats)}; rows written: {counts}; {c.budget.calls} calls so far.")
+    return 0
+
+
 def _client_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("--log", default="data/usage_log.csv", help="request log (CSV)")
     p.add_argument("--since", required=True, help="UTC start of the session, for the caps")
@@ -238,6 +299,29 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-response-mb", type=float, default=100.0)
     _client_options(p)
     p.set_defaults(func=cmd_backfill)
+
+    p = sub.add_parser("build", help="parse the backfill and write both layers as Parquet")
+    p.add_argument("--raw", required=True)
+    p.add_argument("--out", required=True, help="folder for the tables")
+    p.add_argument("--private", required=True, help="folder for the private sender file")
+    p.add_argument("--summary", required=True, help="JSON file of aggregates")
+    p.set_defaults(func=cmd_build)
+
+    p = sub.add_parser("check", help="the release check (exits 1 on any failure)")
+    p.add_argument("--tables", required=True)
+    p.add_argument("--private", required=True)
+    p.add_argument("--counts", nargs="*", help="backfill-counts files taken after the run")
+    p.set_defaults(func=cmd_check)
+
+    p = sub.add_parser("text", help="rebuild the text layer from the record layer and the API")
+    p.add_argument("--records", required=True, help="a configuration folder of the record layer")
+    p.add_argument("--out", required=True)
+    p.add_argument("--kinds", help="sender kinds to rebuild, comma-separated (default: all)")
+    p.add_argument("--ids", help="only these message ids, comma-separated")
+    p.add_argument("--limit", type=int, help="at most this many messages")
+    p.add_argument("--batch", type=int, default=rb.BATCH, help="record ids per request")
+    _client_options(p)
+    p.set_defaults(func=cmd_text)
 
     p = sub.add_parser("profile", help="aggregate the sample (no text)")
     p.add_argument("--plan", required=True)
