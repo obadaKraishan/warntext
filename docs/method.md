@@ -473,3 +473,88 @@ two kinds of guidance, `loc_boundary`, `loc_vague_or_none`). Released: `hazard`,
 category, links and their kinds, abbreviations, all caps, the evacuation wordings and the two
 flags (`src/warntext/code_status.csv`). The differing rows, by number, are kept for the next
 version of the rules.
+
+## 15. Version 2 of the rules, and a second hand sheet
+The first sheet showed that the rules and a reader took some definitions differently. The six
+definitions were then settled (codebook, version 2, section 2), and the first sheet became a
+development set: its rows were read to find what each rule missed or over-read. What was learned
+went into rules and invented test messages, never quoted text. Release 0.1.0 keeps version 1's
+codes; version 2's codes are built separately, and a release build refuses codes of another
+version than its status file's (`release.CODE_STATUS_VERSION`).
+
+**The first sheet's 91 differing answers, by cause** under the settled definitions:
+
+| code | the rule missed or over-read a clear case | the definition was open, now settled | the reader's answer does not fit the settled definition |
+|---|---:|---:|---:|
+| hazard | 4 | 1 (toward the reader) | 1 |
+| hazard description | 16 | 3 (toward the reader) | 1 |
+| source | 25 | 1 (toward the rules) | 0 |
+| guidance | 12 | 4 (toward the reader) | 1 |
+| time | 8 | 3 (2 toward the reader, 1 toward the rules) | 1 |
+| location | 9 | 1 (toward the reader) | 0 |
+| **all** | **74** | **13** (11 toward the reader, 2 toward the rules) | **4** |
+
+Two of the first sheet's rows should not have been on it: a test sent under a real event code,
+and a Spanish text under an English label. Version 2's test flag and language check catch both.
+
+**The changes** are listed with their reasons in the codebook (section 7). The largest are: the
+source is the speaker only (an opener, a signature, a speaker verb, initials as a speaker), and
+an organization only mentioned, a web address or a place not written as the speaker is not;
+orders and prohibitions as nouns are guidance; "immediate", "at this time" with an instruction,
+"till" and "til" are times, while a past event, a promised update and "before use" are not;
+generic words are not places, and named communities, townships and road codes are; a description
+needs a named hazard and is not the hazard's own name.
+
+**Version 2 on the first sheet** is a development figure, **not a check**: the rules were changed
+by reading these 100 texts, so the agreement shows how well they learned them, not how well they
+code new ones.
+
+| code | alpha | agreement | rows that still differ |
+|---|---:|---:|---:|
+| hazard | 0.95 | 0.98 | 2 |
+| hazard description | 0.93 | 0.97 | 3 |
+| source | 0.96 | 0.98 | 2 |
+| guidance | 0.93 | 0.97 | 3 |
+| time | 0.93 | 0.97 | 3 |
+| location | 0.97 | 0.99 | 1 |
+
+The rows that still differ are the Spanish text (now not coded, so every code differs on it), the
+reader's answers that do not fit the settled definitions, and two definition cases the rules
+take the settled way.
+
+**Against Olson et al. (2024), first rules, version 1 and version 2** (shares at 90 / 360
+characters; their filters; `warntext compare-olson`):
+
+| | first rules | version 1 | version 2 | Olson et al. |
+|---|---|---|---|---|
+| texts (90 + 360) | 7,195 | 6,755 | 6,719 | 6,080 |
+| hazard | 55.1 / 70.2 | 60.5 / 74.6 | 60.2 / 74.2 | 70.3 / 80.6 |
+| hazard description | 9.4 / 23.4 | 10.1 / 24.1 | 7.5 / 28.8 | 16.7 / 33.5 |
+| location | 61.3 / 79.6 | 70.9 / 88.4 | 70.0 / 86.2 | 81.2 / 91.5 |
+| time | 30.9 / 47.5 | 32.8 / 48.8 | 32.0 / 47.6 | 32.8 / 53.5 |
+| source | 17.0 / 35.6 | 21.0 / 42.3 | 26.8 / 43.2 | 26.6 / 52.1 |
+| guidance | 51.4 / 79.0 | 60.6 / 83.5 | 65.4 / 86.1 | 64.0 / 88.0 |
+| complete | 2.6 / 9.4 | 3.7 / 12.8 | 4.3 / 12.5 | 2.9 / 21.1 |
+| time to impact | 14.1 / 21.9 | 14.5 / 22.1 | 11.2 / 18.5 | 17.2 / 30.7 |
+| time to act | 13.4 / 24.3 | 14.8 / 25.6 | 16.0 / 27.8 | 11.2 / 19.2 |
+| expiry | 5.5 / 10.0 | 5.6 / 10.2 | 6.7 / 8.9 | 14.5 / 20.6 |
+| other or unknown category | 30.9 | 16.5 | 16.1 | 3.2 |
+| shares more than 5 points off | 37 | 27 | 30 | |
+
+Version 2 brings source and guidance at 90 characters onto the published shares. It moves the
+hazard description at 90 characters and the impact and expiry kinds of time further from them,
+because the settled definitions are narrower there than Olson et al.'s coders seem to have been.
+Over all real alerts' 90-character texts, version 2 drops the description from 955 units that
+version 1 gave it: in 560 of them version 2 finds no named hazard, and in 588 version 1 had found
+only an impact (often the hazard's own name, such as a closed road). It adds the description to
+270. The published shares are not a check: they come from other coders, and close shares can
+hide many differences on single texts.
+
+**The second hand sheet** (`warntext sheet --name hand_sheet_2 --exclude-key ...`, seed
+20261116, from version 2's tables): 100 texts with the first sheet's eligibility and strata
+(35 phone texts of 90 characters, 31 of 360, 34 full texts; 40 sent before 2020; all eight
+categories, 15,277 characters, median 91). It holds no text group and no text the first sheet
+used (1,208 units left out for that). It is the same workbook, blind, with the settled
+definitions on a second visible sheet and a plain-text guide beside it; the key is in its own
+file. It is not read until it comes back filled, no rule changes after it is scored, and a code at
+.80 or above on it is released with version 2's rules.
