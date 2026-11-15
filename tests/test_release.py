@@ -108,3 +108,20 @@ def test_release_commands(pack, tmp_path, capsys):
     assert "Release pack check passed" in capsys.readouterr().out
     pq.write_table(pa.table({"x": [1]}), out / "alerts" / "text_other.parquet")
     assert cli.main([*check, "--state", str(state)]) == 1
+
+
+def test_the_kaggle_mirror_holds_the_record_layer_and_codes_only(pack, tmp_path):
+    out = tmp_path / "kaggle"
+    meta = release.build_kaggle(pack["dir"], out)
+    files = sorted(p.name for p in out.iterdir())
+    assert "alerts-codes.parquet" in files and "alerts-messages.parquet" in files
+    assert not any("text" in f for f in files)
+    assert meta["licenses"] == [{"name": "other"}] and meta["isPrivate"] is True
+    assert release.TERMS_URL in meta["description"]
+    assert release.check_kaggle(out) == []
+    shutil.copy(
+        pack["dir"] / "alerts" / "text_federal.parquet", out / "alerts-text_federal.parquet"
+    )
+    assert any("holds no text" in f for f in release.check_kaggle(out))
+    with pytest.raises(SystemExit, match="not empty"):
+        release.build_kaggle(pack["dir"], out)

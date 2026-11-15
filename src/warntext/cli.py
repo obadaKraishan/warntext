@@ -376,6 +376,8 @@ def cmd_release_build(args: argparse.Namespace) -> int:
     """Build the release pack (record layer, released codes, text_federal) from the tables."""
     state = json.loads(Path(args.state).read_text(encoding="utf-8"))
     m = rl.build_pack(args.tables, args.out, args.version, state["until"], args.retrieved)
+    kaggle = Path(f"{args.out.rstrip('/')}-kaggle")
+    rl.build_kaggle(args.out, kaggle)
     print(
         f"Pack {args.version} in {args.out}: {len(m['files'])} files, {m['rows']:,} rows, "
         f"{m['bytes'] / 1_000_000:.1f} MB; records sent before {state['until']}."
@@ -390,12 +392,18 @@ def cmd_release_check(args: argparse.Namespace) -> int:
     failures = rl.check_pack(
         args.pack, ck.read_sender_values(args.private), ck.read_identifiers(args.private), counts
     )
+    kaggle = Path(f"{str(args.pack).rstrip('/')}-kaggle")
+    if kaggle.exists():
+        failures += rl.check_kaggle(kaggle)
     if failures:
         print(f"RELEASE PACK CHECK FAILED: {len(failures)} problem(s).")
         for f in failures:
             print(f"  FAIL {f}")
         return 1
-    print("Release pack check passed: files, manifest, card, and the release check of its tables.")
+    print(
+        "Release pack check passed: files, manifest, card, the release check of its tables, "
+        "and the Kaggle mirror's folder."
+    )
     return 0
 
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from collections.abc import Mapping
 from importlib import resources
 from pathlib import Path
@@ -220,4 +221,89 @@ def check_pack(
             path = pack_dir / config / f"{name}.parquet"
             loaded[config][name] = pq.read_table(path).to_pylist() if path.exists() else []
     fail += ck.check(loaded, sender_values, server_counts, identifiers)
+    return fail
+
+
+# --- the Kaggle mirror: the record layer and the codes, no text ---------------------------
+
+KAGGLE_ID = "obadakraishan/warntext"
+KAGGLE_TABLES = RECORD_TABLES
+_DESCRIBE = {
+    "messages": "one row per message: authority, kind, time, type, codes, places, channels",
+    "infos": "one row per language block: categories, urgency, times, allowed parameters",
+    "areas": "one row per area block: area codes (shapes when allowed)",
+    "references": "links from updates and cancels to earlier messages",
+    "threads": "one row per alert with its updates and cancels",
+    "codes": "content codes per text unit (released codes only)",
+}
+
+
+def build_kaggle(pack_dir: Path | str, out_dir: Path | str) -> dict[str, Any]:
+    """The Kaggle mirror's folder: flat copies of the record-layer files and its metadata.
+
+    It holds no text table, not even ``text_federal``: the mirror carries the record layer and
+    the codes only, and points to the Hugging Face dataset for the rest.
+    """
+    pack_dir, out_dir = Path(pack_dir), Path(out_dir)
+    if out_dir.exists() and any(out_dir.iterdir()):
+        raise SystemExit(f"{out_dir} is not empty; the mirror's folder is built once.")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    manifest = json.loads((pack_dir / "manifest.json").read_text(encoding="utf-8"))
+    resources = []
+    for f in manifest["files"]:
+        config, name = f["path"].removesuffix(".parquet").split("/")
+        if name not in KAGGLE_TABLES:
+            continue
+        flat = f"{config}-{name}.parquet"
+        shutil.copyfile(pack_dir / f["path"], out_dir / flat)
+        label = "real alerts" if config == "alerts" else "tests and demonstrations"
+        resources.append({"path": flat, "description": f"{label}: {_DESCRIBE[name]}"})
+    meta = {
+        "title": "WarnText: US public alert records",
+        "id": KAGGLE_ID,
+        "subtitle": "The record layer and content codes of US public alert messages (IPAWS)",
+        "description": (
+            f"# WarnText {manifest['version']} (record layer)\n\n"
+            "A research record of the public alert messages sent through the Integrated Public "
+            "Alert and Warning System, from FEMA's OpenFEMA dataset IPAWS Archived Alerts. Not "
+            "an alerting service. This mirror holds the record layer and the released content "
+            "codes only, never message text; the federal senders' text and the dataset card "
+            "are on Hugging Face (https://huggingface.co/datasets/obadakr/warntext), and the code "
+            "and method at https://github.com/obadaKraishan/warntext.\n\n"
+            "The data are under OpenFEMA's terms, which every user must follow: "
+            f"{TERMS_URL}. This product uses the Federal Emergency Management Agency's OpenFEMA "
+            "API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for "
+            "the data or analyses derived from these data after the data have been retrieved "
+            "from the Agency's website(s)."
+        ),
+        "isPrivate": True,
+        "licenses": [{"name": "other"}],
+        "keywords": ["emergency alerts", "crisis communication", "text"],
+        "expectedUpdateFrequency": "weekly",
+        "userSpecifiedSources": (
+            "FEMA OpenFEMA Dataset: IPAWS Archived Alerts - v1, "
+            "https://www.fema.gov/api/open/v1/IpawsArchivedAlerts, retrieved "
+            f"{manifest['retrieved']} (UTC); records sent before "
+            f"{manifest['records_sent_before']}."
+        ),
+        "resources": resources,
+    }
+    (out_dir / "dataset-metadata.json").write_text(json.dumps(meta, indent=1) + "\n", "utf-8")
+    return meta
+
+
+def check_kaggle(out_dir: Path | str) -> list[str]:
+    """The mirror holds record-layer files and its metadata only."""
+    out_dir = Path(out_dir)
+    fail = []
+    for path in sorted(p for p in out_dir.rglob("*") if p.is_file()):
+        name = path.name
+        if name == "dataset-metadata.json":
+            continue
+        base = name.removesuffix(".parquet")
+        config, _, table = base.partition("-")
+        if config not in CONFIGS or table not in KAGGLE_TABLES or not name.endswith(".parquet"):
+            fail.append(f"kaggle/{name}: not a record-layer file; the mirror holds no text.")
+    if not (out_dir / "dataset-metadata.json").exists():
+        fail.append("kaggle/dataset-metadata.json is missing.")
     return fail
