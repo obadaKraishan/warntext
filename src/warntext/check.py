@@ -5,6 +5,8 @@ It fails, loudly, when:
 - a withheld message has text in any text table, or area shapes in the area table;
 - a parameter that is not on the allow-list (or a value not in its allowed form) appears;
 - a raw sender value appears in any cell of any table;
+- a cell of the record layer matches a personal-detail pattern (the record layer holds no text,
+  so such a match means text has leaked into it);
 - a text table holds a message of the wrong sender kind, or a message that does not exist;
 - an id is duplicated (messages, record ids, language blocks, areas, references, threads, text
   rows);
@@ -121,6 +123,18 @@ def check(
                         hits += 1
             if hits:
                 fail.append(f"{c}/{name}: {hits} cell(s) hold a raw sender value.")
+
+    # The record layer holds no text: no cell may match a personal-detail pattern.
+    for c in CONFIGS:
+        for name in RECORD_TABLES:
+            found: Counter = Counter()
+            for row in tables[c][name]:
+                for cell in _cells(row):
+                    for pattern, hit in patterns.present(cell).items():
+                        if hit:
+                            found[pattern] += 1
+            if found:
+                fail.append(f"{c}/{name}: cells match personal-detail patterns: {dict(found)}")
 
     # Text tables: the right sender kind, and messages that exist.
     for c in CONFIGS:

@@ -184,3 +184,12 @@ def test_rebuild_write(tmp_path):
     counts = rebuild.write({"text_federal": [], "text_other": []}, tmp_path / "out")
     assert counts == {"text_federal": 0, "text_other": 0}
     assert (tmp_path / "out" / "text_other.parquet").exists()
+
+
+def test_text_leaking_into_the_record_layer_fails(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    t["alerts"]["infos"][0]["parameter_names"] = ["timezone"]
+    t["alerts"]["infos"][0]["parameter_values"] = ["Call 555-555-0123"]
+    out = check.check(t, senders, None)
+    assert any("alerts/infos: cells match personal-detail patterns: {'phone': 1}" in f for f in out)
