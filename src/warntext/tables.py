@@ -69,6 +69,7 @@ SCHEMAS: dict[str, pa.Schema] = {
             ("sent_utc", TS),
             ("year", INT),
             ("times_rounded", B),
+            ("about_missing_person", B),
             ("status", S),
             ("msg_type", S),
             ("scope", S),
@@ -472,6 +473,7 @@ class Unit:
     by_domain: str | None = None
     organization: str | None = None
     organization_source: str | None = None
+    about_missing: bool = False
     kind_rule: str = "unknown"
     authority_type: str | None = None
     withheld: str | None = None
@@ -610,8 +612,9 @@ def fema_summary(units: list[Unit], fema: Mapping[int, au.Authority]) -> dict[st
 
 
 def _people(u: Unit) -> bool:
-    """Whether a message's times are rounded to the hour: it carries a people code."""
-    return u.withheld == "people_code"
+    """Whether a message keeps only the hour and the county: it carries a people code, or its
+    text is about a missing person."""
+    return u.withheld == "people_code" or u.about_missing
 
 
 def _exact(message_id: str, table: str, index: int | None, name: str, value: str) -> dict:
@@ -627,6 +630,43 @@ def _info_times(u: Unit, k: int, i: Info, people_times: list[dict]) -> dict[str,
             people_times.append(_exact(u.message_id, "infos", k, name, value))
             value = privacy.hour_floor(value)
         out[name] = value
+    return out
+
+
+@dataclass
+class _Fixes:
+    """What the people treatment changed in a build, counted."""
+
+    area_codes: int = 0
+    area_code_messages: set[str] = field(default_factory=set)
+    eas_headers: int = 0
+
+
+def _area_code(u: Unit, name: str, value: str, fixes: _Fixes) -> str:
+    """An area code as released: the county only (part digit 0) for a people-treated message."""
+    geocode = name.strip().upper() in privacy.PART_DIGIT_GEOCODES
+    if _people(u) and geocode and privacy.has_part_digit(value):
+        fixes.area_codes += 1
+        fixes.area_code_messages.add(u.message_id)
+        return privacy.county_only(value)
+    return value
+
+
+def _parameter_values(
+    u: Unit, k: int, kept: list, people_times: list[dict], fixes: _Fixes
+) -> list[str]:
+    """Allow-listed parameter values; a people-treated message's EAS header keeps only the hour
+    and the county (the exact header goes to the private table)."""
+    out = []
+    for p in kept:
+        value = p.value
+        if _people(u) and p.name == "EASHeader":
+            coarse = privacy.coarsen_eas_header(value)
+            if coarse != value:
+                people_times.append(_exact(u.message_id, "infos", k, "EASHeader", value))
+                fixes.eas_headers += 1
+            value = coarse
+        out.append(value)
     return out
 
 
@@ -841,6 +881,11 @@ def build(
             u.withheld, u.hits = "unparsed", []
         else:
             u.withheld, u.hits = privacy.withheld(m)
+            # A message about a missing person is treated like a people-code row, whatever
+            # its code: no text, no shapes, times to the hour, the county only.
+            u.about_missing = privacy.about_missing_person(m)
+            if u.about_missing and u.withheld is None:
+                u.withheld = "missing_person"
 
     # Re-sends: the same text from the same sender under another identifier.
     groups: dict[tuple[str, str], list[Unit]] = defaultdict(list)
@@ -995,6 +1040,7 @@ def build(
     for row in ref_rows:
         tables[by_id[row["message_id"]].config]["references"].append(row)
     params_kept: Counter = Counter()
+    fixes = _Fixes()
     params_dropped: Counter = Counter()
     params_text: Counter = Counter()
     dropped_message_fields: Counter = Counter()
@@ -1041,7 +1087,7 @@ def build(
                 "event_code_values": [p.value for p in i.event_codes],
                 **_info_times(u, k, i, people_times),
                 "parameter_names": [p.name for p in kept],
-                "parameter_values": [p.value for p in kept],
+                "parameter_values": _parameter_values(u, k, kept, people_times, fixes),
                 "n_resources": len(i.resources),
                 "resource_mime_types": [r.mime_type or "" for r in i.resources],
                 "resource_sizes": [r.size for r in i.resources],
@@ -1058,7 +1104,12 @@ def build(
                 n_areas += 1
                 n_polys += len(a.polygons)
                 n_circles += len(a.circles)
-                geos += [g.value.strip() for g in a.geocodes if g.name.strip().upper() == "SAME"]
+                released = [_area_code(u, g.name, g.value, fixes) for g in a.geocodes]
+                geos += [
+                    v.strip()
+                    for g, v in zip(a.geocodes, released, strict=True)
+                    if g.name.strip().upper() == "SAME"
+                ]
                 t["areas"].append(
                     {
                         "message_id": u.message_id,
@@ -1072,7 +1123,7 @@ def build(
                         "circles": None if withheld else list(a.circles),
                         "shapes_withheld": withheld and bool(a.polygons or a.circles),
                         "geocode_names": [g.name for g in a.geocodes],
-                        "geocode_values": [g.value for g in a.geocodes],
+                        "geocode_values": released,
                         "altitude": a.altitude,
                         "ceiling": a.ceiling,
                     }
@@ -1112,6 +1163,7 @@ def build(
                 "sent_utc": sent_utc_out,
                 "year": sent_utc.year if sent_utc else None,
                 "times_rounded": rounded,
+                "about_missing_person": u.about_missing,
                 "status": u.first.status,
                 "msg_type": u.first.msg_type,
                 "scope": u.first.scope,
@@ -1212,6 +1264,18 @@ def build(
     raw_senders = [
         {"sender": snd, "cog_ids": sorted(cogs)} for snd, cogs in sorted(cogs_by_sender.items())
     ]
+    summary["people_treatment"] = {
+        "messages": sum(1 for u in units if _people(u)),
+        "people_code": sum(1 for u in units if u.withheld == "people_code"),
+        "about_missing_person": sum(1 for u in units if u.about_missing),
+        "about_missing_person_without_people_code": sum(
+            1 for u in units if u.about_missing and u.withheld != "people_code"
+        ),
+        "withheld_only_as_missing_person": sum(1 for u in units if u.withheld == "missing_person"),
+        "part_digits_set_to_county": fixes.area_codes,
+        "messages_with_a_part_digit": len(fixes.area_code_messages),
+        "eas_headers_coarsened": fixes.eas_headers,
+    }
     summary["people_times"] = {
         "messages_rounded": sum(1 for u in units if _people(u)),
         "exact_values_kept_private": len(people_times),

@@ -87,7 +87,7 @@ def rebuild(
                 stats["unparsed"] += 1
                 continue
             reason, _ = privacy.withheld(parsed)
-            if reason is not None:
+            if reason is not None or privacy.about_missing_person(parsed):
                 stats["withheld_now"] += 1
                 continue
             unit = _Unit(m["message_id"], _First(m["record_id"], when), m["sender_kind"])

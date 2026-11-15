@@ -388,3 +388,54 @@ def test_codes_rows_for_real_alerts_only_withheld_ones_too_and_without_text(corp
     assert not cells & texts
     full = next(r for r in rows if r["message_id"] == "r01" and r["unit"] == "full")
     assert full["coded"] is True and isinstance(full["guidance"], bool)
+
+
+def test_missing_person_and_people_code_rows_keep_the_hour_and_the_county_only():
+    header = "ZCZC-CIV-CEM-348201+0100-1221547-EXAMPLE1-"
+    spanish = invented(
+        identifier="EX-M1",
+        sender=COUNTY,
+        code="CEM",
+        language="es-US",
+        sent="2024-05-01T10:47:12-05:00",
+        description="Hombre desaparecido, visto por última vez cerca de Oak Road.",
+        geocodes=("348201",),
+        parameters=(("EAS-ORG", "CIV"), ("EASHeader", header)),
+        polygon="30.0,-97.0 30.1,-97.0 30.1,-97.1 30.0,-97.0",
+    )
+    child = invented(
+        identifier="EX-M2",
+        sender=COUNTY,
+        code="CAE",
+        sent="2024-05-01T11:47:12-05:00",
+        geocodes=("448201", "048157"),
+    )
+    hazard = invented(
+        identifier="EX-M3",
+        sender=COUNTY,
+        sent="2024-05-01T12:47:12-05:00",
+        geocodes=("548201",),
+        parameters=(("EAS-ORG", "CIV"), ("EASHeader", header)),
+    )
+    b = run([record(spanish, "m1"), record(child, "m2"), record(hazard, "m3")])
+    rows = by_id(b)
+    m1 = rows["m1"]
+    assert m1["text_withheld"] == "missing_person" and m1["about_missing_person"]
+    assert m1["sent"] == "2024-05-01T10:00:00-05:00" and m1["times_rounded"]
+    assert m1["same_geocodes"] == ["048201"] and m1["counties"] == ["48201"]
+    assert not any(r["message_id"] == "m1" for c in b.tables.values() for r in c["text_other"])
+    area = next(r for r in b.tables["alerts"]["areas"] if r["message_id"] == "m1")
+    assert area["geocode_values"] == ["048201"] and area["polygons"] is None
+    info = next(r for r in b.tables["alerts"]["infos"] if r["message_id"] == "m1")
+    assert "ZCZC-CIV-CEM-048201+0100-1221500-EXAMPLE1-" in info["parameter_values"]
+    assert rows["m2"]["same_geocodes"] == ["048157", "048201"]
+    # an ordinary hazard alert keeps its part-of-county digit and its exact header
+    assert rows["m3"]["same_geocodes"] == ["548201"] and not rows["m3"]["times_rounded"]
+    info3 = next(r for r in b.tables["alerts"]["infos"] if r["message_id"] == "m3")
+    assert header in info3["parameter_values"]
+    t = b.summary["people_treatment"]
+    assert t["withheld_only_as_missing_person"] == 1
+    assert t["part_digits_set_to_county"] == 2 and t["messages_with_a_part_digit"] == 2
+    assert t["eas_headers_coarsened"] == 1
+    private = {(x["message_id"], x["field"]): x["value"] for x in b.people_times}
+    assert private[("m1", "EASHeader")] == header

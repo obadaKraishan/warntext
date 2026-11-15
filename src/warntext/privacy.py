@@ -15,11 +15,15 @@
    parameters such as ``UserName``, ``Email`` or ``AssignedAddress`` are never kept.
 4. **``contact`` is dropped everywhere**, as are the message-level ``note``, ``source`` and
    ``addresses`` fields, which some senders fill with an operator's name or address.
-5. **Messages with a people code carry no time finer than the hour.** In the record layer their
+5. **Messages with a people code keep only the hour and the county.** In the record layer their
    sent, effective, onset and expiry times (and the times of references and threads that touch
-   them) are rounded down to the hour; the county stays. The exact times stay in a private
-   local table. The date and the county already point to an event; the minute adds little to
-   that, and the hour of day is kept as a research variable.
+   them, and the time in their EAS header) are rounded down to the hour; their area codes keep
+   the county without the part-of-county digit. The exact values stay in a private local table.
+   The date and the county already point to an event; the minute and the part of a county add
+   little to that, and the hour of day is kept as a research variable.
+6. **A message about a missing person is treated the same way,** whatever its event code: its
+   text and shapes are withheld (reason ``missing_person`` when no other rule withheld it), its
+   times are rounded to the hour and its area codes keep the county only.
 
 The functions here return names and reasons, never the matched text.
 """
@@ -165,7 +169,30 @@ def withheld(m: Message) -> tuple[str | None, list[str]]:
     return None, hits
 
 
-# --- times of messages about people ------------------------------------------------------
+# --- messages about a missing person -----------------------------------------------------
+
+#: Words of a message about a missing person: in English (the words the content codes'
+#: ``about_missing_person`` flag reads) and in Spanish.
+_MISSING_EN = (
+    r"\bmissing\b(?!\s+(?:pets?|dogs?|cats?|animals?|horses?|livestock|cattle|water|power|"
+    r"service|data|information|items?|packages?|mail))|\bendangered\s+(?:missing|person|adult|"
+    r"child|juvenile)|\b(?:silver|amber|ashanti|feather|endangered\s+missing)\s+alert|"
+    r"\bhave\s+you\s+seen\b|\blast\s+seen\b|\bwas\s+reported\s+missing\b|\bgone\s+missing\b"
+)
+_MISSING_ES = (
+    r"\bdesaparecid[oa]s?\b|\bvist[oa]\s+por\s+[u\u00fa]ltima\s+vez\b|"
+    r"\balerta\s+(?:amber|plateada)\b|\b(?:lo|la)\s+ha\s+visto\b"
+)
+MISSING_PERSON_EN = re.compile(_MISSING_EN, re.IGNORECASE)
+MISSING_PERSON = re.compile(_MISSING_EN + "|" + _MISSING_ES, re.IGNORECASE)
+
+
+def about_missing_person(m: Message) -> bool:
+    """Whether any text of the message (any language block) is about a missing person."""
+    return any(MISSING_PERSON.search(t) for t in message_texts(m))
+
+
+# --- times and places of messages about people -------------------------------------------
 
 _CAP_TIME = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$")
 
@@ -199,3 +226,47 @@ def finer_than_hour(value: str | datetime | None) -> bool:
         return True
     fraction = (m.group(4) or ".0").strip(".0")
     return m.group(2) != "00" or m.group(3) != "00" or bool(fraction)
+
+
+#: Geocode names whose values are six-digit ``PSSCCC`` codes (part of county, state, county).
+PART_DIGIT_GEOCODES = frozenset({"SAME", "FIPS6"})
+_SIX = re.compile(r"\d{6}")
+
+
+def county_only(code: str) -> str:
+    """A ``PSSCCC`` area code with the part-of-county digit set to 0 (the county only)."""
+    value = code.strip()
+    return "0" + value[1:] if _SIX.fullmatch(value) else code
+
+
+def has_part_digit(code: str) -> bool:
+    value = code.strip()
+    return bool(_SIX.fullmatch(value)) and value[0] != "0"
+
+
+_EAS_HEADER = re.compile(
+    r"^(ZCZC-[A-Z]{3}-[A-Z]{3})((?:-\d{6})+)(\+\d{4})-(\d{3})(\d{2})(\d{2})(-.*)$"
+)
+
+
+def coarsen_eas_header(value: str) -> str:
+    """An EAS header with its area codes at county level and its issue time to the hour.
+
+    ``ZCZC-CIV-CAE-148201+0100-3191547-EXAMPLE1-`` becomes
+    ``ZCZC-CIV-CAE-048201+0100-3191500-EXAMPLE1-``. A header not in the standard form is
+    returned as it is (the parameter allow-list drops such values anyway).
+    """
+    m = _EAS_HEADER.match(value.strip())
+    if not m:
+        return value
+    places = "".join("-" + county_only(c) for c in m.group(2).split("-") if c)
+    return f"{m.group(1)}{places}{m.group(3)}-{m.group(4)}{m.group(5)}00{m.group(7)}"
+
+
+def eas_header_finer(value: str) -> tuple[bool, bool]:
+    """Whether an EAS header holds a part-of-county digit, and a time finer than the hour."""
+    m = _EAS_HEADER.match(value.strip())
+    if not m:
+        return False, False
+    part = any(has_part_digit(c) for c in m.group(2).split("-") if c)
+    return part, m.group(6) != "00"

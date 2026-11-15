@@ -117,3 +117,28 @@ def test_people_times_round_down_to_the_hour():
     assert privacy.finer_than_hour(t)
     assert not privacy.finer_than_hour(privacy.hour_floor_utc(t))
     assert not privacy.finer_than_hour(None)
+
+
+def test_area_codes_keep_the_county_and_eas_headers_the_hour():
+    assert privacy.county_only("348201") == "048201"
+    assert privacy.county_only("048201") == "048201"
+    assert privacy.county_only("TXZ213") == "TXZ213"
+    assert privacy.has_part_digit("348201") and not privacy.has_part_digit("048201")
+    header = "ZCZC-CIV-CEM-348201-048157+0100-3191547-EXAMPLE1-"
+    assert privacy.eas_header_finer(header) == (True, True)
+    coarse = privacy.coarsen_eas_header(header)
+    assert coarse == "ZCZC-CIV-CEM-048201-048157+0100-3191500-EXAMPLE1-"
+    assert privacy.eas_header_finer(coarse) == (False, False)
+    assert privacy.coarsen_eas_header("not a header") == "not a header"
+    assert privacy.eas_header_finer("not a header") == (False, False)
+
+
+def test_messages_about_a_missing_person_in_either_language():
+    english = cap.parse_xml(invented(description="Silver Alert for an invented man."))
+    spanish = cap.parse_xml(
+        invented(language="es-US", description="Hombre desaparecido, visto por última vez ayer.")
+    )
+    plain = cap.parse_xml(invented(description="Missing water service on Oak Road."))
+    assert privacy.about_missing_person(english)
+    assert privacy.about_missing_person(spanish)
+    assert not privacy.about_missing_person(plain)

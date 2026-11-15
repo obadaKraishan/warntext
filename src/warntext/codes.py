@@ -33,6 +33,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
+from warntext import privacy
 from warntext import senders as sd
 
 CODEBOOK_VERSION = "1"
@@ -1018,12 +1019,8 @@ def evacuation_terms(text: str) -> dict[str, bool]:
 
 
 #: Words of a message about a missing person (Olson et al. removed these whatever their code).
-_MISSING_PERSON = _rx(
-    r"\bmissing\b(?!\s+(?:pets?|dogs?|cats?|animals?|horses?|livestock|cattle|water|power|"
-    r"service|data|information|items?|packages?|mail))|\bendangered\s+(?:missing|person|adult|"
-    r"child|juvenile)|\b(?:silver|amber|ashanti|feather|endangered\s+missing)\s+alert|"
-    r"\bhave\s+you\s+seen\b|\blast\s+seen\b|\bwas\s+reported\s+missing\b|\bgone\s+missing\b"
-)
+#: The words the privacy rule reads too (English only here: Spanish units are not coded).
+_MISSING_PERSON = privacy.MISSING_PERSON_EN
 
 
 #: Words of a test, drill or exercise sent under a real event code (Olson et al. removed tests
