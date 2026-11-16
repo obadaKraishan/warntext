@@ -335,7 +335,7 @@ def test_category_cues_and_named_places_in_all_caps():
 @pytest.mark.parametrize(
     "text",
     [
-        "SCEMA: Shelter in place now.",
+        "EXCFD: Shelter in place now.",
         "EXCO Alert Boil water before drinking.",
         "Sheriff: Avoid Oak Road.",
         "SAMPLETON POLICE: Lock doors and stay inside.",
@@ -436,7 +436,7 @@ def test_v2_hazards_and_their_description():
     c = code("Diesel fuel release into Oak Creek.")
     assert c["hazard"] and c["hazard_category"] == "technological" and c["hazard_description"]
     assert code("I-80 WB closed from exit 67")["hazard_category"] == "public_safety"
-    c = code("SR 73 closed due to downed power pole")
+    c = code("Route 999 closed due to downed power pole")
     assert c["hazard"] and c["hazard_description"]
     assert not code("Evacuate if you are on the ice at Oak Lake.")["hazard"]
     assert code("EXTA is suspending bus service until 6 AM.")["hazard"]

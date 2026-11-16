@@ -139,10 +139,10 @@ _OPENER = re.compile(
     _LEAD_STAMP
     + r"([A-Z][\w.'&/-]*(?:\s+[A-Za-z][\w.'&/-]*){0,7})\s*(?::|-{1,2}|\u2013|\u2014)(?:\s|$)"
 )
-#: An opener joined to the text by a bare dash: "Ionia911-Lake ...", "GDOT-Road ...".
+#: An opener joined to the text by a bare dash: "Exville911-Lake ...", "EXDOT-Road ...".
 _OPENER_TIGHT = re.compile(_LEAD_STAMP + r"([A-Z][A-Za-z]*(?:911|[A-Z]{2,})[A-Za-z0-9]*)[:\-]\S")
-#: Initials or an agency word that starts the text as its speaker: "MAGovt Alert ...",
-#: "NCEM ...", "THE DOUGLAS COUNTY SHERIFFS OFC ADV ...".
+#: Initials or an agency word that starts the text as its speaker: "EXGovt Alert ...",
+#: "EXSO ...", "THE EXAMPLE COUNTY SHERIFFS OFC ADV ...".
 _PREFIX_ALERT = re.compile(_LEAD_STAMP + r"([A-Z][A-Za-z]*[A-Z][A-Za-z0-9]*)\s+(?i:alerts?)\b")
 _SIGNATURE = re.compile(r"(?:^|\s)(?:-{1,2}|\u2013|\u2014|~)\s*([A-Z][\w.'& /-]{2,70}?)\s*\.?\s*$")
 _STATE_OF = _rx(r"\bstate\s+of\s+(?:emergency|disaster)\b")
