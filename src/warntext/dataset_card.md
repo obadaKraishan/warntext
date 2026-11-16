@@ -67,8 +67,14 @@ Service, sent before {{until}}: **{{real_alerts}} real alerts** from {{authoriti
 alerting authorities and **{{tests}} tests and demonstrations**. One row per message, with its
 alerting authority (FEMA's identifier and the organization's name, never a person), the kind of
 sender, its time, type and event codes, its places (area codes, states, counties), the channels
-it asked for, the updates and cancellations that followed it, measures of its text, and content
-codes from the warning literature.
+it asked for, the updates and cancellations that followed it, and measures of its text.
+
+**The message text is included** for the alerts that are not about people: {{text_alerts}} real
+alerts and {{text_tests}} tests carry their words, each text row crediting FEMA's dataset and
+the alerting authority that wrote it. **The text of alerts about people is withheld:** their
+rows stay, but their words do not, because they name and describe missing children, missing
+adults and people sought by police, and a published corpus would keep those names long after
+the alert had ended.
 
 ## What it is not
 - **Not an alerting service** (above).
@@ -89,7 +95,7 @@ demonstrations (`tests`). Sizes in this version:
 | `areas` | {{alerts_areas_rows}} | {{tests_areas_rows}} | one row per area block (codes; shapes when allowed) |
 | `references` | {{alerts_references_rows}} | {{tests_references_rows}} | links from updates and cancels to earlier messages |
 | `threads` | {{alerts_threads_rows}} | {{tests_threads_rows}} | one row per alert with its updates and cancels |
-| `codes` | {{alerts_codes_rows}} | | content codes per text unit (real alerts only) |
+| `codes` | {{alerts_codes_rows}} | | codes per text unit (real alerts only) |
 {{text_size_rows}}
 
 In all {{total_rows}} rows, {{total_mb}} MB as Parquet. The field list is in the project's
@@ -98,17 +104,24 @@ In all {{total_rows}} rows, {{total_mb}} MB as Parquet. The field list is in the
 ## Two layers, and why
 - **The record layer** (`messages`, `infos`, `areas`, `references`, `threads`, `codes`) holds no
   message text. Rows are keyed by FEMA's record ids; no raw sender value (often an employee's
-  email address) and no raw CAP identifier is in it.
-- **The text layer** holds the words. This release holds only `text_federal`: the text of
-  federal senders ({{federal_text_alerts}} real alerts, most of them earthquake warnings, and
-  federal tests). State, local, tribal, territorial and other senders' messages may be protected
-  under state law, and FEMA's terms neither grant nor refuse their redistribution, so their text
-  is not released. Anyone can build it on their own machine from FEMA's API, by record id,
-  inside FEMA's rate limits and with the same privacy rules:
+  email address) and no raw CAP identifier is in it. It is released here and on the Kaggle
+  mirror.
+- **The text layer** holds the words, one row per language block: the event, headline,
+  description, instruction, web address, the phone texts of 90 and 360 characters and the
+  broadcast texts. `text_federal` holds federal senders' messages ({{federal_text_alerts}} real
+  alerts, most of them earthquake warnings, and federal tests); `text_other` holds state, local,
+  tribal, territorial and unknown-kind senders'. Every text row carries its credit: the alerting
+  authority's FEMA ID (`cog_id`), its name as released (`organization`; blank where the name was
+  not confirmed) and a `credit` line. The text layer is released here only. The tests of the one
+  national authority (the clearinghouse that relays AMBER alerts) are left out of it.
+- **Rebuilding the text.** The Kaggle mirror holds no text. Anyone can rebuild the text of the
+  messages that are not withheld on their own machine, from FEMA's API by record id, inside
+  FEMA's rate limits and with the same privacy rules; a message whose text is already in the
+  folder given is reported as already in the release and not read again:
 
   ```bash
   pip install git+https://github.com/obadaKraishan/warntext
-  warntext text --records path/to/alerts --out my-text --kinds state,local
+  warntext text --records path/to/alerts --out my-text
   ```
 
 ## Alerts about people
@@ -122,33 +135,68 @@ suspects. WarnText keeps their rows and withholds their text, by rule and with n
   (sent, effective, onset, expiry, and the times of its references, threads and EAS header) and
   **only the county** of each area code (the part-of-county digit is set to 0).
 
-In this version {{withheld}} of the {{real_alerts}} real alerts have their text withheld
-({{withheld_people_code}} by people code), and {{rounded}} keep only the hour and the county.
-Do not try to identify anyone named or described in a message, and do not join this data to
-other sources to do so.
+In this version {{withheld}} of the {{real_alerts}} real alerts have their text withheld:
+{{withheld_people_code}} by a people code, {{withheld_personal_pattern}} by a personal-detail
+pattern and {{withheld_missing_person}} as about a missing person alone; {{rounded}} keep only the
+hour and the county. The rule withholds more than it must (a hazard alert that gives a phone
+number loses its text too): that is accepted, because a text once published cannot be taken
+back. Do not try to identify anyone named or described in a message, and do not join this data
+to other sources to do so.
 
-## Content codes
+## Codes
 The `codes` table codes each real alert's 90-character phone text, 360-character phone text and
 full text (headline, description, instruction) on their own, by rule, codebook version 1
 (`docs/codebook.md`). Codes are computed for withheld messages too, because each is a yes or no,
 a count, a kind or a category; no code holds words.
 
-**Checked by hand.** A person coded 100 texts (one per text group; real alerts, none withheld;
-about a third of each unit; 40 from before 2020) for six contents, blind to the rules. Agreement
-with the rules, as Krippendorff's alpha against the bar of .80 that Olson et al. (2024) report:
+**No validated content code is in this version.** The six contents from the warning literature
+(hazard, hazard description, source, guidance, time, location) were checked against one coder,
+who coded texts blind to the rules, with Krippendorff's alpha against the bar of .80 that Olson
+et al. (2024) report. The hazard is the base of the others, and it does not clear the bar on
+both checks:
 
-{{code_alpha_table}}
+| check | texts | hazard alpha | 95% interval |
+|---|---:|---:|---|
+| first sheet, the rules of this version | 100 | 0.86 | 0.74 to 0.96 |
+| second sheet, the next version of the rules | 99 | 0.65 | 0.47 to 0.80 |
+| second sheet, bound for this version's rules | 99 | 0.56 to 0.72 | |
 
-Only codes that reach .80 on the hand sheet, or that it did not measure and that the codebook
-trusts, are in this release:
-- **Released:** {{codes_released}}.
-- **Left out as experimental** (in the codebook, not in this release): {{codes_left_out}}.
+The two versions code the hazard differently on 3 of the second sheet's 100 texts, so this
+version's alpha there lies between 0.56 and 0.72 however those rows fall. Each sheet was coded by
+one person. The other five contents were under .80 on the first sheet (0.41 to 0.73).
+
+- **Released** (mechanical codes the codebook trusts, not on the sheets): {{codes_released}}.
+- **Experimental, in the codebook and not in the tables:** {{codes_left_out}}.
 
 **Beside a published study.** With the filters of Olson et al. (2024, *Journal of Contingencies
 and Crisis Management* 32, e12518), this corpus gives 6,755 phone texts against their 6,080 (1,901
-against 1,873 at 360 characters). The rules' shares are within 5 points of theirs for time,
-guidance, boundary locations and five of eight hazard categories, and further off for hazard,
-location at 90 characters and source at 360 (`docs/method.md`, section 13).
+against 1,873 at 360 characters); `docs/method.md`, section 13, sets the rules' shares beside
+theirs.
+
+## Limits
+- **Not an alerting service,** and never complete: the archive holds what FEMA kept.
+- **The language check finds Spanish only.** A text in another language under an English label
+  is coded as English.
+- **The weather service's change.** The National Weather Service's records in FEMA's archive
+  fall from 33,731 in July 2023 to 769 in August 2023. OpenFEMA confirmed by email on 16 November
+  2026 that this comes from a change in the weather service's messaging policy: it stopped sending
+  non-emergency messages to IPAWS-OPEN and limited its IPAWS messages to those meant for Wireless
+  Emergency Alerts. Its records per year (server counts on 15 November 2026; 2012 from June, 2026
+  to 14 November): 2012 79,406; 2013 362,313; 2014 415,315; 2015 405,190; 2016 406,255; 2017
+  413,153; 2018 474,885; 2019 537,743; 2020 455,608; 2021 477,287; 2022 497,060; 2023 261,518;
+  2024 6,366; 2025 5,864; 2026 5,864. WarnText leaves them out, so the change does not touch these
+  tables, but anyone joining the two should know it.
+- **Withheld text is not random:** most of it is about people, but the pattern rule also takes
+  some hazard alerts that give a phone number; counts of text by kind of event are counts of
+  released text.
+
+## Removal
+FEMA, an alerting authority, or a person named in a message can ask for a message's text to be
+taken out: open an issue with the "Remove a message's text" form on the project's GitHub page
+(https://github.com/obadaKraishan/warntext/issues/new/choose), or write on this dataset's
+Community tab. Give the record id, never the text or personal details. Each request is answered
+within 14 days. The text row leaves the next version; the message's record row, which holds no
+text, stays, as it does in FEMA's own archive.
 
 ## Terms that users must follow
 WarnText's records come from OpenFEMA, whose terms apply to anyone who uses them
@@ -173,9 +221,18 @@ FEMA may ask a user to "cease using the data and destroy any copy you may have".
 
 > This product uses the Federal Emergency Management Agency’s OpenFEMA API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for the data or analyses derived from these data after the data have been retrieved from the Agency's website(s).
 
+**The message text.** OpenFEMA confirmed by email on 16 November 2026 that the corpus may include
+the message text as retrieved from the API and be shared on research repositories, with credit
+to FEMA and to the alerting authority, and that messages written by state, local, tribal and
+territorial alerting authorities are covered by the OpenFEMA terms for this purpose. This is a
+paraphrase; the maintainer keeps the email.
+
+**Credit.** Credit FEMA's dataset, and the alerting authority that wrote each message: every text
+row names it in its `credit` column (its name as released and its FEMA ID).
+
 ## How to cite
-Cite WarnText (its version) and the source, with the endpoint and the time it was read, as FEMA
-asks:
+Cite WarnText with its version (the DOI is added here once the code and documents are archived
+on Zenodo), and the source, with the endpoint and the time it was read, as FEMA asks:
 
 > Federal Emergency Management Agency (FEMA), OpenFEMA Dataset: IPAWS Archived Alerts - v1.
 > Retrieved from https://www.fema.gov/api/open/v1/IpawsArchivedAlerts on {{retrieved}} (UTC).

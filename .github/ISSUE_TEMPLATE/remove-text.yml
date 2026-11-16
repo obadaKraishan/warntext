@@ -1,0 +1,43 @@
+name: Remove a message's text
+description: For FEMA, an alerting authority or a person named in a message, to ask that a message's text be taken out of the WarnText dataset.
+title: "Text removal: "
+labels: ["takedown"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to ask for the text of one or more messages to be taken out of the WarnText dataset on Hugging Face. Each request is answered within 14 days. The text row leaves the next version; the message's record row, which holds no text, stays, as it does in FEMA's own archive.
+
+        **This issue is public.** Do not paste a message's text or anyone's personal details here: the record id is enough. If you need to tell us something private, say so below and we will reply with a private way to send it.
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who is asking?
+      options:
+        - FEMA
+        - An alerting authority (the sender of the message)
+        - A person named or described in a message, or someone acting for them
+        - Someone else
+    validations:
+      required: true
+  - type: textarea
+    id: records
+    attributes:
+      label: Record ids
+      description: The `message_id` (FEMA's record id) of each message, one per line. It is in every table of the dataset.
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why
+      description: A few words. Please leave out personal details.
+    validations:
+      required: false
+  - type: checkboxes
+    id: no-text
+    attributes:
+      label: Before you send
+      options:
+        - label: I have not pasted any message text or personal details into this form.
+          required: true

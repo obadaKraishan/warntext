@@ -166,4 +166,12 @@ All notable changes to this project are recorded here. The format follows
   release carries no validated content code; the hazard category, links and their kinds,
   abbreviations, all caps, the evacuation wordings and the two flags stay released. The statuses
   still describe codebook version 1, which the pack is built from.
+- The dataset card, rewritten: the first screen says the message text is included for alerts not
+  about people and why the text of alerts about people is withheld; the text tables and their
+  credit; the withheld counts by rule; no validated content code, with both hand checks of the
+  hazard and their intervals; a Limits section (Spanish is the only language the check finds; the
+  weather service's change after July 2023, with its records per year); a Removal section;
+  OpenFEMA's confirmation as a dated paraphrase in the terms. A GitHub issue form, "Remove a
+  message's text", for FEMA, an alerting authority or a person named in a message (record ids
+  only, never text; an answer within 14 days).
 
