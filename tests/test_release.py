@@ -68,6 +68,7 @@ def test_the_pack_holds_the_record_layer_released_codes_and_both_text_tables(pac
     names = pq.read_schema(pack["dir"] / "alerts" / "codes.parquet").names
     assert not set(names) & set(release.EXPERIMENTAL_CODES)
     assert "link" in names and "hazard_category" in names and "guidance" not in names
+    assert "hazard" not in names
     facts = pack["manifest"]["facts"]
     assert facts["real_alerts"] == 3 and facts["federal_text_alerts"] == 1
     assert facts["text_alerts"] == 2 and facts["text_tests"] == 1  # the CAE alert has none
@@ -299,11 +300,15 @@ def test_code_status_covers_every_code_and_fills_the_card():
     from warntext.codes import CODE_FIELDS
 
     assert set(status) == set(CODE_FIELDS)
-    assert status["hazard"]["status"] == "released"
-    assert status["complete"]["status"] == "experimental"
+    # No content code of the six is released: hazard is experimental on the second sheet's bound.
+    six = ("hazard", "hazard_description", "source_named", "guidance", "time", "location")
+    assert all(status[c]["status"] == "experimental" for c in six)
+    assert status["hazard_category"]["status"] == "released"
+    assert status["link"]["status"] == status["about_test"]["status"] == "released"
     tables = release.code_tables()
-    assert "| `hazard` | 0.86 |" in tables["code_alpha_table"]
-    assert "`complete`" in tables["codes_left_out"] and "`hazard`" in tables["codes_released"]
+    assert "| `hazard` | 0.86 | 0.94 | experimental |" in tables["code_alpha_table"]
+    assert "`hazard`" in tables["codes_left_out"] and "`hazard`" not in tables["codes_released"]
+    assert "`hazard_category`" in tables["codes_released"]
 
 
 def test_a_pack_is_refused_from_codes_of_another_version(pack, tmp_path):

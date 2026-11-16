@@ -391,18 +391,20 @@ section 14):
 
 | code | alpha | agreement | in release 0.1.0 |
 |---|---:|---:|---|
-| `hazard` | 0.86 | 0.94 | released |
+| `hazard` | 0.86 | 0.94 | experimental (the second sheet's bound, below) |
 | `hazard_description` | 0.52 | 0.80 | experimental |
 | `source_named` | 0.41 | 0.74 | experimental |
 | `guidance` | 0.63 | 0.83 | experimental |
 | `time` | 0.72 | 0.88 | experimental |
 | `location` | 0.73 | 0.90 | experimental |
 
-Only `hazard` reached .80. `complete`, and the parts of the codes under .80 (`n_actions`,
-`guidance_protective`, `guidance_information`, `loc_boundary`, `loc_vague_or_none`), are
-experimental with them; the trust-C codes stay experimental. Codes the sheet did not measure keep
-their trust level: the hazard category, links and their kinds, abbreviations, all caps, the
-evacuation wordings and the two flags are released. Each code's status is in
+Only `hazard` reached .80 on this sheet, but the second sheet bounds version 1's hazard at 0.56
+to 0.72 (below), so release 0.1.0 marks it experimental too and **carries no validated content
+code**. `complete`, and the parts of the codes under .80 (`n_actions`, `guidance_protective`,
+`guidance_information`, `loc_boundary`, `loc_vague_or_none`), are experimental with them; the
+trust-C codes stay experimental. Codes the sheet did not measure keep their trust level: the
+hazard category, links and their kinds, abbreviations, all caps, the evacuation wordings and the
+two flags are released. Each code's status is in
 `src/warntext/code_status.csv`, which the release reads. Version 1's rules were not changed after
 the sheet.
 
@@ -445,8 +447,9 @@ A release carries the codes of one codebook version, and the hazard is the base 
 description and of `complete`. Version 2's `hazard` is under .80, so no code of version 2 is
 released, `time` included, and version 0.1.0 keeps version 1's codes and statuses. Version 1 and
 version 2 code the hazard differently on 3 of the second sheet's units, so version 1's hazard
-alpha on that sheet would lie between 0.56 and 0.72 (method, section 17); release 0.1.0 marks it
-released on the first sheet's 0.86. The rules' language check looks for Spanish only: the text
+alpha on that sheet would lie between 0.56 and 0.72 (method, section 17). Release 0.1.0 therefore
+marks version 1's hazard experimental, with both figures in the dataset card: no content code of
+the six is released in it. The rules' language check looks for Spanish only: the text
 left blank is coded in both versions' tables.
 
 **Against the published shares.** `warntext compare-olson` applies Olson et al.'s filters to the

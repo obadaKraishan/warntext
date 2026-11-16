@@ -161,4 +161,9 @@ All notable changes to this project are recorded here. The format follows
   configuration folder holds its text tables) as already in the release, and does not read it
   again; withheld messages are counted and never read, and with `--ids` each id's fate is printed.
   When nothing is left to read, no request is made.
+- `hazard` is experimental in release 0.1.0 (`code_status.csv`): it reached .86 on the first hand
+  sheet, but the second sheet bounds version 1's hazard at 0.56 to 0.72, under the bar of .80. The
+  release carries no validated content code; the hazard category, links and their kinds,
+  abbreviations, all caps, the evacuation wordings and the two flags stay released. The statuses
+  still describe codebook version 1, which the pack is built from.
 

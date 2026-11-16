@@ -1,5 +1,5 @@
 code,trust,hand_sheet_alpha,hand_sheet_agreement,status,reason
-hazard,B,0.86,0.94,released,alpha .80 or above on the hand sheet
+hazard,B,0.86,0.94,experimental,alpha .86 on the first hand sheet but 0.56 to 0.72 for version 1 on the second; under .80
 hazard_category,B,,,released,not on the hand sheet; trust B
 hazard_category_source,B,,,released,goes with hazard_category
 hazard_description,C,0.52,0.80,experimental,trust C; alpha under .80 on the hand sheet
@@ -31,6 +31,6 @@ evac_levels,A,,,released,not on the hand sheet; trust A
 evac_ready_set_go,A,,,released,not on the hand sheet; trust A
 evac_voluntary_mandatory,A,,,released,not on the hand sheet; trust A
 evac_pre_evacuation,A,,,released,not on the hand sheet; trust A
-complete,B,,,experimental,follows its five parts; four of them are under .80
+complete,B,,,experimental,follows its five parts; none of them is released
 about_missing_person,B,,,released,not on the hand sheet; trust B
 about_test,B,,,released,not on the hand sheet; trust B

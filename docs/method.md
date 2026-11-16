@@ -450,7 +450,7 @@ categories). `warntext sheet-check` compares his six codes with the rules':
 
 | code | alpha | agreement | both yes | both no | he yes, rules no | he no, rules yes | status |
 |---|---:|---:|---:|---:|---:|---:|---|
-| hazard | 0.86 | 0.94 | 64 | 30 | 5 | 1 | released |
+| hazard | 0.86 | 0.94 | 64 | 30 | 5 | 1 | experimental (section 17) |
 | hazard description | 0.52 | 0.80 | 19 | 61 | 18 | 2 | experimental |
 | source | 0.41 | 0.74 | 20 | 54 | 22 | 4 | experimental |
 | guidance | 0.63 | 0.83 | 56 | 27 | 14 | 3 | experimental |
@@ -476,9 +476,10 @@ the differing rows are (unit, period, category; no text is quoted):
 No rule was changed after the sheet: the sheet is the check, and a rule changed to fit it would
 no longer be checked by it. `complete` needs all five contents, four of which are under the
 bar, so it is experimental too; so are the parts of the codes that failed (`n_actions` and the
-two kinds of guidance, `loc_boundary`, `loc_vague_or_none`). Released: `hazard`, the hazard
-category, links and their kinds, abbreviations, all caps, the evacuation wordings and the two
-flags (`src/warntext/code_status.csv`). The differing rows, by number, are kept for the next
+two kinds of guidance, `loc_boundary`, `loc_vague_or_none`). Released: the hazard category,
+links and their kinds, abbreviations, all caps, the evacuation wordings and the two flags
+(`src/warntext/code_status.csv`). `hazard` passed this sheet, but the second sheet bounds it under
+.80 (section 17), so release 0.1.0 marks it experimental as well. The differing rows, by number, are kept for the next
 version of the rules.
 
 ## 15. Version 2 of the rules, and a second hand sheet
@@ -671,5 +672,7 @@ check (codebook, section 5), and are not in this table.
 **Version 1's hazard on the second sheet.** The second sheet was scored once, against version 2.
 Version 1 and version 2 code the hazard differently on 3 of its 100 units, so version 1 would
 differ from the coder on 12 to 18 of the 99 rows, and its alpha there would lie between 0.56 and
-0.72 whichever way those 3 rows fall: under .80. Release 0.1.0 marks version 1's hazard released
-on the first sheet's figure; both figures are given here so that a user can weigh them.
+0.72 whichever way those 3 rows fall: under .80. Release 0.1.0 therefore marks version 1's
+hazard experimental and carries no validated content code; the hazard category, links and their
+kinds, abbreviations, all caps, the evacuation wordings and the two flags stay released. Both
+figures are in the dataset card, each from one coder.
