@@ -13,8 +13,7 @@ from warntext import cli, release, tables
 from warntext import codes as cd
 
 
-@pytest.fixture()
-def pack(tmp_path):
+def _build(tmp_path, kinds=release.TEXT_KINDS, extra=()):
     recs = [
         record(invented(identifier="EX-1", sender=COUNTY), "r01"),
         record(invented(identifier="EX-2", sender=COUNTY, code="CAE"), "r02"),
@@ -24,14 +23,19 @@ def pack(tmp_path):
             cog=202,
         ),
         record(invented(identifier="EX-4", sender=COUNTY, code="RWT"), "r04"),
+        *extra,
     ]
     b = run(recs)
     tables.write(b, tmp_path / "t", tmp_path / "p")
     out = tmp_path / "pack"
-    from warntext import codes as cd
-
     m = release.build_pack(
-        tmp_path / "t", out, "0.1.0", "2026-11-14T17:00:00.000Z", "2026-11-15", cd.CODEBOOK_VERSION
+        tmp_path / "t",
+        out,
+        "0.1.0",
+        "2026-11-14T17:00:00.000Z",
+        "2026-11-15",
+        cd.CODEBOOK_VERSION,
+        text_kinds=kinds,
     )
     senders = [x["sender"] for x in b.raw_senders]
     return {
@@ -40,24 +44,89 @@ def pack(tmp_path):
         "senders": senders,
         "ids": b.raw_identifiers,
         "tmp": tmp_path,
+        "counts": {2024: len(recs)},
     }
 
 
-def test_the_pack_holds_the_record_layer_released_codes_and_federal_text_only(pack):
+@pytest.fixture()
+def pack(tmp_path):
+    return _build(tmp_path)
+
+
+@pytest.fixture()
+def federal_pack(tmp_path):
+    return _build(tmp_path, kinds=release.FEDERAL_ONLY)
+
+
+def test_the_pack_holds_the_record_layer_released_codes_and_both_text_tables(pack):
     paths = {f["path"] for f in pack["manifest"]["files"]}
-    assert "alerts/text_federal.parquet" in paths and "tests/text_federal.parquet" in paths
-    assert not any("text_other" in p for p in paths)
+    for name in ("text_federal", "text_other"):
+        assert f"alerts/{name}.parquet" in paths and f"tests/{name}.parquet" in paths
+    assert pack["manifest"]["text_tables"] == ["text_federal", "text_other"]
+    assert pack["manifest"]["text_kinds"] == list(release.TEXT_KINDS)
     assert "tests/codes.parquet" not in paths  # tests carry no codes
     names = pq.read_schema(pack["dir"] / "alerts" / "codes.parquet").names
     assert not set(names) & set(release.EXPERIMENTAL_CODES)
-    assert "hazard" in names and "link" in names and "guidance" not in names
-    assert pack["manifest"]["facts"]["real_alerts"] == 3
-    assert pack["manifest"]["facts"]["federal_text_alerts"] == 1
+    assert "link" in names and "hazard_category" in names and "guidance" not in names
+    facts = pack["manifest"]["facts"]
+    assert facts["real_alerts"] == 3 and facts["federal_text_alerts"] == 1
+    assert facts["text_alerts"] == 2 and facts["text_tests"] == 1  # the CAE alert has none
+    assert facts["withheld"] == facts["withheld_people_code"] == 1
+
+
+def test_every_text_row_carries_its_credit(pack):
+    other = pq.read_table(pack["dir"] / "alerts" / "text_other.parquet").to_pylist()
+    federal = pq.read_table(pack["dir"] / "alerts" / "text_federal.parquet").to_pylist()
+    names = pq.read_schema(pack["dir"] / "alerts" / "text_other.parquet").names
+    assert names[names.index("sender_kind") + 1 : names.index("sender_kind") + 4] == [
+        "cog_id",
+        "organization",
+        "credit",
+    ]
+    for r in other + federal:
+        assert r["credit"] == release.credit_line(r["cog_id"], r["organization"])
+        assert r["credit"].endswith("from FEMA OpenFEMA Dataset: IPAWS Archived Alerts - v1")
+    assert federal[0]["cog_id"] == 202
+    assert release.credit_line(7, None) == (
+        "Message by IPAWS alerting authority FEMA ID 7; from "
+        "FEMA OpenFEMA Dataset: IPAWS Archived Alerts - v1"
+    )
+    assert release.credit_line(7, "Example County") == (
+        "Message by Example County (IPAWS alerting authority, FEMA ID 7); from "
+        "FEMA OpenFEMA Dataset: IPAWS Archived Alerts - v1"
+    )
+    assert release.credit_line(None, "x") is None
+
+
+def test_the_federal_only_setting_builds_the_old_pack(federal_pack):
+    paths = {f["path"] for f in federal_pack["manifest"]["files"]}
+    assert "alerts/text_federal.parquet" in paths and not any("text_other" in p for p in paths)
+    assert federal_pack["manifest"]["text_tables"] == ["text_federal"]
+    text = (federal_pack["dir"] / "README.md").read_text()
+    assert "config_name: text_other" not in text
+    assert (
+        release.check_pack(
+            federal_pack["dir"],
+            federal_pack["senders"],
+            federal_pack["ids"],
+            federal_pack["counts"],
+        )
+        == []
+    )
+    with pytest.raises(SystemExit, match="give federal"):
+        release.text_tables_for(("state",))
+    with pytest.raises(SystemExit, match="unknown"):
+        release.text_tables_for(("federal", "county"))
 
 
 def test_the_card_is_filled_and_carries_the_license_fields(pack):
     text = (pack["dir"] / "README.md").read_text()
     assert release.card_metadata_problems(text) == []
+    assert "config_name: text_other" in text and "path: tests/text_other.parquet" in text
+    federal = release.pack_tables(release.FEDERAL_ONLY)
+    assert "a config for text_other, which this pack does not hold" in (
+        release.card_metadata_problems(text, federal)
+    )
     assert "{{" not in text and "2026-11-15" in text and "not an alerting service" in text
     assert "license_link: https://www.fema.gov/about/openfema/terms-conditions" in text
     assert release.card_metadata_problems("no header") == ["the card has no YAML header"]
@@ -67,15 +136,90 @@ def test_the_card_is_filled_and_carries_the_license_fields(pack):
     assert "no config for codes" in problems
 
 
-def test_a_clean_pack_passes_and_each_wrong_file_fails(pack):
-    d = pack["dir"]
-    args = (pack["senders"], pack["ids"], {2024: 4})
+def test_a_clean_pack_passes_and_each_wrong_file_fails(federal_pack):
+    d = federal_pack["dir"]
+    args = (federal_pack["senders"], federal_pack["ids"], federal_pack["counts"])
     assert release.check_pack(d, *args) == []
-    shutil.copy(pack["tmp"] / "t" / "alerts" / "text_other.parquet", d / "alerts")
+    shutil.copy(federal_pack["tmp"] / "t" / "alerts" / "text_other.parquet", d / "alerts")
     (d / "notes.txt").write_text("x")
     out = release.check_pack(d, *args)
-    assert any("text_other.parquet: a text table other than text_federal" in f for f in out)
+    assert any("text_other.parquet: a text table this pack does not release" in f for f in out)
     assert any("notes.txt: not a file of the release" in f for f in out)
+
+
+def test_a_text_row_without_its_credit_or_of_another_kind_fails(pack):
+    d = pack["dir"]
+    args = (pack["senders"], pack["ids"], pack["counts"])
+    assert release.check_pack(d, *args) == []
+    path = d / "alerts" / "text_other.parquet"
+    rows = pq.read_table(path).to_pylist()
+    schema = pq.read_schema(path)
+    rows[0]["credit"] = None
+    tables_ = {c: {n: [] for n in release.RELEASED_TABLES} for c in tables.CONFIGS}
+    tables_["alerts"]["messages"] = pq.read_table(d / "alerts" / "messages.parquet").to_pylist()
+    tables_["alerts"]["text_other"] = rows
+    out = release.text_problems(tables_, release.TEXT_KINDS)
+    assert any("without their credit" in f for f in out)
+    rows[0]["credit"] = release.credit_line(rows[0]["cog_id"], rows[0]["organization"])
+    rows[0]["cog_id"] = 999
+    assert any("without their credit" in f for f in release.text_problems(tables_, ["federal"]))
+    assert any(
+        "of a kind this pack does not release" in f
+        for f in release.text_problems(tables_, ["federal"])
+    )
+    pq.write_table(pa.Table.from_pylist(rows, schema=schema), path)
+    out = release.check_pack(d, *args)
+    assert any("alerts/text_other.parquet: does not match its SHA-256" in f for f in out)
+    assert any("without their credit" in f for f in out)
+    pq.write_table(pa.table({"x": [1]}), path)
+    assert any(
+        "columns are not those of a released text_other" in f
+        for f in (release.check_pack(d, *args))
+    )
+
+
+def test_text_for_a_message_any_privacy_rule_withholds_fails_in_either_split(pack):
+    d = pack["dir"]
+    for config in ("alerts", "tests"):
+        messages = pq.read_table(d / config / "messages.parquet").to_pylist()
+        text = pq.read_table(d / config / "text_other.parquet").to_pylist()
+        target = next(m for m in messages if m["message_id"] == text[0]["message_id"])
+        assert not target["text_withheld"]
+        for field, value, label in (
+            ("event_codes", ["CAE"], "a people code"),
+            ("about_missing_person", True, "the missing-person rule"),
+            ("withheld_patterns", ["phone"], "the pattern rule"),
+            ("text_withheld", "personal_pattern", "the withheld flag"),
+        ):
+            changed = [dict(m, **{field: value}) if m is target else m for m in messages]
+            tables_ = {c: {n: [] for n in release.RELEASED_TABLES} for c in tables.CONFIGS}
+            tables_[config]["messages"] = changed
+            tables_[config]["text_other"] = text
+            out = release.text_problems(tables_, release.TEXT_KINDS)
+            assert any(
+                f"{config}/text_other: 1 text row(s) for messages withheld by {label}" in f
+                for f in out
+            ), (field, out)
+            if field != "text_withheld":
+                assert any("meet a privacy rule but are not marked withheld" in f for f in out)
+
+
+def test_personal_details_or_missing_person_words_in_released_text_fail(pack):
+    d = pack["dir"]
+    messages = pq.read_table(d / "alerts" / "messages.parquet").to_pylist()
+    text = pq.read_table(d / "alerts" / "text_other.parquet").to_pylist()
+    tables_ = {c: {n: [] for n in release.RELEASED_TABLES} for c in tables.CONFIGS}
+    tables_["alerts"]["messages"] = messages
+    for field, value, hit in (
+        ("description", "Call 555-123-4567 for details.", "description:phone"),
+        ("audience", "Have you seen this man?", "audience:missing_person"),
+        ("resource_descriptions", ["Last seen near the park"], "resource_descriptions:last_seen"),
+    ):
+        tables_["alerts"]["text_other"] = [dict(text[0], **{field: value})]
+        out = release.text_problems(tables_, release.TEXT_KINDS)
+        assert any("released text matches personal-detail patterns" in f and hit in f for f in out)
+    tables_["alerts"]["text_other"] = text
+    assert release.text_problems(tables_, release.TEXT_KINDS) == []
 
 
 def test_an_experimental_code_or_a_changed_file_fails(pack):
@@ -119,6 +263,18 @@ def test_release_commands(pack, tmp_path, capsys):
     assert "Release pack check passed" in capsys.readouterr().out
     pq.write_table(pa.table({"x": [1]}), out / "alerts" / "text_other.parquet")
     assert cli.main([*check, "--state", str(state)]) == 1
+    old = tmp_path / "pack-federal"
+    assert (
+        cli.main(
+            [
+                *build,
+                *("--out", str(old), "--version", "0.1.0", "--retrieved", "2026-11-15"),
+                *("--codebook-version", cd.CODEBOOK_VERSION, "--text-kinds", "federal"),
+            ]
+        )
+        == 0
+    )
+    assert not (old / "alerts" / "text_other.parquet").exists()
 
 
 def test_the_kaggle_mirror_holds_the_record_layer_and_codes_only(pack, tmp_path):

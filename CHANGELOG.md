@@ -77,6 +77,13 @@ All notable changes to this project are recorded here. The format follows
   to 50 characters, a subtitle outside 20 to 80, another id, or a raw tag in the mirror's
   description. `warntext release card --pack DIR` writes a pack's card again from the template and
   its manifest, for a wording fix that leaves the data files and the manifest as they are.
+- The release pack holds the text layer of the sender kinds `release build --text-kinds` names, by
+  default federal, state, local, tribal, territorial and unknown-kind senders (`text_federal` and
+  `text_other`, real alerts and tests); `--text-kinds federal` builds a pack with the federal text
+  only, as before. The one national authority's text (kind `other`) is left out. Every released
+  text row carries its credit: the alerting authority's FEMA ID and released organization name
+  (the ID only where the name is blank) and a credit line naming FEMA's dataset. A withheld
+  message has no text whatever the kinds.
 
 ### Changed
 - Messages with a people code carry their times rounded down to the hour in the record layer
@@ -143,4 +150,11 @@ All notable changes to this project are recorded here. The format follows
   authority; state, local, tribal and territorial messages are covered by the OpenFEMA terms; a
   DOI copy without text is acceptable), and the weather service's change of messaging policy
   behind the fall of its records after July 2023, with its records per year.
+- The pack's check now fails on a text row without its credit or of a kind the pack does not
+  release, on a text row for a message that a people code, the missing-person rule or the pattern
+  rule withholds (in either split, and on a message that meets one of these rules but is not
+  marked withheld), on a personal-detail pattern or missing-person wording in any released text
+  field (the audience and resource descriptions included), and on a table whose columns are not
+  those of its released table. It reads the text tables the manifest lists, so `text_other` is no
+  longer refused by name.
 

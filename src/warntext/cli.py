@@ -402,10 +402,17 @@ def cmd_update(args: argparse.Namespace) -> int:
 
 
 def cmd_release_build(args: argparse.Namespace) -> int:
-    """Build the release pack (record layer, released codes, text_federal) from the tables."""
+    """Build the release pack (record layer, released codes, the text layer) from the tables."""
     state = json.loads(Path(args.state).read_text(encoding="utf-8"))
+    kinds = tuple(k.strip() for k in args.text_kinds.split(",") if k.strip())
     m = rl.build_pack(
-        args.tables, args.out, args.version, state["until"], args.retrieved, args.codebook_version
+        args.tables,
+        args.out,
+        args.version,
+        state["until"],
+        args.retrieved,
+        args.codebook_version,
+        text_kinds=kinds,
     )
     kaggle = Path(f"{args.out.rstrip('/')}-kaggle")
     rl.build_kaggle(args.out, kaggle)
@@ -419,7 +426,9 @@ def cmd_release_build(args: argparse.Namespace) -> int:
 def cmd_release_card(args: argparse.Namespace) -> int:
     """A card-only fix: the pack's README.md written again; data files and manifest untouched."""
     changed = rl.rewrite_card(args.pack)
-    problems = rl.card_metadata_problems((Path(args.pack) / "README.md").read_text("utf-8"))
+    manifest = json.loads((Path(args.pack) / "manifest.json").read_text(encoding="utf-8"))
+    tables = rl.pack_tables(manifest.get("text_kinds", rl.FEDERAL_ONLY))
+    problems = rl.card_metadata_problems((Path(args.pack) / "README.md").read_text("utf-8"), tables)
     print(
         f"README.md in {args.pack} written again from the template and the manifest "
         f"({'changed' if changed else 'unchanged'}); the data files and the manifest were not "
@@ -642,7 +651,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("release", help="the release pack: build it, or check it")
     rsub = p.add_subparsers(dest="release_command", required=True)
-    q = rsub.add_parser("build", help="write the pack: record layer, released codes, text_federal")
+    q = rsub.add_parser("build", help="write the pack: record layer, released codes, text layer")
     q.add_argument("--tables", default="data/interim/tables")
     q.add_argument("--state", default="data/raw/update-state.json", help="for the records' end")
     q.add_argument("--out", required=True, help="a new folder under data/release/")
@@ -652,6 +661,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--codebook-version",
         default=rl.CODE_STATUS_VERSION,
         help="the codes' version the release statuses were measured on",
+    )
+    q.add_argument(
+        "--text-kinds",
+        default=",".join(rl.TEXT_KINDS),
+        help="sender kinds whose text is released (default: %(default)s; 'federal' builds the "
+        "federal text only)",
     )
     q.set_defaults(func=cmd_release_build)
     q = rsub.add_parser("card", help="a card-only fix: README.md again, data files untouched")

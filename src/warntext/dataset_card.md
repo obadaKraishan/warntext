@@ -50,12 +50,7 @@ configs:
   data_files:
   - split: alerts
     path: alerts/codes.parquet
-- config_name: text_federal
-  data_files:
-  - split: alerts
-    path: alerts/text_federal.parquet
-  - split: tests
-    path: tests/text_federal.parquet
+{{text_configs}}
 ---
 
 # WarnText
@@ -95,7 +90,7 @@ demonstrations (`tests`). Sizes in this version:
 | `references` | {{alerts_references_rows}} | {{tests_references_rows}} | links from updates and cancels to earlier messages |
 | `threads` | {{alerts_threads_rows}} | {{tests_threads_rows}} | one row per alert with its updates and cancels |
 | `codes` | {{alerts_codes_rows}} | | content codes per text unit (real alerts only) |
-| `text_federal` | {{alerts_text_federal_rows}} | {{tests_text_federal_rows}} | the text of federal senders' messages |
+{{text_size_rows}}
 
 In all {{total_rows}} rows, {{total_mb}} MB as Parquet. The field list is in the project's
 `docs/schema.md`, and how each field is derived in `docs/method.md`.

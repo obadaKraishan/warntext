@@ -1,16 +1,22 @@
-"""The release pack: the first release's files, built from the local tables, and its own check.
+"""The release pack: a release's files, built from the local tables, and its own check.
 
-The first release holds, for both configurations (real alerts and tests):
+A release holds, for both configurations (real alerts and tests):
 
 - the record layer: ``messages``, ``infos``, ``areas``, ``references``, ``threads``;
 - the released content codes (``codes``, real alerts only), without the experimental ones;
-- the federal senders' text, ``text_federal``.
+- the text layer of the sender kinds the build is asked for: ``text_federal`` (federal senders)
+  and ``text_other`` (state, local, tribal, territorial and unknown-kind senders), each row with
+  its credit (FEMA's dataset and the alerting authority). ``--text-kinds federal`` builds a pack
+  with the federal text only, as before.
 
-It never holds ``text_other`` (the other senders' text waits on the rights answer), the private
-files, or anything raw. ``build_pack`` writes the files, a manifest (rows, bytes and SHA-256 per
-file) and the dataset card; ``check_pack`` runs on the pack's own folder and fails, loudly, on a
-file that should not be there, an experimental code, a file that does not match the manifest, a
-card without its license fields, and everything the release check of the tables fails on.
+A withheld message never has text in it, whatever the kinds. It never holds the private files
+or anything raw. ``build_pack`` writes the files, a manifest (rows, bytes and SHA-256 per file)
+and the dataset card; ``check_pack`` runs on the pack's own folder and fails, loudly, on a file
+that should not be there, an experimental code, a file that does not match the manifest, a card
+without its license fields or with a raw HTML tag, a text row without its credit or of a kind the
+pack does not release, a text row for a message any privacy rule withholds, a personal-detail
+pattern or missing-person wording in released text, and everything the release check of the
+tables fails on.
 """
 
 from __future__ import annotations
@@ -23,15 +29,40 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 
-from warntext import __version__, durable, hfpage
+from warntext import __version__, durable, hfpage, patterns, privacy
 from warntext import check as ck
 from warntext.probe import ENDPOINT
-from warntext.tables import CONFIGS, RECORD_TABLES
+from warntext.tables import CONFIGS, RECORD_TABLES, SCHEMAS, TEXT_TABLES
 
-#: The tables of the first release, in each configuration's folder.
-RELEASED_TABLES = (*RECORD_TABLES, "text_federal")
+#: Every table a pack can hold, in each configuration's folder.
+RELEASED_TABLES = (*RECORD_TABLES, *TEXT_TABLES)
+#: The sender kinds whose text a pack holds by default. The one national authority's kind
+#: (``other``) is not among them: its text is left out.
+TEXT_KINDS = ("federal", "state", "local", "tribal", "territorial", "unknown")
+#: The setting for a pack with the federal senders' text only.
+FEDERAL_ONLY = ("federal",)
+#: The source every text row credits, with the alerting authority.
+CREDIT_SOURCE = "FEMA OpenFEMA Dataset: IPAWS Archived Alerts - v1"
+#: The columns the release adds to each text row: the alerting authority and the credit line.
+CREDIT_COLUMNS = (("cog_id", pa.int64()), ("organization", pa.string()), ("credit", pa.string()))
+#: The message-text fields of a text row (the fields the re-scan reads).
+TEXT_FIELDS = (
+    "event",
+    "headline",
+    "description",
+    "instruction",
+    "web",
+    "audience",
+    "wea_short",
+    "wea_long",
+    "text_parameter_values",
+    "area_descriptions",
+    "resource_descriptions",
+    "resource_uris",
+)
 CODE_STATUS_FILE = "code_status.csv"
 #: The codebook version the statuses (and their hand-sheet alphas) were measured on. A pack is
 #: built only from codes of that version, so new rules never reach a release unchecked.
@@ -69,6 +100,72 @@ def _mb(n: int) -> str:
     return f"{n / 1_000_000:.1f}"
 
 
+def text_tables_for(kinds: tuple[str, ...] | list[str]) -> list[str]:
+    """The text tables a pack with these sender kinds holds."""
+    kinds = list(kinds)
+    unknown = sorted(set(kinds) - set(TEXT_KINDS) - {"other"})
+    if "federal" not in kinds or unknown:
+        raise SystemExit(
+            f"Text kinds {kinds}: give federal and any of {', '.join(TEXT_KINDS[1:])} "
+            f"(unknown: {unknown})."
+        )
+    return ["text_federal"] + (["text_other"] if set(kinds) - {"federal"} else [])
+
+
+def pack_tables(kinds: tuple[str, ...] | list[str]) -> list[str]:
+    """Every table a pack with these text kinds holds: the record layer, then its text tables."""
+    return [*RECORD_TABLES, *text_tables_for(kinds)]
+
+
+def expected_schema(name: str) -> pa.Schema:
+    """The schema a released table must have (codes without the experimental columns)."""
+    base = SCHEMAS[name]
+    if name == "codes":
+        return pa.schema([f for f in base if f.name not in EXPERIMENTAL_CODES])
+    if name in TEXT_TABLES:
+        fields = list(base)
+        at = base.get_field_index("sender_kind") + 1
+        fields[at:at] = [pa.field(n, t) for n, t in CREDIT_COLUMNS]
+        return pa.schema(fields)
+    return base
+
+
+def credit_line(cog_id: int | None, organization: str | None) -> str | None:
+    """The credit a text row carries: the alerting authority, then FEMA's dataset.
+
+    Where the organization name is blank (by the maintainer's review, or unknown), the credit
+    carries FEMA's identifier only.
+    """
+    if cog_id is None:
+        return None
+    who = (
+        f"{organization} (IPAWS alerting authority, FEMA ID {cog_id})"
+        if organization
+        else f"IPAWS alerting authority FEMA ID {cog_id}"
+    )
+    return f"Message by {who}; from {CREDIT_SOURCE}"
+
+
+def release_view(
+    text: pa.Table, messages: list[dict[str, Any]], kinds: tuple[str, ...] | list[str]
+) -> pa.Table:
+    """A text table as released: the rows of the asked kinds, each with its credit columns."""
+    by_id = {m["message_id"]: m for m in messages}
+    rows = []
+    for r in text.to_pylist():
+        if r["sender_kind"] not in kinds:
+            continue
+        m = by_id.get(r["message_id"], {})
+        r["cog_id"] = m.get("cog_id")
+        r["organization"] = m.get("organization") or None
+        r["credit"] = credit_line(r["cog_id"], r["organization"])
+        rows.append(r)
+    fields = list(text.schema)
+    at = text.schema.get_field_index("sender_kind") + 1
+    fields[at:at] = [pa.field(n, t) for n, t in CREDIT_COLUMNS]
+    return pa.Table.from_pylist(rows, schema=pa.schema(fields))
+
+
 def build_pack(
     tables_dir: Path | str,
     out_dir: Path | str,
@@ -76,12 +173,16 @@ def build_pack(
     until: str,
     retrieved: str,
     codebook_version: str = CODE_STATUS_VERSION,
+    text_kinds: tuple[str, ...] | list[str] = TEXT_KINDS,
 ) -> dict[str, Any]:
     """Write the release files, the manifest and the card to ``out_dir`` (which must be new).
 
     The tables' codes must be of ``codebook_version``, the version the statuses were measured on.
+    ``text_kinds`` are the sender kinds whose text is released (``FEDERAL_ONLY`` for the federal
+    text alone).
     """
     tables_dir, out_dir = Path(tables_dir), Path(out_dir)
+    text_tables = text_tables_for(text_kinds)
     if out_dir.exists() and any(out_dir.iterdir()):
         raise SystemExit(f"{out_dir} is not empty; a pack is built once into a new folder.")
     codes_path = tables_dir / "alerts" / "codes.parquet"
@@ -96,16 +197,21 @@ def build_pack(
     files = []
     for config in CONFIGS:
         (out_dir / config).mkdir(parents=True, exist_ok=True)
-        for name in RELEASED_TABLES:
+        messages: list[dict[str, Any]] = []
+        for name in (*RECORD_TABLES, *text_tables):
             src = tables_dir / config / f"{name}.parquet"
             if not src.exists():
                 raise SystemExit(f"{src} is missing; run `warntext build` or `warntext update`.")
             table = pq.read_table(src)
+            if name == "messages":
+                messages = table.select(["message_id", "cog_id", "organization"]).to_pylist()
             if name == "codes":
                 if table.num_rows == 0:
                     continue  # tests carry no codes
                 keep = [c for c in table.column_names if c not in EXPERIMENTAL_CODES]
                 table = table.select(keep)
+            if name in TEXT_TABLES:
+                table = release_view(table, messages, text_kinds)
             dest = out_dir / config / f"{name}.parquet"
             pq.write_table(table, dest, compression="zstd")
             data = dest.read_bytes()
@@ -119,13 +225,14 @@ def build_pack(
             )
     manifest = {
         "name": "WarnText",
-        "facts": pack_facts(out_dir),
+        "facts": pack_facts(out_dir, text_tables),
         "version": version,
         "built_with": f"warntext {__version__}",
         "source": ENDPOINT,
         "records_sent_before": until,
         "retrieved": retrieved,
-        "text_tables": ["text_federal"],
+        "text_tables": text_tables,
+        "text_kinds": list(text_kinds),
         "experimental_codes_left_out": list(EXPERIMENTAL_CODES),
         "files": files,
         "rows": sum(f["rows"] for f in files),
@@ -136,22 +243,36 @@ def build_pack(
     return manifest
 
 
-def pack_facts(pack_dir: Path) -> dict[str, int]:
-    """Counts the card states: messages, authorities, what is withheld or rounded."""
+def pack_facts(pack_dir: Path, text_tables: list[str] | None = None) -> dict[str, int]:
+    """Counts the card states: messages, authorities, what is withheld or rounded, what has text."""
+    text_tables = text_tables or ["text_federal"]
     alerts = pq.read_table(
         pack_dir / "alerts" / "messages.parquet",
         columns=["message_id", "cog_id", "text_withheld", "times_rounded"],
     ).to_pylist()
     tests = pq.read_metadata(pack_dir / "tests" / "messages.parquet").num_rows
-    federal = pq.read_table(pack_dir / "alerts" / "text_federal.parquet", columns=["message_id"])
+
+    def with_text(config: str, names: list[str]) -> set[str]:
+        out: set[str] = set()
+        for name in names:
+            path = pack_dir / config / f"{name}.parquet"
+            out |= set(pq.read_table(path, columns=["message_id"]).column(0).to_pylist())
+        return out
+
     return {
         "real_alerts": len(alerts),
         "tests": tests,
         "authorities_with_real_alerts": len({r["cog_id"] for r in alerts}),
         "withheld": sum(1 for r in alerts if r["text_withheld"]),
         "withheld_people_code": sum(1 for r in alerts if r["text_withheld"] == "people_code"),
+        "withheld_personal_pattern": sum(
+            1 for r in alerts if r["text_withheld"] == "personal_pattern"
+        ),
+        "withheld_missing_person": sum(1 for r in alerts if r["text_withheld"] == "missing_person"),
         "rounded": sum(1 for r in alerts if r["times_rounded"]),
-        "federal_text_alerts": len(set(federal.column("message_id").to_pylist())),
+        "federal_text_alerts": len(with_text("alerts", ["text_federal"])),
+        "text_alerts": len(with_text("alerts", text_tables)),
+        "text_tests": len(with_text("tests", text_tables)),
     }
 
 
@@ -170,11 +291,39 @@ def card(manifest: Mapping[str, Any]) -> str:
     for key, n in manifest.get("facts", {}).items():
         values[key] = f"{n:,}"
     values.update(code_tables())
+    values.update(text_sections(manifest))
     for path, f in by.items():
         key = path.replace("/", "_").replace(".parquet", "")
         values[f"{key}_rows"] = f"{f['rows']:,}"
         values[f"{key}_mb"] = _mb(f["bytes"])
     return re.sub(r"\{\{(\w+)\}\}", lambda m: values.get(m.group(1), m.group(0)), template)
+
+
+#: What each text table holds, for the card.
+TEXT_TABLE_WORDS = {
+    "text_federal": "the text of federal senders' messages",
+    "text_other": (
+        "the text of state, local, tribal, territorial and unknown-kind senders' messages"
+    ),
+}
+
+
+def text_sections(manifest: Mapping[str, Any]) -> dict[str, str]:
+    """The card's text-table configs (YAML) and size rows, for the tables this pack holds."""
+    by = {f["path"]: f for f in manifest["files"]}
+    configs, rows = [], []
+    for name in manifest.get("text_tables", ["text_federal"]):
+        configs += [f"- config_name: {name}", "  data_files:"]
+        cells = []
+        for config in CONFIGS:
+            path = f"{config}/{name}.parquet"
+            if path in by:
+                configs += [f"  - split: {config}", f"    path: {path}"]
+                cells.append(f"{by[path]['rows']:,}")
+            else:
+                cells.append("")
+        rows.append(f"| `{name}` | {cells[0]} | {cells[1]} | {TEXT_TABLE_WORDS[name]} |")
+    return {"text_configs": "\n".join(configs), "text_size_rows": "\n".join(rows)}
 
 
 def code_tables() -> dict[str, str]:
@@ -196,8 +345,15 @@ def code_tables() -> dict[str, str]:
     }
 
 
-def card_metadata_problems(text: str) -> list[str]:
-    """What the card's YAML header lacks for Hugging Face (license fields, configs)."""
+def card_metadata_problems(
+    text: str, tables: list[str] | tuple[str, ...] | None = None
+) -> list[str]:
+    """What the card's YAML header lacks for Hugging Face (license fields, configs), and raw tags.
+
+    ``tables`` are the pack's tables (the record layer and its text tables); each needs a config,
+    and no other text table may have one.
+    """
+    tables = list(tables) if tables is not None else pack_tables(TEXT_KINDS)
     m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
     if not m:
         return ["the card has no YAML header"]
@@ -211,9 +367,12 @@ def card_metadata_problems(text: str) -> list[str]:
         out.append(f"license_link must be {TERMS_URL}")
     if "{{" in text:
         out.append("the card still holds a placeholder")
-    for name in RELEASED_TABLES:
+    for name in tables:
         if f"config_name: {name}" not in head:
             out.append(f"no config for {name}")
+    for name in sorted(set(TEXT_TABLES) - set(tables)):
+        if f"config_name: {name}" in head:
+            out.append(f"a config for {name}, which this pack does not hold")
     out += hfpage.tag_problems("the card", text)
     return out
 
@@ -245,16 +404,25 @@ def check_pack(
     if not manifest_path.exists():
         return [f"{manifest_path} is missing; build the pack with `warntext release build`."]
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    text_tables = list(manifest.get("text_tables", ["text_federal"]))
+    kinds = list(manifest.get("text_kinds", FEDERAL_ONLY))
+    if text_tables != text_tables_for(kinds):
+        fail.append(f"manifest.json: text tables {text_tables} do not match the kinds {kinds}.")
+    tables = [*RECORD_TABLES, *text_tables]
     listed = {f["path"]: f for f in manifest["files"]}
+    readable: set[str] = set()
     for path in sorted(p for p in pack_dir.rglob("*") if p.is_file()):
         rel = path.relative_to(pack_dir).as_posix()
         if rel in ALLOWED_FILES:
             continue
         parts = rel.split("/")
         name = parts[-1].removesuffix(".parquet")
-        if name.startswith("text_") and name != "text_federal":
-            fail.append(f"{rel}: a text table other than text_federal may not be released.")
-        elif len(parts) != 2 or parts[0] not in CONFIGS or name not in RELEASED_TABLES:
+        if name.startswith("text_") and name not in text_tables:
+            fail.append(
+                f"{rel}: a text table this pack does not release (its manifest releases "
+                f"{', '.join(text_tables)})."
+            )
+        elif len(parts) != 2 or parts[0] not in CONFIGS or name not in tables:
             fail.append(f"{rel}: not a file of the release; remove it.")
         elif rel not in listed:
             fail.append(f"{rel}: not in the manifest.")
@@ -264,6 +432,10 @@ def check_pack(
                 fail.append(f"{rel}: does not match its SHA-256 in the manifest.")
             if pq.read_metadata(path).num_rows != listed[rel]["rows"]:
                 fail.append(f"{rel}: its row count differs from the manifest's.")
+            if not pq.read_schema(path).equals(expected_schema(name), check_metadata=False):
+                fail.append(f"{rel}: its columns are not those of a released {name} table.")
+            else:
+                readable.add(rel)
     for rel in listed:
         if not (pack_dir / rel).exists():
             fail.append(f"{rel}: in the manifest but missing.")
@@ -276,15 +448,103 @@ def check_pack(
     if not readme.exists():
         fail.append("README.md (the dataset card) is missing.")
     else:
-        fail += [f"README.md: {p}" for p in card_metadata_problems(readme.read_text("utf-8"))]
-    # The tables' release check, on the released tables only (anything else is flagged above).
+        problems = card_metadata_problems(readme.read_text("utf-8"), tables)
+        fail += [f"README.md: {p}" for p in problems]
+    # The tables' release check, on everything in the pack (stray files are flagged above).
     loaded: dict[str, dict[str, list]] = {}
     for config in CONFIGS:
-        loaded[config] = {"text_other": []}
+        loaded[config] = {}
         for name in RELEASED_TABLES:
-            path = pack_dir / config / f"{name}.parquet"
-            loaded[config][name] = pq.read_table(path).to_pylist() if path.exists() else []
+            rel = f"{config}/{name}.parquet"
+            path = pack_dir / rel
+            loaded[config][name] = pq.read_table(path).to_pylist() if rel in readable else []
     fail += ck.check(loaded, sender_values, server_counts, identifiers)
+    fail += text_problems(loaded, kinds)
+    return fail
+
+
+#: The privacy rules a message's text can be withheld by, each read from its record-layer row.
+WITHHOLDING_RULES = {
+    "a people code": lambda m: bool(set(m.get("event_codes") or []) & privacy.PEOPLE_CODES),
+    "the missing-person rule": lambda m: bool(m.get("about_missing_person")),
+    "the pattern rule": lambda m: bool(m.get("withheld_patterns")),
+    "the withheld flag": lambda m: bool(m.get("text_withheld")),
+}
+
+
+def text_problems(
+    tables: Mapping[str, Mapping[str, list[dict[str, Any]]]], kinds: list[str] | tuple[str, ...]
+) -> list[str]:
+    """The text layer's own rules, in both splits; counts and rule names only, never text.
+
+    - no text row for a message that any privacy rule withholds (a people code, the
+      missing-person rule, the pattern rule), and every such message is marked withheld;
+    - every text row of a released kind, with its credit: the message's alerting authority
+      (FEMA's identifier and the released organization name) and the credit line;
+    - no personal-detail pattern and no missing-person wording in any released text field.
+    """
+    fail: list[str] = []
+    for config in CONFIGS:
+        messages = {m["message_id"]: m for m in tables[config].get("messages", [])}
+        unmarked = sum(
+            1
+            for m in messages.values()
+            if not m.get("text_withheld") and any(rule(m) for rule in WITHHOLDING_RULES.values())
+        )
+        if unmarked:
+            fail.append(
+                f"{config}/messages: {unmarked} message(s) meet a privacy rule but are not marked "
+                "withheld; rebuild the tables."
+            )
+        for name in TEXT_TABLES:
+            rows = tables[config].get(name, [])
+            if not rows:
+                continue
+            for label, rule in WITHHOLDING_RULES.items():
+                n = sum(1 for r in rows if rule(messages.get(r["message_id"], {})))
+                if n:
+                    fail.append(
+                        f"{config}/{name}: {n} text row(s) for messages withheld by {label}."
+                    )
+            wrong_kind = sum(1 for r in rows if r.get("sender_kind") not in kinds)
+            if wrong_kind:
+                fail.append(
+                    f"{config}/{name}: {wrong_kind} row(s) of a kind this pack does not "
+                    f"release (it releases {', '.join(kinds)})."
+                )
+            no_credit = 0
+            for r in rows:
+                m = messages.get(r["message_id"], {})
+                want = credit_line(m.get("cog_id"), m.get("organization") or None)
+                if (
+                    not r.get("credit")
+                    or r.get("credit") != want
+                    or r.get("cog_id") != m.get("cog_id")
+                    or (r.get("organization") or None) != (m.get("organization") or None)
+                ):
+                    no_credit += 1
+            if no_credit:
+                fail.append(
+                    f"{config}/{name}: {no_credit} row(s) without their credit (the alerting "
+                    "authority's FEMA ID and released name, and the credit line)."
+                )
+            found: dict[str, int] = {}
+            for r in rows:
+                for field in TEXT_FIELDS:
+                    value = r.get(field)
+                    for cell in value if isinstance(value, list) else [value]:
+                        if not isinstance(cell, str) or not cell:
+                            continue
+                        hits = [p for p, hit in patterns.present(cell).items() if hit]
+                        if privacy.MISSING_PERSON.search(cell):
+                            hits.append("missing_person")
+                        for h in hits:
+                            found[f"{field}:{h}"] = found.get(f"{field}:{h}", 0) + 1
+            if found:
+                fail.append(
+                    f"{config}/{name}: released text matches personal-detail patterns or "
+                    f"missing-person wording: {found}"
+                )
     return fail
 
 
