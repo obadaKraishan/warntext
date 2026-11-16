@@ -138,4 +138,9 @@ All notable changes to this project are recorded here. The format follows
 - `warntext sheet --name` and `--exclude-key`: a later sheet with its own file names that leaves
   out every text group and text an earlier sheet used. A sheet's workbook now carries the
   definitions on a second visible worksheet, and a plain-text guide sits beside it.
+- Sources and method: OpenFEMA's confirmation of 16 November 2026, as a dated paraphrase (the
+  message text may be released on research repositories with credit to FEMA and to the alerting
+  authority; state, local, tribal and territorial messages are covered by the OpenFEMA terms; a
+  DOI copy without text is acceptable), and the weather service's change of messaging policy
+  behind the fall of its records after July 2023, with its records per year.
 

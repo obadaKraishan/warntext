@@ -249,10 +249,36 @@ and NOTICE say that WarnText is not made, endorsed or checked by FEMA or DHS.
   4. *The alerts about people.* The re-identification clause and the privacy and publicity
      rights the government-works page mentions both point away from republishing named people's
      details, whatever the dataset page says about personal information.
-- **A clean way to ask.** The dataset page names FEMA's contacts for questions about the data and
-  about IPAWS; FEMA's own contact page is https://www.fema.gov/about/contact. A short written
-  question to them on redistribution, citation and the alerts about people would settle the
-  FEMA side; it would not settle the state and local authors' rights.
+- **What OpenFEMA confirmed (16 November 2026).** The maintainer asked OpenFEMA in writing.
+  OpenFEMA confirmed by email on 16 November 2026, with the IPAWS office in copy, that:
+  1. the corpus may include the message text as retrieved from the API and may be shared on
+     research repositories (Hugging Face and Zenodo), with credit to FEMA and to the alerting
+     authority;
+  2. messages written by state, local, tribal and territorial alerting authorities are covered by
+     the OpenFEMA terms for this purpose;
+  3. on the alerts about people, the message text comes from the IPAWS public data feed, and
+     OpenFEMA believes there are no restrictions on this text;
+  4. archiving only the code and the fields without text under a DOI, and keeping the text where
+     a version can be taken down, is acceptable;
+  5. the fall in the National Weather Service's records after July 2023 comes from a change in
+     the weather service's messaging policy: it stopped sending non-emergency messages to
+     IPAWS-OPEN and limited its IPAWS messages to those meant for Wireless Emergency Alerts.
+
+  This is a paraphrase, not OpenFEMA's words; the maintainer keeps the email. It answers points
+  1 to 3 above on FEMA's side. Point 4 stays WarnText's own choice: OpenFEMA's answer removes a
+  question of terms, but the alerts about people name missing children, missing adults and people
+  sought by police, and a published corpus keeps the names long after an alert has ended.
+- **What WarnText does with it.** From version 0.1.0 the text of real alerts and tests from
+  federal, state, local, tribal, territorial and unknown-kind authorities is released on Hugging
+  Face, wherever the privacy rules do not withhold it, and every text row credits FEMA's dataset
+  and the alerting authority (FEMA's identifier and the released organization name). The alerts
+  about people keep their rows and lose their text, as before. The Kaggle mirror holds no text and
+  points to Hugging Face; the Zenodo copy holds the code and the documents only. FEMA or an
+  alerting authority can ask for a text to be taken out (the dataset card's "Removal" section).
+- **How it was asked.** The dataset page names FEMA's contacts for questions about the data and
+  about IPAWS; FEMA's own contact page is https://www.fema.gov/about/contact. The maintainer
+  wrote to OpenFEMA about redistribution, credit, the state and local authors' messages and the
+  alerts about people; the answer is above.
 
 ## 6. The API: paging, filters, rates and bulk files
 

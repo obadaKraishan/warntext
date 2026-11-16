@@ -9,7 +9,14 @@ review. Numbers are from the build of the 2026-11-15 snapshot (section 10).
 - **Senders:** every sender except the National Weather Service's archive sender
   (`w-nws.webmaster@noaa.gov`). The weather service's records are 98.3% of the archive; they are
   archived more fully elsewhere, and in this archive they stop in July 2023 except for phone
-  alerts. They are not read.
+  alerts. They are not read. OpenFEMA confirmed by email on 16 November 2026 that the fall comes
+  from a change in the weather service's messaging policy: it stopped sending non-emergency
+  messages to IPAWS-OPEN and limited its IPAWS messages to those meant for Wireless Emergency
+  Alerts. The weather service's records in the archive per year (server counts, 2026-11-15; 2012
+  from June, 2026 to 14 November): 2012 79,406; 2013 362,313; 2014 415,315; 2015 405,190; 2016
+  406,255; 2017 413,153; 2018 474,885; 2019 537,743; 2020 455,608; 2021 477,287; 2022 497,060;
+  2023 261,518; 2024 6,366; 2025 5,864; 2026 5,864. By month in 2023: 32,289 to 43,186 a month
+  from January to July (July 33,731), then 769 in August and 50 to 309 a month after.
 - **Time:** every record sent before the snapshot bound (`2026-11-14T00:00:00Z` for the first
   build); the weekly update reads what comes after.
 - **How:** the API, year by year, ordered by `sent` and `id`, in pages of 500. Each page starts
