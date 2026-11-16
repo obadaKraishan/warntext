@@ -565,8 +565,8 @@ _DESCRIBE = {
 def build_kaggle(pack_dir: Path | str, out_dir: Path | str) -> dict[str, Any]:
     """The Kaggle mirror's folder: flat copies of the record-layer files and its metadata.
 
-    It holds no text table, not even ``text_federal``: the mirror carries the record layer and
-    the codes only, and points to the Hugging Face dataset for the rest.
+    It holds no text table: the mirror carries the record layer and the released codes only, and
+    points to the Hugging Face dataset for the text.
     """
     pack_dir, out_dir = Path(pack_dir), Path(out_dir)
     if out_dir.exists() and any(out_dir.iterdir()):
@@ -590,10 +590,11 @@ def build_kaggle(pack_dir: Path | str, out_dir: Path | str) -> dict[str, Any]:
             f"# WarnText {manifest['version']} (record layer)\n\n"
             "A research record of the public alert messages sent through the Integrated Public "
             "Alert and Warning System, from FEMA's OpenFEMA dataset IPAWS Archived Alerts. Not "
-            "an alerting service. This mirror holds the record layer and the released content "
-            "codes only, never message text; the federal senders' text and the dataset card "
-            "are on Hugging Face (https://huggingface.co/datasets/obadakr/warntext), and the code "
-            "and method at https://github.com/obadaKraishan/warntext.\n\n"
+            "an alerting service. This mirror holds the record layer and the released codes "
+            "only, never message text. The message text (for the alerts that are not about "
+            "people), the dataset card, the terms and the removal route are on Hugging Face "
+            "(https://huggingface.co/datasets/obadakr/warntext); the code and method are at "
+            "https://github.com/obadaKraishan/warntext.\n\n"
             "The data are under OpenFEMA's terms, which every user must follow: "
             f"{TERMS_URL}. This product uses the Federal Emergency Management Agency's OpenFEMA "
             "API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for "
