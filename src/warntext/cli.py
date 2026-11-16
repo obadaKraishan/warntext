@@ -416,6 +416,20 @@ def cmd_release_build(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_release_card(args: argparse.Namespace) -> int:
+    """A card-only fix: the pack's README.md written again; data files and manifest untouched."""
+    changed = rl.rewrite_card(args.pack)
+    problems = rl.card_metadata_problems((Path(args.pack) / "README.md").read_text("utf-8"))
+    print(
+        f"README.md in {args.pack} written again from the template and the manifest "
+        f"({'changed' if changed else 'unchanged'}); the data files and the manifest were not "
+        "touched."
+    )
+    for p in problems:
+        print(f"  FAIL README.md: {p}")
+    return 1 if problems else 0
+
+
 def cmd_release_check(args: argparse.Namespace) -> int:
     """The pack's own check: its files, its card, and the release check of its tables."""
     state = json.loads(Path(args.state).read_text(encoding="utf-8"))
@@ -640,6 +654,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="the codes' version the release statuses were measured on",
     )
     q.set_defaults(func=cmd_release_build)
+    q = rsub.add_parser("card", help="a card-only fix: README.md again, data files untouched")
+    q.add_argument("--pack", required=True)
+    q.set_defaults(func=cmd_release_card)
     q = rsub.add_parser("check", help="the pack's own check (exits 1 on any failure)")
     q.add_argument("--pack", required=True)
     q.add_argument("--private", default="data/interim/private")

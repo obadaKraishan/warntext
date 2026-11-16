@@ -72,6 +72,11 @@ All notable changes to this project are recorded here. The format follows
   credentials at all (no token, no cookie, and no login read from the environment or a netrc file)
   and fails loudly when it cannot tell; the second compares the card's headings with the rendered
   page's, in order, down to the last one.
+- The release check fails on a raw HTML tag in the card outside code (the Hugging Face page
+  renders raw HTML, so a stray tag can hide the rest of the card), and on a Kaggle title outside 6
+  to 50 characters, a subtitle outside 20 to 80, another id, or a raw tag in the mirror's
+  description. `warntext release card --pack DIR` writes a pack's card again from the template and
+  its manifest, for a wording fix that leaves the data files and the manifest as they are.
 
 ### Changed
 - Messages with a people code carry their times rounded down to the hour in the record layer

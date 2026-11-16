@@ -153,3 +153,49 @@ def test_code_status_covers_every_code_and_fills_the_card():
 def test_a_pack_is_refused_from_codes_of_another_version(pack, tmp_path):
     with pytest.raises(SystemExit, match="measured on version 0"):
         release.build_pack(pack["tmp"] / "t", tmp_path / "other", "0.1.0", "x", "y", "0")
+
+
+def test_a_raw_tag_in_the_card_fails_the_check(pack):
+    d = pack["dir"]
+    args = (pack["senders"], pack["ids"], {2024: 4})
+    readme = d / "README.md"
+    text = readme.read_text()
+    readme.write_text(text.replace("## How to cite", "## How to cite\n\nCite <title> here."))
+    out = release.check_pack(d, *args)
+    assert any("'<title>' is read as an HTML tag" in f for f in out)
+    readme.write_text(text.replace("## How to cite", "## How to cite\n\nCite `<title>` here."))
+    assert release.check_pack(d, *args) == []
+
+
+def test_the_card_alone_is_written_again_and_the_data_files_stay(pack, capsys):
+    d = pack["dir"]
+    before = {f["path"]: (d / f["path"]).read_bytes() for f in pack["manifest"]["files"]}
+    manifest = (d / "manifest.json").read_bytes()
+    readme = d / "README.md"
+    good = readme.read_text()
+    readme.write_text("an older card")
+    assert release.rewrite_card(d) is True
+    assert readme.read_text() == good
+    assert release.rewrite_card(d) is False
+    assert {p: (d / p).read_bytes() for p in before} == before
+    assert (d / "manifest.json").read_bytes() == manifest
+    assert cli.main(["release", "card", "--pack", str(d)]) == 0
+    assert "unchanged" in capsys.readouterr().out
+
+
+def test_kaggle_title_and_subtitle_lengths_and_id_are_checked(pack, tmp_path):
+    out = tmp_path / "kaggle"
+    meta = release.build_kaggle(pack["dir"], out)
+    assert len(meta["title"]) <= 50 and release.kaggle_metadata_problems(meta) == []
+    long = dict(meta, title="WarnText: the public alert messages of the United States, as records")
+    assert "the title has 68 characters; Kaggle takes 6 to 50." in " ".join(
+        release.kaggle_metadata_problems(long)
+    )
+    short = dict(meta, subtitle="too short", id="someone/else")
+    problems = release.kaggle_metadata_problems(short)
+    assert any("subtitle has 9 characters" in p for p in problems)
+    assert any("not obadakraishan/warntext" in p for p in problems)
+    tagged = dict(meta, description=meta["description"] + " <b>bold</b>")
+    assert any("'<b>'" in p for p in release.kaggle_metadata_problems(tagged))
+    (out / "dataset-metadata.json").write_text(json.dumps(long))
+    assert any("title has 68" in f for f in release.check_kaggle(out))

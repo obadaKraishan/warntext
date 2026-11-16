@@ -25,7 +25,7 @@ from typing import Any
 
 import pyarrow.parquet as pq
 
-from warntext import __version__, durable
+from warntext import __version__, durable, hfpage
 from warntext import check as ck
 from warntext.probe import ENDPOINT
 from warntext.tables import CONFIGS, RECORD_TABLES
@@ -214,7 +214,22 @@ def card_metadata_problems(text: str) -> list[str]:
     for name in RELEASED_TABLES:
         if f"config_name: {name}" not in head:
             out.append(f"no config for {name}")
+    out += hfpage.tag_problems("the card", text)
     return out
+
+
+def rewrite_card(pack_dir: Path | str) -> bool:
+    """A card-only fix: README.md written again from the template and the pack's own manifest.
+
+    The data files and the manifest are not touched. Returns whether the card changed.
+    """
+    pack_dir = Path(pack_dir)
+    manifest = json.loads((pack_dir / "manifest.json").read_text(encoding="utf-8"))
+    readme = pack_dir / "README.md"
+    before = readme.read_text(encoding="utf-8") if readme.exists() else None
+    text = card(manifest)
+    readme.write_text(text, encoding="utf-8")
+    return text != before
 
 
 def check_pack(
@@ -353,6 +368,32 @@ def check_kaggle(out_dir: Path | str) -> list[str]:
         config, _, table = base.partition("-")
         if config not in CONFIGS or table not in KAGGLE_TABLES or not name.endswith(".parquet"):
             fail.append(f"kaggle/{name}: not a record-layer file; the mirror holds no text.")
-    if not (out_dir / "dataset-metadata.json").exists():
+    meta_path = out_dir / "dataset-metadata.json"
+    if not meta_path.exists():
         fail.append("kaggle/dataset-metadata.json is missing.")
+    else:
+        fail += kaggle_metadata_problems(json.loads(meta_path.read_text(encoding="utf-8")))
     return fail
+
+
+#: Kaggle's limits, which its command line enforces only when the dataset is created.
+KAGGLE_TITLE = (6, 50)
+KAGGLE_SUBTITLE = (20, 80)
+
+
+def kaggle_metadata_problems(meta: Mapping[str, Any]) -> list[str]:
+    """The mirror's title and subtitle within Kaggle's lengths, its id, no raw tag in its text."""
+    out = []
+    for field, (low, high) in (("title", KAGGLE_TITLE), ("subtitle", KAGGLE_SUBTITLE)):
+        n = len(meta.get(field) or "")
+        if not low <= n <= high:
+            out.append(
+                f"kaggle/dataset-metadata.json: the {field} has {n} characters; Kaggle takes "
+                f"{low} to {high}."
+            )
+    if meta.get("id") != KAGGLE_ID:
+        out.append(f"kaggle/dataset-metadata.json: the id is {meta.get('id')!r}, not {KAGGLE_ID}.")
+    out += hfpage.tag_problems(
+        "kaggle/dataset-metadata.json description", meta.get("description", "")
+    )
+    return out
