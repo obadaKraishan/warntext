@@ -13,7 +13,7 @@ tags:
 - risk-communication
 - communication-research
 size_categories:
-- 10K<n<100K
+- {{size_category}}
 configs:
 - config_name: messages
   default: true
@@ -71,10 +71,11 @@ it asked for, the updates and cancellations that followed it, and measures of it
 
 **The message text is included** for the alerts that are not about people: {{text_alerts}} real
 alerts and {{text_tests}} tests carry their words, each text row crediting FEMA's dataset and
-the alerting authority that wrote it. **The text of alerts about people is withheld:** their
-rows stay, but their words do not, because they name and describe missing children, missing
-adults and people sought by police, and a published corpus would keep those names long after
-the alert had ended.
+the alerting authority that wrote it. **The text of alerts about people is withheld**
+({{withheld}} real alerts): their rows stay, but their words do not, because they name and
+describe missing children, missing adults and people sought by police, and a published corpus
+would keep those names long after the alert had ended. {{no_text_sentence}}
+{{tests_text_sentence}}
 
 ## What it is not
 - **Not an alerting service** (above).

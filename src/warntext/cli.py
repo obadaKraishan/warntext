@@ -450,7 +450,8 @@ def cmd_release_card(args: argparse.Namespace) -> int:
     changed = rl.rewrite_card(args.pack)
     manifest = json.loads((Path(args.pack) / "manifest.json").read_text(encoding="utf-8"))
     tables = rl.pack_tables(manifest.get("text_kinds", rl.FEDERAL_ONLY))
-    problems = rl.card_metadata_problems((Path(args.pack) / "README.md").read_text("utf-8"), tables)
+    readme = (Path(args.pack) / "README.md").read_text("utf-8")
+    problems = rl.card_metadata_problems(readme, tables, manifest.get("rows"))
     print(
         f"README.md in {args.pack} written again from the template and the manifest "
         f"({'changed' if changed else 'unchanged'}); the data files and the manifest were not "

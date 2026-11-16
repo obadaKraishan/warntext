@@ -1,6 +1,7 @@
 """The release pack and its own check, on invented messages."""
 
 import json
+import re
 import shutil
 
 import pyarrow as pa
@@ -360,3 +361,70 @@ def test_kaggle_title_and_subtitle_lengths_and_id_are_checked(pack, tmp_path):
     assert any("'<b>'" in p for p in release.kaggle_metadata_problems(tagged))
     (out / "dataset-metadata.json").write_text(json.dumps(long))
     assert any("title has 68" in f for f in release.check_kaggle(out))
+
+
+def test_the_size_tag_follows_the_rows_in_all(pack):
+    assert release.size_category(999) == "n<1K"
+    assert release.size_category(1_000) == "1K<n<10K"
+    assert release.size_category(99_999) == "10K<n<100K"
+    assert release.size_category(500_139) == "100K<n<1M"
+    assert release.size_category(10**13) == "n>1T"
+    text = (pack["dir"] / "README.md").read_text()
+    rows = pack["manifest"]["rows"]
+    assert f"size_categories:\n- {release.size_category(rows)}\n" in text
+    assert release.card_metadata_problems(text, None, rows) == []
+    wrong = text.replace(f"- {release.size_category(rows)}\n", "- 100K<n<1M\n", 1)
+    assert any(
+        "size_categories must be" in p for p in release.card_metadata_problems(wrong, None, rows)
+    )
+
+
+def test_the_card_makes_the_counts_add_up(tmp_path):
+    # An invented cancellation with no information block: no text, not withheld.
+    cancel = re.sub(
+        r"<info>.*</info>",
+        "",
+        invented(identifier="EX-5", sender=COUNTY, msg_type="Cancel"),
+        flags=re.S,
+    )
+    b = _build(tmp_path, extra=[record(cancel, "r05")])
+    f = b["manifest"]["facts"]
+    assert f["real_alerts"] == f["withheld"] + f["text_alerts"] + f["no_text_alerts"]
+    assert f["no_text_alerts"] == f["no_text_cancels"] == 1
+    assert f["tests"] == f["tests_withheld"] + f["text_tests"] + f["tests_no_text"]
+    text = (b["dir"] / "README.md").read_text()
+    assert "The other 1 real alerts carry no words in the archive: each is a cancellation" in text
+    assert "Of the 1 tests, 0 have their text withheld by the same rules." in text
+    s = release.text_sentences(
+        {
+            "no_text_alerts": 5,
+            "no_text_cancels": 3,
+            "tests": 9,
+            "tests_withheld": 2,
+            "tests_no_text": 4,
+            "tests_kind_left_out": 1,
+        }
+    )
+    assert "(3 of them cancellations" in s["no_text_sentence"]
+    assert "4 have no text here (1 of a sender kind" in s["tests_text_sentence"]
+    s = release.text_sentences(
+        {"tests": 3, "tests_withheld": 1, "tests_no_text": 2, "tests_kind_left_out": 2}
+    )
+    assert s["no_text_sentence"] == ""
+    assert s["tests_text_sentence"].endswith(
+        "2 are of a sender kind whose text this version leaves out."
+    )
+
+
+def test_a_card_rewrite_measures_new_facts_and_refuses_a_manifest_that_disagrees(pack):
+    d = pack["dir"]
+    m = json.loads((d / "manifest.json").read_text())
+    good = (d / "README.md").read_text()
+    older = dict(m, facts={k: v for k, v in m["facts"].items() if k != "tests_withheld"})
+    (d / "manifest.json").write_text(json.dumps(older, indent=1) + "\n")
+    assert release.rewrite_card(d) is False  # the same card, the missing count measured again
+    assert (d / "README.md").read_text() == good
+    wrong = dict(m, facts=dict(m["facts"], text_alerts=99))
+    (d / "manifest.json").write_text(json.dumps(wrong, indent=1) + "\n")
+    with pytest.raises(SystemExit, match="differ from the pack's files"):
+        release.rewrite_card(d)

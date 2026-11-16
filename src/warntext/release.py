@@ -100,6 +100,29 @@ def _mb(n: int) -> str:
     return f"{n / 1_000_000:.1f}"
 
 
+#: Hugging Face's ``size_categories``, by the dataset's rows in all.
+SIZE_CATEGORIES = (
+    (1_000, "n<1K"),
+    (10_000, "1K<n<10K"),
+    (100_000, "10K<n<100K"),
+    (1_000_000, "100K<n<1M"),
+    (10_000_000, "1M<n<10M"),
+    (100_000_000, "10M<n<100M"),
+    (1_000_000_000, "100M<n<1B"),
+    (10_000_000_000, "1B<n<10B"),
+    (100_000_000_000, "10B<n<100B"),
+    (1_000_000_000_000, "100B<n<1T"),
+)
+
+
+def size_category(rows: int) -> str:
+    """Hugging Face's ``size_categories`` value for a dataset of ``rows`` rows in all."""
+    for bound, name in SIZE_CATEGORIES:
+        if rows < bound:
+            return name
+    return "n>1T"
+
+
 def text_tables_for(kinds: tuple[str, ...] | list[str]) -> list[str]:
     """The text tables a pack with these sender kinds holds."""
     kinds = list(kinds)
@@ -225,7 +248,7 @@ def build_pack(
             )
     manifest = {
         "name": "WarnText",
-        "facts": pack_facts(out_dir, text_tables),
+        "facts": pack_facts(out_dir, text_tables, text_kinds),
         "version": version,
         "built_with": f"warntext {__version__}",
         "source": ENDPOINT,
@@ -243,14 +266,22 @@ def build_pack(
     return manifest
 
 
-def pack_facts(pack_dir: Path, text_tables: list[str] | None = None) -> dict[str, int]:
-    """Counts the card states: messages, authorities, what is withheld or rounded, what has text."""
+def pack_facts(
+    pack_dir: Path,
+    text_tables: list[str] | None = None,
+    kinds: tuple[str, ...] | list[str] = FEDERAL_ONLY,
+) -> dict[str, int]:
+    """Counts the card states: messages, authorities, what is withheld or rounded, what has text.
+
+    Every real alert is withheld, has text, or has none in the archive (``no_text_alerts``; most
+    are cancellations with no information block, ``no_text_cancels``); every test is withheld,
+    has text, or has none here (of a kind whose text the pack leaves out, or with no words).
+    """
     text_tables = text_tables or ["text_federal"]
-    alerts = pq.read_table(
-        pack_dir / "alerts" / "messages.parquet",
-        columns=["message_id", "cog_id", "text_withheld", "times_rounded"],
-    ).to_pylist()
-    tests = pq.read_metadata(pack_dir / "tests" / "messages.parquet").num_rows
+    columns = ["message_id", "cog_id", "text_withheld", "times_rounded", "sender_kind"]
+    columns += ["msg_type", "n_infos"]
+    alerts = pq.read_table(pack_dir / "alerts" / "messages.parquet", columns=columns).to_pylist()
+    tests = pq.read_table(pack_dir / "tests" / "messages.parquet", columns=columns).to_pylist()
 
     def with_text(config: str, names: list[str]) -> set[str]:
         out: set[str] = set()
@@ -259,9 +290,12 @@ def pack_facts(pack_dir: Path, text_tables: list[str] | None = None) -> dict[str
             out |= set(pq.read_table(path, columns=["message_id"]).column(0).to_pylist())
         return out
 
+    alert_text, test_text = with_text("alerts", text_tables), with_text("tests", text_tables)
+    no_text = [r for r in alerts if not r["text_withheld"] and r["message_id"] not in alert_text]
+    test_none = [r for r in tests if not r["text_withheld"] and r["message_id"] not in test_text]
     return {
         "real_alerts": len(alerts),
-        "tests": tests,
+        "tests": len(tests),
         "authorities_with_real_alerts": len({r["cog_id"] for r in alerts}),
         "withheld": sum(1 for r in alerts if r["text_withheld"]),
         "withheld_people_code": sum(1 for r in alerts if r["text_withheld"] == "people_code"),
@@ -271,8 +305,15 @@ def pack_facts(pack_dir: Path, text_tables: list[str] | None = None) -> dict[str
         "withheld_missing_person": sum(1 for r in alerts if r["text_withheld"] == "missing_person"),
         "rounded": sum(1 for r in alerts if r["times_rounded"]),
         "federal_text_alerts": len(with_text("alerts", ["text_federal"])),
-        "text_alerts": len(with_text("alerts", text_tables)),
-        "text_tests": len(with_text("tests", text_tables)),
+        "text_alerts": len(alert_text),
+        "no_text_alerts": len(no_text),
+        "no_text_cancels": sum(
+            1 for r in no_text if r["msg_type"] == "Cancel" and not r["n_infos"]
+        ),
+        "text_tests": len(test_text),
+        "tests_withheld": sum(1 for r in tests if r["text_withheld"]),
+        "tests_no_text": len(test_none),
+        "tests_kind_left_out": sum(1 for r in test_none if r["sender_kind"] not in kinds),
     }
 
 
@@ -292,6 +333,8 @@ def card(manifest: Mapping[str, Any]) -> str:
         values[key] = f"{n:,}"
     values.update(code_tables())
     values.update(text_sections(manifest))
+    values["size_category"] = size_category(manifest["rows"])
+    values.update(text_sentences(manifest.get("facts", {})))
     for path, f in by.items():
         key = path.replace("/", "_").replace(".parquet", "")
         values[f"{key}_rows"] = f"{f['rows']:,}"
@@ -326,6 +369,37 @@ def text_sections(manifest: Mapping[str, Any]) -> dict[str, str]:
     return {"text_configs": "\n".join(configs), "text_size_rows": "\n".join(rows)}
 
 
+def text_sentences(facts: Mapping[str, int]) -> dict[str, str]:
+    """The card's sentences that make the counts add up: alerts and tests without text."""
+    n, cancels = facts.get("no_text_alerts", 0), facts.get("no_text_cancels", 0)
+    if not n:
+        alerts = ""
+    elif cancels == n:
+        alerts = (
+            f"The other {n:,} real alerts carry no words in the archive: each is a cancellation "
+            "with no information block, which only points to the message it cancels."
+        )
+    else:
+        alerts = (
+            f"The other {n:,} real alerts carry no words in the archive ({cancels:,} of them "
+            "cancellations with no information block, which only point to the message they "
+            "cancel)."
+        )
+    none, left = facts.get("tests_no_text", 0), facts.get("tests_kind_left_out", 0)
+    tests = f"Of the {facts.get('tests', 0):,} tests, {facts.get('tests_withheld', 0):,} have their"
+    tests += " text withheld by the same rules"
+    if none and left == none:
+        tests += f", and {none:,} are of a sender kind whose text this version leaves out."
+    elif none:
+        tests += (
+            f", and {none:,} have no text here ({left:,} of a sender kind whose text this "
+            "version leaves out)."
+        )
+    else:
+        tests += "."
+    return {"no_text_sentence": alerts, "tests_text_sentence": tests}
+
+
 def code_tables() -> dict[str, str]:
     """The card's code sections, from the tracked status file."""
     status = code_status()
@@ -346,7 +420,7 @@ def code_tables() -> dict[str, str]:
 
 
 def card_metadata_problems(
-    text: str, tables: list[str] | tuple[str, ...] | None = None
+    text: str, tables: list[str] | tuple[str, ...] | None = None, rows: int | None = None
 ) -> list[str]:
     """What the card's YAML header lacks for Hugging Face (license fields, configs), and raw tags.
 
@@ -367,6 +441,8 @@ def card_metadata_problems(
         out.append(f"license_link must be {TERMS_URL}")
     if "{{" in text:
         out.append("the card still holds a placeholder")
+    if rows is not None and f"size_categories:\n- {size_category(rows)}\n" not in head + "\n":
+        out.append(f"size_categories must be {size_category(rows)}, for {rows:,} rows in all")
     for name in tables:
         if f"config_name: {name}" not in head:
             out.append(f"no config for {name}")
@@ -378,15 +454,27 @@ def card_metadata_problems(
 
 
 def rewrite_card(pack_dir: Path | str) -> bool:
-    """A card-only fix: README.md written again from the template and the pack's own manifest.
+    """A card-only fix: README.md written again from the template and the pack's own files.
 
-    The data files and the manifest are not touched. Returns whether the card changed.
+    The facts the card states are measured again from the pack's data files (which the check
+    holds to the manifest by hash), so a card can state a count the manifest of an earlier build
+    does not list; a count the manifest does list must agree. The data files and the manifest
+    are not touched. Returns whether the card changed.
     """
     pack_dir = Path(pack_dir)
     manifest = json.loads((pack_dir / "manifest.json").read_text(encoding="utf-8"))
+    kinds = manifest.get("text_kinds", list(FEDERAL_ONLY))
+    measured = pack_facts(pack_dir, manifest.get("text_tables"), kinds)
+    listed = manifest.get("facts", {})
+    differ = sorted(k for k in set(listed) & set(measured) if listed[k] != measured[k])
+    if differ:
+        raise SystemExit(
+            f"The manifest's facts {differ} differ from the pack's files; rebuild the pack "
+            "instead of rewriting its card."
+        )
     readme = pack_dir / "README.md"
     before = readme.read_text(encoding="utf-8") if readme.exists() else None
-    text = card(manifest)
+    text = card({**manifest, "facts": {**listed, **measured}})
     readme.write_text(text, encoding="utf-8")
     return text != before
 
@@ -448,7 +536,7 @@ def check_pack(
     if not readme.exists():
         fail.append("README.md (the dataset card) is missing.")
     else:
-        problems = card_metadata_problems(readme.read_text("utf-8"), tables)
+        problems = card_metadata_problems(readme.read_text("utf-8"), tables, manifest.get("rows"))
         fail += [f"README.md: {p}" for p in problems]
     # The tables' release check, on everything in the pack (stray files are flagged above).
     loaded: dict[str, dict[str, list]] = {}

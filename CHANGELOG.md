@@ -174,4 +174,9 @@ All notable changes to this project are recorded here. The format follows
   OpenFEMA's confirmation as a dated paraphrase in the terms. A GitHub issue form, "Remove a
   message's text", for FEMA, an alerting authority or a person named in a message (record ids
   only, never text; an answer within 14 days).
+- The card's `size_categories` is computed from the pack's rows in all (Hugging Face's bands), and
+  the release check fails on any other value. The first screen makes the counts add up: real
+  alerts with text, withheld, and the cancellations with no information block that carry no words
+  in the archive; tests with text, withheld, and of a kind left out. `release card` measures the
+  counts it states from the pack's own files and stops if one the manifest lists disagrees.
 
