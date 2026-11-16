@@ -23,13 +23,23 @@ delivery on after the first release.
    withheld and why, new authorities, the calls, bytes and seconds, and the check's result.
 
 Then `warntext release build` writes the next version's pack and `warntext release check` checks
-it on its own folder (it fails on any text table other than `text_federal`).
+it on its own folder (it fails on a text table its manifest does not list, a text row without
+its credit, and any text of a withheld message).
 
 **The dry run** (2026-11-15, from the maintainer's machine; records sent from 2026-11-14 00:00
 to 17:00 UTC): 13 new records, all real alerts (12 from state authorities, 1 local), 4 of them
 withheld (3 by a personal-detail pattern, 1 by a people code); the look-back found the server's
 220 records of the 7 days before equal to the 220 held; FEMA's list unchanged (2,177 authorities).
 5 calls, 0.9 MB, 228 seconds (most of it the rebuild), and the check passed.
+
+**A second dry run** (2026-11-16, on a copy of the state, into folders of its own; records sent
+from 2026-11-14 17:00 to 2026-11-15 16:00 UTC): 20 new records (16 real alerts, 14 state and 2
+local, 1 withheld by a personal-detail pattern; 4 tests); the look-back found 210 records on the
+server and 210 held; FEMA's list unchanged; 5 calls, about 4 minutes, and the check passed. The
+next version's pack could not be built from it: the rebuild codes with the current rules
+(codebook version 2), and the release statuses describe version 1. A test pack built with
+`--codebook-version 2`, never published, passed the release check with both text tables. Before
+the weekly runner is switched on, the codes of weekly versions need a decision.
 
 ## 2. Keeping what earlier weeks said, without republishing text
 A run needs earlier weeks' raw values: text groups compare each new message's text with every

@@ -20,17 +20,23 @@ drafts are in [`docs/`](docs/).
   counties and shapes), the channels it asked for, text lengths and simple measures.
 - Updates and cancellations linked to the alert they follow, as threads, and repeated sends of
   the same text grouped.
-- The text of each message in a separate table: federal senders' text in one, everyone else's
-  in another. The second is not released for now; anyone can build it on their own machine
-  from FEMA's API with `warntext text`.
+- The text of each message in a separate table: federal senders' text in one; state, local,
+  tribal, territorial and unknown-kind senders' text in another. Every text row credits FEMA's
+  dataset and the alerting authority. The text is released on Hugging Face only; the Kaggle
+  mirror holds the record layer, and anyone can rebuild the text there from FEMA's API with
+  `warntext text`. OpenFEMA confirmed on 16 November 2026 that the text may be shared on
+  research repositories with that credit (`docs/sources.md`).
 - Alerts about people (child abductions, missing persons, Blue Alerts, law enforcement
-  warnings), and any message with a personal detail, keep their row but not their text; those
-  with a people code keep their times to the hour only.
+  warnings), and any message with a personal detail, keep their row but not their text: these
+  messages name and describe people, and a published corpus would keep the names long after the
+  alert ended. Those with a people code, or about a missing person, keep their times to the hour
+  and their places to the county.
 - Content codes from the warning literature for every real alert's phone and full texts
   (hazard, location, time, source and guidance with their kinds, hazard category, completeness
-  and style), coded by rules and checked against a blind hand-coded sheet; release 0.1.0 carries
-  version 1's codes that passed. Version 2 of the rules was checked against a second blind sheet,
-  where its hazard code fell under the bar, so it is not released.
+  and style), coded by rules and checked against two blind hand-coded sheets. Release 0.1.0 holds
+  no validated content code: the hazard passed the first sheet but not the second, so the six
+  contents are experimental and left out; the hazard category, links, abbreviations, all caps,
+  the evacuation wordings and two flags are released.
 - Later: a weekly update.
 
 See [`docs/data-card.md`](docs/data-card.md) (draft), [`docs/schema.md`](docs/schema.md),

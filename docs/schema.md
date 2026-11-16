@@ -169,6 +169,11 @@ Codes are null for a unit that is not coded.
 letter case), `area_descriptions`, `resource_descriptions`,
 `resource_uris`.
 
+In a release, three credit columns follow `sender_kind`: `cog_id` (the alerting authority's
+FEMA ID), `organization` (its released name, or blank) and `credit` (a line naming the authority
+and FEMA's dataset). A release holds the text tables of the sender kinds its manifest lists
+(`text_kinds`); release 0.1.0 holds federal, state, local, tribal, territorial and unknown.
+
 ## Private local files (never released)
 Next to the tables, in a private folder: `sender_values.json` (the raw sender values, with their
 authorities), `identifiers.json` (the raw CAP identifiers of every message and of every message a

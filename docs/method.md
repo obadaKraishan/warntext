@@ -204,11 +204,14 @@ release check reads.
   with a people code. The content codes (section 12) are yes or no, counts, kinds and categories.
 - **Text layer:** `text_federal` holds the text of messages from federal senders; `text_other`
   the text of every other kind, including unknown. A withheld message is in neither. The text
-  layer is kept as the message gives it, never changed.
+  layer is kept as the message gives it, never changed. In a release each text row also carries
+  its credit (section 18).
 - **Rebuilding the text:** `warntext text` reads the record layer, asks FEMA's API for each
   message by record id (twenty ids a request, one request at a time, at least 3.5 seconds
   apart), parses it, applies the privacy rules again (a message the rules now withhold is
-  skipped) and writes the text tables by the sender kind in the record layer.
+  skipped) and writes the text tables by the sender kind in the record layer. A withheld message
+  is never asked for, and a message whose text is already in the folder given (a release's own
+  configuration folder) is reported as already in the release and not read again.
 
 ## 9. Measures that need no model
 For each language block: the length of `event`, `headline`, `description`, `instruction`,
@@ -342,11 +345,17 @@ the tables; an id is duplicated (codes rows included); or a row lacks its source
 It passes on the build of 2026-11-15 and on the weekly update's dry run.
 
 **The release pack** (`warntext release build`) holds, for both configurations, the record
-layer, the released codes (without the experimental ones) and `text_federal`, with a manifest
-and the dataset card; `warntext release check` runs on the pack's own folder and also fails on
-any file that is not part of the release, on any text table other than `text_federal`, on an
-experimental code, on a file that differs from the manifest, and on a card without its license
-fields. Version 0.1.0 (records sent before 2026-11-14T17:00Z): 13 files, 433,842 rows, 28.8 MB.
+layer, the released codes (without the experimental ones) and the text tables of the sender
+kinds asked for (`--text-kinds`; by default federal, state, local, tribal, territorial and
+unknown, so `text_federal` and `text_other`; `--text-kinds federal` builds the federal text
+alone), with a manifest and the dataset card. `warntext release check` runs on the pack's own
+folder and also fails on any file that is not part of the release, on a text table the manifest
+does not list, on an experimental code, on a file that differs from the manifest or whose
+columns are not its table's, on a card without its license fields, with a raw HTML tag outside
+code, or with a size tag other than its rows' band, and on every text-layer rule of section 18.
+Version 0.1.0 (records sent before 2026-11-14T17:00Z) was first built with the federal text
+alone (13 files, 433,842 rows, 28.6 MB) and then with the text layer open (15 files, 500,139
+rows, 34.7 MB; section 18).
 
 ## 12. Content codes
 Every unit of every real alert is coded by rule (`codebook.md`, version 1): the 90-character
@@ -676,3 +685,73 @@ differ from the coder on 12 to 18 of the 99 rows, and its alpha there would lie 
 hazard experimental and carries no validated content code; the hazard category, links and their
 kinds, abbreviations, all caps, the evacuation wordings and the two flags stay released. Both
 figures are in the dataset card, each from one coder.
+
+## 18. The text layer in release 0.1.0
+OpenFEMA confirmed by email on 16 November 2026 that the message text may be shared on research
+repositories with credit to FEMA and to the alerting authority, and that the messages of state,
+local, tribal and territorial authorities are covered by the OpenFEMA terms for this purpose
+(`sources.md`, section 5). Release 0.1.0 therefore holds the text of real alerts and tests from
+federal, state, local, tribal, territorial and unknown-kind senders, wherever the privacy rules
+do not withhold it. The privacy rules are unchanged.
+
+**What is left out.** The one national authority (the clearinghouse that relays AMBER alerts,
+sender kind `other`) is not among the kinds: its 11 tests with text are left out, and its real
+alerts are all withheld or carry no words. The Kaggle mirror holds no text; the Zenodo copy
+holds the code and the documents only.
+
+**Credit.** The release adds three columns to every text row, after `sender_kind`: `cog_id`
+(the alerting authority's FEMA ID, from the message's record row), `organization` (its name as
+released; blank where the name was not confirmed, and then the credit names the ID alone) and
+`credit` ("Message by NAME (IPAWS alerting authority, FEMA ID N); from FEMA OpenFEMA Dataset:
+IPAWS Archived Alerts - v1").
+
+**The checks.** The pack's check fails on a text row without its credit, or whose credit does
+not match its message's authority; on a text row of a kind the pack does not release; on a text
+row, in either split, for a message that a people code, the missing-person rule or the pattern
+rule withholds, and on a message that meets one of those rules but is not marked withheld; and
+on any personal-detail pattern or missing-person wording in any released text field. The last
+re-reads the audience and the resource descriptions too, which the build's pattern scan does
+not read; no released text matches.
+
+**Counts (real alerts).** 16,921 carry text (federal 223, state 3,426, local 13,012, territorial
+219, tribal 25, unknown 16); 13,778 are withheld; 3,979 carry no words in the archive (each a
+cancellation with no information block). By year, the real alerts with text: 2011 5, 2012 6,
+2013 29, 2014 133, 2015 239, 2016 267, 2017 351, 2018 565, 2019 602, 2020 1,544, 2021 1,205,
+2022 1,262, 2023 1,497, 2024 2,515, 2025 2,939, 2026 3,762 (to 14 November). Tests: 48,134 carry
+text, 1,041 are withheld and 11 are the national authority's.
+
+**Withheld, by rule.** A message can meet several rules; the reason on the row is the first of
+people code, pattern, missing person. Of the 13,778 withheld real alerts, 3,838 carry a hazard
+event code (non-weather hazard or weather) and 9,940 do not:
+
+| | hazard codes | other codes |
+|---|---:|---:|
+| withheld | 3,838 | 9,940 |
+| with a people code | 0 | 8,860 |
+| about a missing person | 2,314 | 8,238 |
+| a personal-detail pattern | 3,822 | 8,767 |
+| the pattern rule alone (no people code, not about a missing person) | 1,524 | 28 |
+| the missing-person rule alone | 16 | 2 |
+
+The pattern rule's 4,900 withheld real alerts (reason `personal_pattern`), by which patterns fired:
+
+| patterns | hazard codes, about a missing person | hazard codes, not about one | other codes |
+|---|---:|---:|---:|
+| a phone number only | 29 | 1,134 | 11 |
+| words about a person only | 467 | 135 | 61 |
+| both, nothing else | 32 | 11 | 2 |
+| another detail (an age, a height or weight, "last seen", a plate, an email), with or without these | 1,770 | 244 | 1,004 |
+
+A narrower pattern rule, for a later version, would release (messages not about a missing
+person, with no other detail): 1,145 real alerts if a phone number alone did not withhold
+(1,134 with hazard codes), 135 if words about a person alone did not, and 1,291 if neither did,
+alone or together; and 149, 1 and 150 tests. This release keeps the rule as it is.
+
+**The rebuild, checked live.** Five released real alerts (one each of state, local,
+territorial, tribal and federal; seeded) and two withheld ones were given to `warntext text`.
+Against the pack's own folder it reported the five as already in the release and the two as
+withheld, and made no request. Against a copy of the record layer without text (as on the
+Kaggle mirror) it read the five from FEMA in one request and wrote six text rows, identical by
+hash to the pack's (leaving out the time read and the credit columns); the two withheld ones
+were not asked for.
+

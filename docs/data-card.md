@@ -33,25 +33,33 @@ messages; tests are the most common message of all.
   the Department of Homeland Security or any alerting authority.
 
 ## Two layers, and why
-The record layer and the text layer are released on different terms, so that the corpus never
-depends on an open question about rights.
+The record layer and the text layer are released in different places, so that the text can
+always be taken down without touching the record.
 - **The record layer** (`messages`, `infos`, `areas`, `references`, `threads`, `codes`) holds
   no message text: the authority (FEMA's identifier for it and its name), the sender kind, times,
   places (area codes, states and counties, and shapes), event codes, channels, links between
   messages, text lengths, flags, the content codes, and FEMA's record id. Rows are keyed by FEMA's
-  record ids; no raw sender value and no raw CAP identifier is in it. It is released everywhere,
-  including the archive deposit.
+  record ids; no raw sender value and no raw CAP identifier is in it. It is released on Hugging
+  Face and on the Kaggle mirror.
 - **The text layer** holds the words, keyed by message id and language block.
-  - `text_federal`: text from federal senders (federal works).
-  - `text_other`: text from state, local, tribal, territorial and other senders. These works may
-    be protected by copyright under state law, and FEMA's terms neither grant nor refuse
-    redistribution. Until that is settled this table is not released; anyone can build it on
-    their own machine from FEMA's API with one command (`warntext text`), which reads each
-    message again by its record id, inside FEMA's rate limits, and applies the same privacy
-    rules.
-- **The archive deposit** (a DOI) holds the code and the record layer only, never text, so that
-  a request from FEMA to stop using the data and destroy copies can always be honored for the
-  text.
+  - `text_federal`: text from federal senders.
+  - `text_other`: text from state, local, tribal, territorial and unknown-kind senders. OpenFEMA
+    confirmed by email on 16 November 2026 that the message text may be shared on research
+    repositories with credit to FEMA and to the alerting authority, and that these authorities'
+    messages are covered by the OpenFEMA terms for this purpose (`sources.md`, section 5). The
+    text of the one national authority, the clearinghouse that relays AMBER alerts, is left out
+    (11 tests; its real alerts are all withheld or carry no words).
+  - Every released text row carries its credit: the alerting authority's FEMA ID (`cog_id`), its
+    released name (`organization`; blank where the name was not confirmed) and a `credit` line
+    naming FEMA's dataset.
+  - The text layer is released on Hugging Face only. On the Kaggle mirror, anyone can rebuild it
+    on their own machine from FEMA's API (`warntext text`), which reads each message again by
+    its record id, inside FEMA's rate limits, applies the same privacy rules, and skips what is
+    already in the release.
+- **The archive deposit** (a DOI on Zenodo) holds the code and the documents only, no data
+  table, so that a request from FEMA to stop using the data and destroy copies, or an alerting
+  authority's request to take a text out, can always be honored. OpenFEMA confirmed that this
+  arrangement is acceptable.
 
 ## Alerts about people
 Some alerts are about people: abducted children, missing and endangered adults, wanted
@@ -136,26 +144,31 @@ time it was read, as FEMA asks:
 
 Each row's `retrieved_at` gives the exact time its message was read.
 
-## The first release (prepared, not published)
+## The first release (uploaded privately, not public)
 Version 0.1.0 covers records sent before 2026-11-14T17:00Z: 34,678 real alerts from 1,260
 authorities and 49,186 tests. It holds the record layer of both configurations, the released
-content codes and `text_federal` (223 real alerts and the federal tests): 13 Parquet files,
-433,842 rows, 28.6 MB. Of the real alerts, 13,778 have their text withheld and 12,226 keep only
-the hour and the county.
-- **Codes released** after the hand sheet (100 texts coded blind; method, section 14): `hazard`
-  (alpha 0.86), the hazard category, links and their kinds, abbreviations, all caps, the
-  evacuation wordings and the two flags. Source (0.41), guidance (0.63), time (0.72), location
-  (0.73), hazard description (0.52), completeness and their parts are experimental and left out.
-  A second blind sheet (99 texts, one coder), scored against version 2 of the rules, puts the
-  hazard under the bar: 0.65 for version 2, and between 0.56 and 0.72 for version 1 (method,
-  section 17).
+codes and both text tables: 15 Parquet files, 500,139 rows, 34.7 MB. Of the real alerts, 16,921
+carry their text, 13,778 have it withheld (8,860 by a people code, 4,900 by a personal-detail
+pattern, 18 as about a missing person alone) and 3,979 carry no words in the archive (each a
+cancellation with no information block); 12,226 keep only the hour and the county. Of the tests,
+48,134 carry their text, 1,041 have it withheld and 11 are the national authority's.
+- **No validated content code.** The hand sheet (100 texts coded blind; method, section 14) put
+  the hazard at alpha 0.86, but a second blind sheet (99 texts, one coder), scored against
+  version 2 of the rules, bounds version 1's hazard at 0.56 to 0.72 (method, section 17), so the
+  hazard is experimental too. Released: the hazard category, links and their kinds,
+  abbreviations, all caps, the evacuation wordings and the two flags. Source (0.41), guidance
+  (0.63), time (0.72), location (0.73), hazard description (0.52), completeness and their parts
+  are experimental and left out.
 - **Organization names:** FEMA's for every authority on its list; the senders' own names only
   where the maintainer read and accepted them (13 names), blank otherwise (3 names, 8 real alerts
   and 3,698 tests, `organization_source` `sender_name_unreviewed`); the AMBER clearinghouse's
   older identifiers carry the name FEMA lists for its current one.
 - **Hugging Face** (`obadakr/warntext`): one configuration per table, with the splits `alerts`
   and `tests`; the card's license is `other`, under OpenFEMA's terms.
-- **Kaggle mirror:** the record layer and the codes only, no text.
+- **Kaggle mirror:** the record layer and the codes only, no text; it points to Hugging Face.
+- **Removal:** FEMA, an alerting authority or a person named in a message can ask for a text to
+  be taken out (a GitHub issue form, or the dataset's Community tab); each request is answered
+  within 14 days, the text row leaves the next version and the record row stays.
 - **Zenodo:** the code and the documents, through the GitHub route; **no data table**. OpenFEMA's
   terms let FEMA ask a user to destroy any copy, and a Zenodo record cannot be withdrawn by its
   depositor, so no copy of the data is kept there, not even the record layer.
@@ -163,8 +176,8 @@ the hour and the county.
 ## Configurations and tables
 | Configuration | Messages | Record layer | Text layer |
 |---|---:|---|---|
-| `alerts` (real alerts) | 34,678 | messages, infos, areas, references, threads, codes | text_federal (223 messages), text_other (16,698, not released for now) |
-| `tests` (tests and demonstrations) | 49,186 | the same, without codes | text_federal (3,869), text_other (44,276, not released for now) |
+| `alerts` (real alerts) | 34,678 | messages, infos, areas, references, threads, codes | text_federal (223 messages), text_other (16,698) |
+| `tests` (tests and demonstrations) | 49,186 | the same, without codes | text_federal (3,869), text_other (44,265) |
 
 The field list is in `schema.md`, and how each field is derived in `method.md`.
 
@@ -172,16 +185,21 @@ The field list is in `schema.md`, and how each field is derived in `method.md`.
 - Years before 2016 are thin (244 real alerts in 2013, 6,872 in 2026 to mid-November); most
   authorities joined IPAWS later.
 - Only 223 real alerts with text come from federal senders, 168 of them earthquake warnings;
-  the released text is therefore small until the rights question for the other senders is
-  settled.
+  most released text is state and local (13,012 local and 3,426 state real alerts).
+- The rules' language check finds Spanish only; a text in another language under an English
+  label is coded as English.
+- The National Weather Service's records in the archive fall from 33,731 in July 2023 to 769 in
+  August 2023; OpenFEMA confirmed that the weather service changed its messaging policy then
+  (method, section 1). WarnText leaves those records out.
 - Sender kinds rest on FEMA's list where an authority is on it, and on names and email domains
   where it is not; 32 real alerts have an unknown kind.
 - The content codes are rules (codebook version 1 in release 0.1.0; version 2 was checked on a
-  second blind sheet and is not released), compared with the published shares of Olson et al. (2024) and, before they are
-  called reliable, with a blind hand-coded sheet; codes under the bar are marked experimental
-  and left out (`codebook.md`).
+  second blind sheet and is not released), compared with the published shares of Olson et al.
+  (2024) and with two blind hand-coded sheets; codes under the bar are marked experimental and
+  left out (`codebook.md`), and in 0.1.0 that is all six contents.
 - References often give a different sent time from the referenced message's; they are matched
   by the sender's identifier, which is unique in the archive.
-- The people patterns over-withhold by design and can still miss a detail written in an unusual
-  way; that is why the text of `text_other` is not released until the rights question is
-  settled, and why the release is checked by `warntext check` before every upload.
+- The people patterns over-withhold by design (a hazard alert that gives a phone number loses its
+  text too) and can still miss a detail written in an unusual way; that is why the pack's check
+  scans every released text field again for the patterns and for missing-person wording before
+  every upload.

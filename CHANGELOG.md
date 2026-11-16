@@ -179,4 +179,9 @@ All notable changes to this project are recorded here. The format follows
   alerts with text, withheld, and the cancellations with no information block that carry no words
   in the archive; tests with text, withheld, and of a kind left out. `release card` measures the
   counts it states from the pack's own files and stops if one the manifest lists disagrees.
+- README, data card, method (a new section 18: the text layer in release 0.1.0, its credit and
+  checks, the counts by kind and year, the withheld real alerts by rule and by pattern, what a
+  narrower pattern rule would release, and the live check of the rebuild), schema (the credit
+  columns), automation (a second dry run, and why its pack could not be built with the version-1
+  statuses).
 
