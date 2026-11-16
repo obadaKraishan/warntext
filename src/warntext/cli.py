@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-from warntext import __version__
+from warntext import __version__, hfpage
 from warntext import authorities as au
 from warntext import backfill as bf
 from warntext import check as ck
@@ -438,6 +438,50 @@ def cmd_release_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_page_visibility(args: argparse.Namespace) -> int:
+    """Whether the dataset is public, asked with no credentials at all. Exits 0 as expected."""
+    try:
+        state, status = hfpage.visibility(args.dataset)
+    except hfpage.PageCheckError as exc:
+        print(f"SIGNED-OUT CHECK FAILED, nothing could be told: {exc}")
+        return 2
+    print(
+        f"Signed out (no token, no cookie, no netrc): {args.dataset} answered HTTP {status}: "
+        f"{state}."
+    )
+    if state != args.expect.replace("-", " "):
+        print(f"STOP: {args.dataset} is {state}, and this step expects it {args.expect}.")
+        return 1
+    return 0
+
+
+def cmd_page_headings(args: argparse.Namespace) -> int:
+    """The card's headings against the rendered page's, in order, down to the last one."""
+    card = Path(args.card).read_text(encoding="utf-8")
+    if args.page:
+        html = Path(args.page).read_text(encoding="utf-8")
+    else:
+        try:
+            r = hfpage.signed_out_get(args.url)
+        except hfpage.PageCheckError as exc:
+            print(f"SIGNED-OUT CHECK FAILED: {exc}")
+            return 2
+        if r.status_code != 200:
+            print(f"STOP: {args.url} answered HTTP {r.status_code} signed out; nothing to compare.")
+            return 1
+        html = r.text
+    want = hfpage.card_headings(card)
+    problems = hfpage.heading_problems(card, html)
+    missing = sum(p.startswith("not on the page") for p in problems)
+    last = want[-1] if want else None
+    shown = "shown" if last and not any(repr(last) in p for p in problems) else "NOT SHOWN"
+    print(f"The card has {len(want)} headings; the page shows {len(want) - missing}.")
+    print(f"The last heading, {last!r}: {shown}.")
+    for p in problems:
+        print(f"  PROBLEM: {p}")
+    return 1 if problems else 0
+
+
 def _client_options(
     p: argparse.ArgumentParser,
     since_required: bool = True,
@@ -601,6 +645,19 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--private", default="data/interim/private")
     q.add_argument("--state", default="data/raw/update-state.json", help="for the year counts")
     q.set_defaults(func=cmd_release_check)
+
+    p = sub.add_parser("page", help="checks of the dataset page on Hugging Face (signed out)")
+    psub = p.add_subparsers(dest="page_command", required=True)
+    q = psub.add_parser("visibility", help="public or not, asked with no credentials at all")
+    q.add_argument("--dataset", default="obadakr/warntext")
+    q.add_argument("--expect", required=True, choices=("public", "not-public"))
+    q.set_defaults(func=cmd_page_visibility)
+    q = psub.add_parser("headings", help="the card's headings on the rendered page, in order")
+    q.add_argument("--card", required=True, help="the pack's README.md")
+    where = q.add_mutually_exclusive_group(required=True)
+    where.add_argument("--url", help="the page, read signed out")
+    where.add_argument("--page", help="a saved copy of the page (HTML)")
+    q.set_defaults(func=cmd_page_headings)
 
     p = sub.add_parser("profile", help="aggregate the sample (no text)")
     p.add_argument("--plan", required=True)

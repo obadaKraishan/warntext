@@ -67,6 +67,11 @@ All notable changes to this project are recorded here. The format follows
   standard library and defusedxml, so no dependency is added.
 - Documentation: the codebook (version 1, draft), the hand sheet guide, the options for
   model-assisted coding, and the method, schema and data card for all of the above.
+- `warntext page visibility` and `warntext page headings`, checks of the dataset page on Hugging
+  Face for the maintainer's publish steps. The first asks whether the dataset is public with no
+  credentials at all (no token, no cookie, and no login read from the environment or a netrc file)
+  and fails loudly when it cannot tell; the second compares the card's headings with the rendered
+  page's, in order, down to the last one.
 
 ### Changed
 - Messages with a people code carry their times rounded down to the hour in the record layer
