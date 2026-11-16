@@ -227,22 +227,44 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_text(args: argparse.Namespace) -> int:
-    """Rebuild the text layer from the record layer, reading each message from FEMA's API."""
+    """Rebuild the text layer from the record layer, reading each message from FEMA's API.
+
+    Withheld messages are never read; messages whose text is already in the folder are reported
+    as already in the release and not read again. Prints counts (and, with --ids, each id's fate).
+    """
     messages = pq.read_table(Path(args.records) / "messages.parquet").to_pylist()
     kinds = set(args.kinds.split(",")) if args.kinds else None
-    todo = rb.wanted(messages, kinds)
-    if args.ids:
-        keep = set(args.ids.split(","))
-        todo = [m for m in todo if m["message_id"] in keep]
+    ids = set(args.ids.split(",")) if args.ids else None
+    todo = rb.plan(messages, kinds, rb.released_ids(args.records), ids)
     if args.limit:
-        todo = todo[: args.limit]
+        todo["read"] = todo["read"][: args.limit]
+    if ids is not None:
+        known = {m["message_id"] for m in messages}
+        fate = {m["message_id"]: what for what, ms in todo.items() for m in ms}
+        words = {
+            "withheld": "withheld by the privacy rules: not read",
+            "already": "already in the release: not read again",
+            "read": "to read from FEMA",
+            "other": "a sender kind not asked for: not read",
+        }
+        for i in sorted(ids):
+            print(f"  {i}: {words[fate[i]] if i in fate else 'not in the record layer'}")
+        if ids - known:
+            print(f"{len(ids - known)} id(s) are not in {args.records}.")
+    print(
+        f"Withheld (not read): {len(todo['withheld'])}; already in the release: "
+        f"{len(todo['already'])}; other kinds: {len(todo['other'])}; to read: {len(todo['read'])}."
+    )
+    if not todo["read"]:
+        print("Nothing to read from FEMA; no request was made.")
+        return 0
     c = _client(args)
-    need = -(-len(todo) // args.batch)
+    need = -(-len(todo["read"]) // args.batch)
     left = c.budget.max_calls - c.budget.calls
     if need > left:
         print(f"Rebuilding needs {need} calls but only {left} are left under the cap.")
         return 2
-    rows, stats = rb.rebuild(c, todo, batch=args.batch)
+    rows, stats = rb.rebuild(c, todo["read"], batch=args.batch)
     counts = rb.write(rows, args.out)
     print(f"{dict(stats)}; rows written: {counts}; {c.budget.calls} calls so far.")
     return 0

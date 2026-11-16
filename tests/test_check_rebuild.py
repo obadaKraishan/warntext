@@ -299,3 +299,22 @@ def test_a_part_digit_or_an_exact_time_on_a_people_or_missing_person_row_fails(b
     out = check.check(t, senders, None)
     assert any("'infos.EASHeader': 1" in f and "finer than the hour" in f for f in out)
     assert any("'infos.EASHeader': 1" in f and "part-of-county" in f for f in out)
+
+
+def test_the_rebuild_plan_never_reads_withheld_text_or_text_already_released(built, tmp_path):
+    t, _ = built
+    messages = t["alerts"]["messages"]
+    p = rebuild.plan(messages, None, released={"r03"})
+    assert {m["message_id"] for m in p["withheld"]} == {"r02"}  # the CAE alert
+    assert {m["message_id"] for m in p["already"]} == {"r03"}
+    assert {m["message_id"] for m in p["read"]} == {"r01"}
+    p = rebuild.plan(messages, {"federal"}, released=set(), ids={"r01", "r02"})
+    assert [m["message_id"] for m in p["other"]] == ["r01"]
+    assert [m["message_id"] for m in p["withheld"]] == ["r02"] and p["read"] == []
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    pq.write_table(pa.table({"message_id": ["r01"]}), tmp_path / "text_other.parquet")
+    pq.write_table(pa.table({"message_id": ["r03"]}), tmp_path / "text_federal.parquet")
+    assert rebuild.released_ids(tmp_path) == {"r01", "r03"}
+    assert rebuild.released_ids(tmp_path / "none") == set()

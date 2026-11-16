@@ -157,4 +157,8 @@ All notable changes to this project are recorded here. The format follows
   field (the audience and resource descriptions included), and on a table whose columns are not
   those of its released table. It reads the text tables the manifest lists, so `text_other` is no
   longer refused by name.
+- `warntext text` reports a message whose text is already in the folder it is given (a release's
+  configuration folder holds its text tables) as already in the release, and does not read it
+  again; withheld messages are counted and never read, and with `--ids` each id's fate is printed.
+  When nothing is left to read, no request is made.
 

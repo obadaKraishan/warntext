@@ -265,9 +265,21 @@ def test_build_and_text_commands_end_to_end(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(cli, "_client", lambda a: fake)
     capsys.readouterr()
     rebuilt = tmp_path / "rebuilt"
+    # The tables' folder holds r01's text: it is already in the release, and nothing is read.
     args = ["text", "--records", str(out / "alerts"), "--out", str(rebuilt)]
+    assert cli.main([*args, "--ids", "r01,r99"]) == 0
+    said = capsys.readouterr().out
+    assert "r01: already in the release: not read again" in said
+    assert "r99: not in the record layer" in said and "no request was made" in said
+    assert len(fake.answers) == 1 and not rebuilt.exists()  # the one answer is still unread
+    # A record layer without text (as on the Kaggle mirror): r01 is read from FEMA.
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    (bare / "messages.parquet").write_bytes((out / "alerts" / "messages.parquet").read_bytes())
+    args = ["text", "--records", str(bare), "--out", str(rebuilt)]
     assert cli.main([*args, "--limit", "5", "--ids", "r01"]) == 0
-    assert "'rebuilt': 1" in capsys.readouterr().out
+    said = capsys.readouterr().out
+    assert "r01: to read from FEMA" in said and "'rebuilt': 1" in said
     assert (rebuilt / "text_other.parquet").exists()
     fake.budget = cl.Budget(max_calls=0)
     assert cli.main(args) == 2

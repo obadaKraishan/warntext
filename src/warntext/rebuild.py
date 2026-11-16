@@ -1,10 +1,13 @@
 """Rebuild the text layer on one's own machine, from the record layer and FEMA's API.
 
-The record layer is released everywhere; some of the text layer may not be. Anyone can rebuild
-the text from the record layer: for every message whose text is not withheld, the message is
-read again from OpenFEMA by its record id, parsed, checked against the privacy rules once more,
-and written to ``text_federal`` or ``text_other`` by the sender kind in the record layer.
-Messages are asked for a few at a time, one request after another, through the polite client.
+The record layer is released everywhere (the Kaggle mirror holds it without text). Anyone can
+rebuild the text from it: for every message whose text is not withheld, the message is read
+again from OpenFEMA by its record id, parsed, checked against the privacy rules once more, and
+written to ``text_federal`` or ``text_other`` by the sender kind in the record layer. A message
+the privacy rules withhold is never read or written. A message whose text is already in the
+folder given (a release's configuration folder holds its text tables) is reported as already in
+the release and not read again. Messages are asked for a few at a time, one request after
+another, through the polite client.
 """
 
 from __future__ import annotations
@@ -52,6 +55,43 @@ def wanted(messages: Iterable[Mapping[str, Any]], kinds: set[str] | None) -> lis
         if kinds is not None and m["sender_kind"] not in kinds:
             continue
         out.append(dict(m))
+    return out
+
+
+def released_ids(records_dir: Path | str) -> set[str]:
+    """The messages whose text rows are already in the folder (a release's text tables)."""
+    out: set[str] = set()
+    for name in TEXT_TABLES:
+        path = Path(records_dir) / f"{name}.parquet"
+        if path.exists():
+            out |= set(pq.read_table(path, columns=["message_id"]).column(0).to_pylist())
+    return out
+
+
+def plan(
+    messages: Iterable[Mapping[str, Any]],
+    kinds: set[str] | None,
+    released: set[str],
+    ids: set[str] | None = None,
+) -> dict[str, list[dict]]:
+    """What a rebuild would do with each message: ``withheld``, ``already``, ``read``, ``other``.
+
+    ``withheld``: the privacy rules withhold its text, so it is never read. ``already``: its text
+    is in the release. ``read``: it is read from FEMA. ``other``: a sender kind not asked for.
+    With ``ids``, only those messages are planned.
+    """
+    out: dict[str, list[dict]] = {"withheld": [], "already": [], "read": [], "other": []}
+    for m in messages:
+        if ids is not None and m["message_id"] not in ids:
+            continue
+        if m["text_withheld"]:
+            out["withheld"].append(dict(m))
+        elif kinds is not None and m["sender_kind"] not in kinds:
+            out["other"].append(dict(m))
+        elif m["message_id"] in released:
+            out["already"].append(dict(m))
+        else:
+            out["read"].append(dict(m))
     return out
 
 
