@@ -276,3 +276,7 @@ All notable changes to this project are recorded here. The format follows
   the coding followed the nine answers, the differences sorted into kinds with an invented example
   each and what a version 4 would have to settle, and the order flag with the comparison with
   Olson et al. under both readings of the hazard code.
+- Method section 21: the checks made before the third sheet's answers were read, the single
+  scoring with its settings, the first half of the rule for release, the third sheet against the
+  development figures, the differences sorted, and the broader reading of "hazard" with the order
+  flag kept beside the frozen tables.

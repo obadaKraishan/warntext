@@ -967,3 +967,65 @@ invented yes and no each); the opening lines stay. Neither data sheet was read o
 workbook was written again from its own cells in memory, and replaced only after its data sheet's
 XML part, every shared string that sheet uses and a hash of its cells were found unchanged; the
 keys are unchanged, and no answer or note cell was filled before or after.
+
+## 21. The third sheet: the check of version 3
+
+**Before the answers were read.** The frozen rules' file still had the SHA-256 the codebook
+records, and version 3's tables still matched the frozen build (its summary byte for byte, every
+table file from that build). The filled workbook's hash and saved time were recorded first, and it
+was read in place and never written; its key was unchanged and read-only, and its 100 texts match
+the texts the key names in version 3's tables. All 600 answer cells were filled (a blank would
+have been left out of that code's score and counted, never read as "no"), and no note was written.
+The coder gave the time as one to two hours in all, over two or three sittings.
+
+**Scored once.** `warntext sheet-check` was run once against version 3's tables, with 2,000
+bootstrap resamples of the row pairs for each code's 95% interval and the seed 20261115, both
+written into the result; nothing was run again with other settings. The screen showed counts only,
+and the rows that differ are kept in a local file, because 30 of the sheet's rows will be coded
+again on the recheck copy. Each code is scored on 100 rows (none blank, none uncoded):
+
+| code | alpha (95% interval) | agreement | share "yes": coder / rules | coder yes, rules no | coder no, rules yes |
+|---|---|---:|---:|---:|---:|
+| hazard | 0.73 (0.58 to 0.87) | 0.88 | 0.71 / 0.63 | 10 | 2 |
+| hazard description | 0.56 (0.37 to 0.73) | 0.82 | 0.35 / 0.21 | 16 | 2 |
+| source | 0.796 (0.66 to 0.91) | 0.91 | 0.35 / 0.30 | 7 | 2 |
+| guidance | 0.73 (0.54 to 0.88) | 0.91 | 0.82 / 0.77 | 7 | 2 |
+| time | 0.91 (0.82 to 0.98) | 0.96 | 0.37 / 0.37 | 2 | 2 |
+| location | 0.800 (0.64 to 0.92) | 0.93 | 0.78 / 0.77 | 4 | 3 |
+
+**The rule for release, first half.** Time and location reach .80 on the third sheet; location by
+0.0003, with an interval from 0.64 to 0.92, so it rests on a single row. Both are not yet
+validated: they wait for the coder's own consistency on the recheck copy, coded on or after
+2026-11-24, which must also reach .80. Hazard, hazard description, source and guidance are under
+.80 and stay experimental, which is final for version 3; source misses by one row (0.82 with one
+fewer difference). No code's release status changes in this step.
+
+**Against the development figures.** On the first two sheets, which version 3 was built on, the
+frozen rules reached 0.85 to 1.00 (section 20). On a sheet they were not built on they reach 0.56
+to 0.91. The changes themselves held: of the 12 cells of the third sheet where one of the 14
+changes for the nine answers decides the rules' answer, the coder answered 11 as the rules do, and
+the 31 earlier changes decide 11 cells, 10 of them answered as the rules. The other 577 cells are
+decided by the patterns version 3 took over from version 2, and 57 of the 59 differences sit
+there.
+
+**The differences, sorted.** The 59 differing answers were read against the guide and the
+codebook, with the texts kept in local files only, and sorted into four kinds: 40 rule misses, 10
+rule over-reads, 1 coding slip and 8 cells the definitions do not settle (codebook, section 9,
+counts per code). The misses and over-reads come mostly from the reach of the word lists for
+hazards and their descriptions (22) and from the rules for the speaker (11). A rule's miss and a
+coding slip are told apart by the definition as written, not by a second pass: only one coder
+coded the sheet, so the sort is one reading, and the recheck copy measures how far that coder
+agrees with himself. Nothing the sort found has changed a rule.
+
+**The broader reading of "hazard".** The answer on orders draws the line between what is
+happening in the world (a fire, a police event, a closure) and an official act (an order, a ban, a
+notice), so an order or a ban alone is guidance and no hazard. Olson et al. (2024) appear to have
+counted such messages as naming a hazard, which is part of why the frozen hazard share is lower
+than theirs: a difference of definition, not a fault. An experimental flag, "an order or ban is
+named" (`warntext.order_flag`), makes their reading available without touching the frozen rules.
+It reuses version 3's own pattern for orders by import, on the text as the hazard rule reads it.
+It is mechanical and has no hand check, and it is not a content code. Among real alerts' 70,838
+coded units it is "yes" for 2,439, 1,840 of them without a named hazard. Under "hazard or order"
+the share beside Olson et al. is 60.0% at 90 characters and 74.1% at 360, against the frozen 51.7%
+and 65.1% and their 70.3% and 80.6% (codebook, section 9). The flag is kept in its own file beside
+version 3's tables, which stay as they were scored.
