@@ -280,3 +280,4 @@ All notable changes to this project are recorded here. The format follows
   scoring with its settings, the first half of the rule for release, the third sheet against the
   development figures, the differences sorted, and the broader reading of "hazard" with the order
   flag kept beside the frozen tables.
+- The data card and coding options say how version 3 fared on the third sheet.

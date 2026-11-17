@@ -194,7 +194,9 @@ The field list is in `schema.md`, and how each field is derived in `method.md`.
 - Sender kinds rest on FEMA's list where an authority is on it, and on names and email domains
   where it is not; 32 real alerts have an unknown kind.
 - The content codes are rules (codebook version 1 in release 0.1.0; version 2 was checked on a
-  second blind sheet and is not released; version 3 is frozen and waits for a third blind sheet),
+  second blind sheet and is not released; version 3 is frozen and was scored once on a third blind
+  sheet, where time and location reach .80 and wait for the coder's recheck and hazard, hazard
+  description, source and guidance stay experimental),
   compared with the published shares of Olson et al. (2024) and with two blind hand-coded sheets;
   codes under the bar are marked experimental and left out (`codebook.md`), and in 0.1.0 that is
   all six contents. A code of version 3 is released as validated only if it reaches .80 on the

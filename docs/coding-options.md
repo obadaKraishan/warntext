@@ -103,4 +103,8 @@ version 3 with a third blind sheet, and no model pass for now. Of the second she
 differences, 61 were faults of the rules, 11 coding slips and 9 cases the definitions leave
 open; version 3 (codebook, section 9) changes the rules for the faults and waits for the third
 sheet. The nine open definitions were then settled, version 3 took them and was frozen, and the
-third sheet's definitions carry them (method, section 20).
+third sheet's definitions carry them (method, section 20). The third sheet, scored once against
+frozen version 3, gives time 0.91 and location 0.80, which wait for the coder's recheck, and
+hazard 0.73, hazard description 0.56, source 0.796 and guidance 0.73, which stay experimental;
+most differences are the reach of patterns version 3 took over from version 2 (method, section
+21). No model pass is planned.
