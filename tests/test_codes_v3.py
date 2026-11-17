@@ -1,5 +1,8 @@
 """Codebook version 3: each change against version 3 without it, on invented messages only."""
 
+import hashlib
+from pathlib import Path
+
 import pytest
 
 from warntext import codes as v2
@@ -126,6 +129,13 @@ CASES = [
     ("named_landmark", "Shelter open at the high school.", "location", False),
     ("district_name", "Crane work in progress Downtown Exville. Stay away.", "location", True),
     ("dotted", "Due to T.S. Exia, parish curfew in effect tonight.", "hazard_description", True),
+    ("stamp_time", "EXSD 6/1 2:10 PM: Oak Road closed at Elm St.", "time", False),
+    (
+        "stamp_time",
+        "UPDATE 3:45 PM - The brush fire near Oak Road is 50% contained.",
+        "time",
+        False,
+    ),
 ]
 
 
@@ -292,3 +302,13 @@ def test_the_changes_are_named_once_and_unknown_ones_are_refused():
         v3.Rules({"no_such_change"})
     assert v3.code_text("Gas leak on Oak Road.")["hazard"] is True
     assert set(v3.code_text("Leave now.")) == set(v2.CODE_FIELDS)
+
+
+#: Version 3 is frozen until the third hand sheet is scored against it (codebook section 9): the
+#: SHA-256 of its source file and its changes. A change to the rules must come with a new version.
+FROZEN_SHA256 = "21413980b7bcd8041e140104b1f7905e6b9e18daf981d4352328f584185980ed"
+
+
+def test_version_3_is_frozen():
+    assert hashlib.sha256(Path(v3.__file__).read_bytes()).hexdigest() == FROZEN_SHA256
+    assert len(v3.CHANGES) == len(v3.ALL) == 45 and v3.HELD == ()

@@ -874,7 +874,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--codebook-version",
         default=tb.CODEBOOK_VERSIONS[0],
         choices=tb.CODEBOOK_VERSIONS,
-        help="with --rebuild: the content codes' rules (3 is a draft, built into its own folder)",
+        help="with --rebuild: the content codes' rules (3 is frozen, built into its own folder)",
     )
     p.add_argument("--init", nargs="+", help="start the state from these raw folders, no calls")
     p.add_argument("--counts", nargs="*", help="with --init: backfill-counts files")

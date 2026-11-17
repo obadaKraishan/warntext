@@ -1,9 +1,13 @@
-"""Rule-based content codes, codebook version 3 (DRAFT, ``docs/codebook.md`` section 9).
+"""Rule-based content codes, codebook version 3 (frozen, ``docs/codebook.md`` section 9).
 
-Version 3 is version 2 (:mod:`warntext.codes`, frozen) with the changes in ``CHANGES``. Each
-names a general pattern found on the first two hand sheets (both development sets now), and each
-is tested on invented messages. Version 2's code is not changed: this module reuses its patterns
-and replaces only the functions that change. A build selects the version (``tables.code_rows``).
+Version 3 is version 2 (:mod:`warntext.codes`, frozen) with the changes in ``CHANGES``: 31 found
+on the first two hand sheets (both development sets now), and 14 that take the answers to the nine
+definitions the second sheet left open. Each names a general pattern and is tested on invented
+messages. Version 2's code is not changed: this module reuses its patterns and replaces only the
+functions that change. A build selects the version (``tables.code_rows``).
+
+Version 3 is frozen until the third hand sheet is scored against it: the codebook records this
+file's SHA-256, and a test pins it.
 
 ``Rules(changes)`` codes with any subset of the changes, so that the effect of each one on the
 corpus can be counted by leaving it out. ``code_unit`` and ``code_text`` use them all.
@@ -68,6 +72,11 @@ CHANGES: tuple[tuple[str, str, str], ...] = (
     ("named_landmark", "location", "a landmark counts only named ('Oak Creek', not 'the creek')"),
     ("district_name", "location", "a district word and a name ('downtown Exville') is a place"),
     ("dotted", "hazard_description", "dotted initials ('T.S. Exia') end no clause"),
+    (
+        "stamp_time",
+        "time",
+        "the date and hour that open the text as its stamp are when it was sent",
+    ),
 )
 ALL = frozenset(name for name, _, _ in CHANGES)
 #: Changes written but held back for an open definition (none since the nine were answered).
@@ -869,6 +878,14 @@ _LANDMARK_KIND = frozenset(
     ]
 )
 
+#: A date or an hour that opens the text as its stamp, alone or after a short sender word or
+#: initials and before a colon or a dash ("EXSD 6/1 2:10 PM:", "UPDATE 3:45 PM -"): the time the
+#: message was written, not a time still to come (the rule behind answers 1 to 3).
+_STAMP_TIME = re.compile(
+    r"^\W*(?:[A-Za-z][A-Za-z0-9]{1,9}[ \t]+)?((?:(?:\d{1,2}/\d{1,2}(?:/\d{2,4})?|"
+    r"\d{1,2}:\d{2}(?:[ \t]*[AaPp]\.?[Mm]\.?)?|\d{1,2}[ \t]*[AaPp]\.?[Mm]\.?)[ \t]*){1,3})"
+    r"(?=[:\-\u2013\u2014])"
+)
 #: A district word and its place's name (answer 8: "downtown Exville" is a place, "downtown"
 #: alone is not).
 _DISTRICT = re.compile(r"\b(?i:downtown|uptown|midtown)[ \t]+([A-Z][A-Za-z'-]{2,})")
@@ -1323,6 +1340,10 @@ class Rules:
 
     def time_kinds(self, text: str) -> dict[str, bool]:
         out = {"time_impact": False, "time_action": False, "time_expiry": False}
+        if self.on("stamp_time"):
+            m = _STAMP_TIME.match(text)
+            if m:
+                text = blank(text, [m.span(1)])
         changed = self.on("order_changed")
         expiry = _EXPIRY3 if changed else v2._EXPIRY
         not_now = _NOT_NOW3 if self.on("now_in_effect") else v2._NOT_NOW

@@ -245,3 +245,6 @@ All notable changes to this project are recorded here. The format follows
   nine more edge cases, each with one invented text that is yes and one that is no. Version 2's
   definitions and edge cases stay in the code as the earlier sheets carried them, and a test pins
   every invented example of each version to its own rules.
+- Codebook version 3 is frozen until the third hand sheet is scored against it: 45 named changes,
+  none held back, and a test that pins the module's SHA-256. The date and hour that open a text as
+  its stamp are when it was sent, not time.

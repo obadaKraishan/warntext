@@ -702,7 +702,7 @@ def _norm(text: str | None) -> str:
 
 
 #: The codebook versions a build can code with: version 2 (``codes``, the default) and the
-#: draft version 3 (``codes_v3``). Version 1 lives only in the tables built with it.
+#: frozen version 3 (``codes_v3``). Version 1 lives only in the tables built with it.
 CODEBOOK_VERSIONS = ("2", "3")
 
 
