@@ -889,11 +889,81 @@ published shares are not a check, since they come from other coders.
 seed 20261119, from version 3's tables): 100 texts with the same eligibility and strata (35 phone
 texts of 90 characters, 31 of 360, 34 full texts; 40 sent before 2020; all eight categories;
 19,514 characters, median 133). It holds no text group and no text the first two sheets used
-(1,602 units left out for that). It is the same workbook with the same definitions; its guide now
-opens "This sheet is the only hand task of its day. About a minute per row, in two or three
-sittings." It is not read until it comes back filled, and it is the check of version 3.
+(1,602 units left out for that). It is the same workbook; its guide opens "This sheet is the only
+hand task of its day. About a minute per row, in two or three sittings." Its definitions were
+rewritten with the nine answers before it was coded (section 20). It is not read until it comes
+back filled, and it is the check of version 3.
 
 **A recheck copy** of 30 of its rows (`warntext sheet-repeat --fillers 30`, seed 20261120), in a
 new order with new row numbers and its own key, is to be coded at least 7 days after the third
 sheet. It measures the coder's consistency with himself on rows drawn at random, with time between
 the passes. Its file name says when to open it.
+
+## 20. The nine answers, version 3 frozen, and the rule for release
+
+**Why.** The second sheet left nine definitions open (codebook, section 9): the time of an order's
+end or change, the end of a danger and a state that goes on with no time expression, vague event
+labels, what is done about a hazard, an organization that acts but does not speak, a fact about
+what still works, an area named after the hazard or a district word, and an order or a ban alone.
+They were settled before the third sheet was coded, so that the third sheet checks rules and
+definitions that agree. Each answer is a rule a careful reader can apply from the words of the
+text alone; the codebook gives each one with its reason and invented examples.
+
+**The rule for release**, fixed before the third sheet is read: a content code of version 3 is
+released as validated only if its alpha on the third sheet against frozen version 3 is at least
+.80 and the coder's own consistency for it on the recheck copy, at least 7 days later, is at least
+.80. Otherwise it stays experimental, with both numbers in the card. The coder's consistency sets
+how far any rules can agree with him, so a code cannot pass on the rules' side alone.
+
+**Units the rules do not code.** `warntext sheet-check` now leaves a unit the rules do not code
+(a text not in English) out of every score and counts it, instead of scoring it as the rules'
+"no". The consolidated and repeat checks do the same. On the first sheet this takes out its one
+Spanish row, which every code had counted as a difference: version 2's development figures there
+rise by 0.02 to 0.03 for every code (hazard 0.95 to 0.98, description 0.93 to 0.96, source 0.96
+to 0.98, guidance 0.93 to 0.95, time 0.93 to 0.95, location 0.97 to 1.00), and the draft of
+version 3, which coded that sheet as version 2 does, moves the same way.
+
+**Version 3, finished and frozen.** The answers went into version 3 as 14 more named changes,
+each tested on invented messages (codebook, section 9): orders and bans alone are guidance and no
+hazard; a generic event word with its kind is a hazard and a kind word with a message word is
+not; a utility shut off is an outage; what responders do is no description; the sender's own name
+is the source only where written as the one speaking; what still works is no instruction; the
+time of an order's end or change, a verb of state or of what comes with no time expression, and
+the stamp that opens a text are not time; a hazard's name, a landmark without its name and a
+district word alone are no place, and a district word with a name is. Of the seven narrow misses
+left on the second sheet, one was fixed (dotted initials no longer end a clause) and six were left,
+since no general pattern covers them without over-reading. The frozen version has 45 changes and
+none held back; its file's SHA-256 (`21413980…`) is in the codebook and pinned by a test.
+
+It was rebuilt into its own tables (`warntext update --rebuild --codebook-version 3`): 83,864
+records, the check passed, and every one of the 84,598 units codes exactly as the counting run
+over the in-memory units. Units changed among real alerts' units, draft to frozen: hazard +137 /
+-1,873, description +28 / -152, source -9, guidance +348 / -4, time -496, location +10 / -769; no
+unit moves between coded and not coded (70,838 coded). Version 2 to frozen: hazard +805 / -2,393,
+description +742 / -402, source +1,376 / -1,709, guidance +760 / -34, time +303 / -641, location
++706 / -1,276. Every one of the third sheet's 100 units, and of its recheck copy's 30, is coded.
+
+**Development figures, not a check** (both sheets were read; the text not in English left out):
+
+| code | sheet 1, version 2 | sheet 1, frozen | sheet 2 consolidated, frozen | sheet 2 with the open answers decided, frozen |
+|---|---:|---:|---:|---:|
+| hazard | 0.98 | 0.85 | 0.93 | 0.93 |
+| hazard description | 0.96 | 0.89 | 0.97 | 0.97 |
+| source | 0.98 | 0.98 | 0.96 | 0.96 |
+| guidance | 0.95 | 0.93 | 1.00 | 1.00 |
+| time | 0.95 | 0.95 | 0.96 | 0.94 |
+| location | 1.00 | 0.97 | 0.86 | 0.86 |
+
+The first sheet falls where it was coded before the answers and the answers say otherwise: six
+orders or bans it coded as hazards, one curfew it coded as no instruction, and one device removed
+by responders that it coded as a description. The answers also move the hazard further from Olson
+et al.'s share (51.7% of 90-character texts against their 70.3%; the draft 59.8%), since an order
+or a ban alone is no hazard here.
+
+**The third sheet's definitions.** Its Definitions worksheet and plain-text guide, and those of the
+recheck copy, were rewritten with the nine answers (version 3 of the guide: the rule for time in
+its definition, the answers on hazard, source and location in theirs, and nine edge cases with an
+invented yes and no each); the opening lines stay. Neither data sheet was read or changed: each
+workbook was written again from its own cells in memory, and replaced only after its data sheet's
+XML part, every shared string that sheet uses and a hash of its cells were found unchanged; the
+keys are unchanged, and no answer or note cell was filled before or after.

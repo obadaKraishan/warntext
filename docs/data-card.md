@@ -194,9 +194,11 @@ The field list is in `schema.md`, and how each field is derived in `method.md`.
 - Sender kinds rest on FEMA's list where an authority is on it, and on names and email domains
   where it is not; 32 real alerts have an unknown kind.
 - The content codes are rules (codebook version 1 in release 0.1.0; version 2 was checked on a
-  second blind sheet and is not released; a draft version 3 waits for a third blind sheet), compared with the published shares of Olson et al.
-  (2024) and with two blind hand-coded sheets; codes under the bar are marked experimental and
-  left out (`codebook.md`), and in 0.1.0 that is all six contents.
+  second blind sheet and is not released; version 3 is frozen and waits for a third blind sheet),
+  compared with the published shares of Olson et al. (2024) and with two blind hand-coded sheets;
+  codes under the bar are marked experimental and left out (`codebook.md`), and in 0.1.0 that is
+  all six contents. A code of version 3 is released as validated only if it reaches .80 on the
+  third sheet and the coder's own consistency for it reaches .80 on a recheck a week later.
 - References often give a different sent time from the referenced message's; they are matched
   by the sender's identifier, which is unique in the archive.
 - The people patterns over-withhold by design (a hazard alert that gives a phone number loses its

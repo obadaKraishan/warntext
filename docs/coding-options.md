@@ -102,4 +102,5 @@ Nothing is downloaded or run until the maintainer decides.
 version 3 with a third blind sheet, and no model pass for now. Of the second sheet's 81
 differences, 61 were faults of the rules, 11 coding slips and 9 cases the definitions leave
 open; version 3 (codebook, section 9) changes the rules for the faults and waits for the third
-sheet.
+sheet. The nine open definitions were then settled, version 3 took them and was frozen, and the
+third sheet's definitions carry them (method, section 20).

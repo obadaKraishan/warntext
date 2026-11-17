@@ -254,3 +254,8 @@ All notable changes to this project are recorded here. The format follows
   the units it moves; the seven narrow misses, one fixed and six left with the reason; units
   changed from the draft and from version 2; development figures with the open answers decided;
   where the earlier codings and the published shares part from the answers.
+- Method section 20: the nine answers, the rule for release fixed before the third sheet is read,
+  units the rules do not code left out of a score, version 3 finished and frozen with the units
+  it changes and its development figures, and how the third sheet's definitions were rewritten
+  without reading or changing its data sheet. The data card and coding options say version 3 is
+  frozen and how a code of it can be released.
