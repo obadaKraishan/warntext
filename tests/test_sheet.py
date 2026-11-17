@@ -228,6 +228,32 @@ def test_the_check_reports_alpha_and_row_numbers_only(tmp_path):
         sh.check(filled, {**key, 4: {"message_id": "z", "info_index": "0", "unit": "x"}}, codes)
 
 
+def test_the_check_counts_blanks_gives_yes_shares_directions_and_a_seeded_interval(tmp_path):
+    key = {n: {"message_id": f"m{n}", "info_index": "0", "unit": "wea90"} for n in range(1, 7)}
+    # The rules: hazard yes on rows 1 to 3; the person: yes on 1, 2 and 4, blank on 6.
+    codes = [code(f"m{n}", "wea90", hazard=n <= 3) for n in range(1, 7)]
+    answers = {n: [("yes" if n in (1, 2, 4) else "no")] + ["no"] * 5 for n in range(1, 6)}
+    answers[6] = [""] + ["no"] * 5
+    filled = sh.read_filled(filled_sheet(tmp_path / "f.xlsx", answers))
+    r = sh.check(filled, key, codes, resamples=200, seed=4)
+    h = r["codes"]["hazard"]
+    # A blank answer is left out and counted, never read as "no" (it would agree with the rules).
+    assert h["rows_blank"] == 1 and h["rows_coded"] == 5 and h["rows_not_coded"] == 0
+    assert r["codes"]["guidance"]["rows_blank"] == 0
+    assert h["person_yes_rules_no"] == 1 and h["person_no_rules_yes"] == 1
+    assert h["rows_that_differ"] == [3, 4] and h["agreement"] == 0.6
+    assert h["share_yes_person"] == 0.6 and h["share_yes_rules"] == 0.6
+    assert r["bootstrap"] == {"resamples": 200, "seed": 4}
+    assert h["interval"]["resamples"] == 200
+    assert h["interval"]["low"] <= h["alpha"] <= h["interval"]["high"]
+    assert sh.check(filled, key, codes, resamples=200, seed=4) == r  # the same seed, the same
+    # Every value the same on both sides: no alpha, no interval, shares still given.
+    same = sh.check(filled, key, [code(f"m{n}", "wea90") for n in range(1, 7)], resamples=20)
+    assert same["codes"]["guidance"]["alpha"] is None
+    assert same["codes"]["guidance"]["interval"]["low"] is None
+    assert same["codes"]["guidance"]["share_yes_person"] == 0.0
+
+
 def test_a_unit_the_rules_do_not_code_is_left_out_of_every_score_and_counted(tmp_path):
     key = {n: {"message_id": f"m{n}", "info_index": "0", "unit": "wea90"} for n in range(1, 5)}
     codes = [code(f"m{n}", "wea90", hazard=n <= 2) for n in range(1, 4)]

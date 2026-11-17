@@ -259,3 +259,8 @@ All notable changes to this project are recorded here. The format follows
   it changes and its development figures, and how the third sheet's definitions were rewritten
   without reading or changing its data sheet. The data card and coding options say version 3 is
   frozen and how a code of it can be released.
+- `warntext sheet-check` records what a single scoring needs: per code the blank answers (left
+  out and counted, never read as "no"), a 95% bootstrap interval for alpha (`--resamples`, 2,000
+  by default, and `--seed`, both written into the result), each side's share of "yes", and the
+  differences by direction. The screen shows counts only; the rows that differ are in the result
+  file, so a coder who will recode some of the rows later does not see them.

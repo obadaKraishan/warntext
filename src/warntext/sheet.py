@@ -833,14 +833,19 @@ def check(
     filled: Mapping[int, Mapping[str, bool | None]],
     key: Mapping[int, Mapping[str, str]],
     codes: Iterable[Mapping[str, Any]],
+    resamples: int = 2000,
+    seed: int = 20261115,
 ) -> dict[str, Any]:
-    """Per code: rows coded, agreement, alpha, the bar, the 2-by-2 table, and the rows that
-    differ (row numbers only).
+    """Per code: rows scored, agreement, alpha with a bootstrap interval, the bar, each side's
+    share of "yes", the differences by direction, the 2-by-2 table, and the rows that differ
+    (row numbers only).
 
-    A row whose unit the rules do not code (``coded`` false: a text that is not English) has no
-    rule answer, so it is left out of every code's score and counted: ``not_coded`` lists its
-    row number and reason, and each code's ``rows_not_coded`` counts the person's answers left
-    out for it."""
+    A blank answer is left out of that code's score and counted (``rows_blank``), never read as
+    "no". A row whose unit the rules do not code (``coded`` false: a text that is not English)
+    has no rule answer, so it is left out of every code's score and counted: ``not_coded``
+    lists its row number and reason, and each code's ``rows_not_coded`` counts the person's
+    answers left out for it. The interval takes ``resamples`` resamples of the scored pairs with
+    ``seed``; both are recorded in ``bootstrap``."""
     by_unit = {(c["message_id"], int(c["info_index"]), c["unit"]): c for c in codes}
     rules: dict[int, Mapping[str, Any]] = {}
     for row, k in key.items():
@@ -858,16 +863,18 @@ def check(
     out: dict[str, Any] = {
         "rows_in_key": len(key),
         "not_coded": {"rows": list(not_coded), "reasons": dict(Counter(not_coded.values()))},
+        "bootstrap": {"resamples": resamples, "seed": seed},
         "codes": {},
     }
     for _, field in CODES:
         pairs = []
         differ = []
         table = Counter()
-        left_out = 0
+        left_out = blank = 0
         for row in sorted(key):
             person = filled.get(row, {}).get(field)
             if person is None:
+                blank += 1
                 continue
             if row in not_coded:
                 left_out += 1
@@ -878,13 +885,20 @@ def check(
             if person != rule:
                 differ.append(row)
         a = alpha_nominal(pairs)
+        n = len(pairs)
         out["codes"][field] = {
-            "rows_coded": len(pairs),
+            "rows_coded": n,
+            "rows_blank": blank,
             "rows_not_coded": left_out,
-            "agreement": round(sum(p == r for p, r in pairs) / len(pairs), 4) if pairs else None,
+            "agreement": round(sum(p == r for p, r in pairs) / n, 4) if n else None,
             "alpha": a,
+            "interval": bootstrap_alpha(pairs, resamples=resamples, seed=seed),
             "bar": BAR,
             "passes": a is not None and a >= BAR,
+            "share_yes_person": round(sum(p for p, _ in pairs) / n, 4) if n else None,
+            "share_yes_rules": round(sum(r for _, r in pairs) / n, 4) if n else None,
+            "person_yes_rules_no": table["person_yes_rules_no"],
+            "person_no_rules_yes": table["person_no_rules_yes"],
             "table": dict(table),
             "rows_that_differ": differ,
         }

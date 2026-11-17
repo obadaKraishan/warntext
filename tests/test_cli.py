@@ -390,10 +390,13 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
         "--tables",
         str(tmp_path / "t"),
     ]
-    assert cli.main([*args, "--out", str(res)]) == 0
+    assert cli.main([*args, "--out", str(res), "--resamples", "50", "--seed", "3"]) == 0
     printed = capsys.readouterr().out
-    assert "hazard: 4 rows" in printed and "Brush fire" not in printed
-    assert json.loads(res.read_text())["rows_in_key"] == 4
+    assert "hazard: 4 rows scored (0 blank, 0 not coded by the rules)" in printed
+    assert "Brush fire" not in printed and "[" not in printed  # counts only, no row list
+    assert "50 bootstrap resamples, seed 3" in printed
+    checked = json.loads(res.read_text())
+    assert checked["rows_in_key"] == 4 and checked["bootstrap"] == {"resamples": 50, "seed": 3}
 
     # A blind second pass: the rows that differed, fillers, a row left out; texts as before.
     differed = tmp_path / "differed.json"

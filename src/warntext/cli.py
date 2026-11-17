@@ -500,26 +500,38 @@ def cmd_sheet_consolidate(args: argparse.Namespace) -> int:
 
 
 def cmd_sheet_check(args: argparse.Namespace) -> int:
-    """Compare a filled hand sheet with the rules: alpha per code and the rows that differ."""
+    """Compare a filled hand sheet with the rules: alpha per code with its interval, counts
+    only on the screen (the rows that differ are in the JSON file, never printed, so a coder
+    who will recode some of the rows does not see them)."""
     filled = sh.read_filled(args.sheet)
     key = sh.read_key(args.key)
     codes = pq.read_table(Path(args.tables) / "alerts" / "codes.parquet").to_pylist()
-    result = sh.check(filled, key, codes)
+    result = sh.check(filled, key, codes, resamples=args.resamples, seed=args.seed)
     if args.out:
         Path(args.out).write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
     left_out = result["not_coded"]
     if left_out["rows"]:
         print(
-            f"Left out of every score, as the rules do not code them: rows {left_out['rows']} "
-            f"({', '.join(f'{k} {v}' for k, v in sorted(left_out['reasons'].items()))})."
+            f"Left out of every score, as the rules do not code them: {len(left_out['rows'])} "
+            f"rows ({', '.join(f'{k} {v}' for k, v in sorted(left_out['reasons'].items()))})."
         )
+    boot = result["bootstrap"]
+    print(f"Intervals: {boot['resamples']:,} bootstrap resamples, seed {boot['seed']}.")
     for field, r in result["codes"].items():
         a = "n/a" if r["alpha"] is None else f"{r['alpha']:.2f}"
+        i = r["interval"]
+        span = "n/a" if i["low"] is None else f"{i['low']:.2f} to {i['high']:.2f}"
         mark = "meets" if r["passes"] else "below"
         print(
-            f"{field}: {r['rows_coded']} rows, agreement {r['agreement']}, alpha {a} "
-            f"({mark} {sh.BAR:.2f}); rows that differ: {r['rows_that_differ']}"
+            f"{field}: {r['rows_coded']} rows scored ({r['rows_blank']} blank, "
+            f"{r['rows_not_coded']} not coded by the rules), agreement {r['agreement']}, "
+            f"alpha {a} (95% {span}; {mark} {sh.BAR:.2f}); differ "
+            f"{len(r['rows_that_differ'])} (person yes, rules no {r['person_yes_rules_no']}; "
+            f"person no, rules yes {r['person_no_rules_yes']}); yes shares person "
+            f"{r['share_yes_person']}, rules {r['share_yes_rules']}"
         )
+    if args.out:
+        print(f"Row numbers are in {args.out} only.")
     return 0
 
 
@@ -857,6 +869,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--key", required=True, help="hand_sheet_key.csv")
     p.add_argument("--tables", required=True)
     p.add_argument("--out", help="JSON file for the result (counts and row numbers only)")
+    p.add_argument("--resamples", type=int, default=2000, help="bootstrap resamples (2,000)")
+    p.add_argument("--seed", type=int, default=20261115, help="the bootstrap's seed (recorded)")
     p.set_defaults(func=cmd_sheet_check)
 
     p = sub.add_parser("update", help="the weekly update: new records, FEMA's list, rebuild, check")
