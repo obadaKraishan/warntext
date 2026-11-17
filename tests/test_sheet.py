@@ -318,3 +318,95 @@ def test_a_repeat_reads_the_same_texts_and_keeps_the_earlier_rows_out_of_the_wor
         sh.write(chosen, tmp_path / "x", earlier_rows=[1])
     with pytest.raises(SystemExit, match=r"Rows \[1, 2, 3, 4, 5, 6\] of the key have no text"):
         sh.items_for_key(key, [])
+
+
+def test_bootstrap_alpha_gives_an_interval_and_the_share_at_the_bar():
+    pairs = [(True, True)] * 40 + [(False, False)] * 40 + [(True, False)] * 4
+    out = sh.bootstrap_alpha(pairs, resamples=300, seed=2)
+    assert out["low"] <= sh.alpha_nominal(pairs) <= out["high"]
+    assert 0 < out["share_at_bar"] <= 1 and out["no_alpha"] == 0
+    assert out == sh.bootstrap_alpha(pairs, resamples=300, seed=2)
+    same = sh.bootstrap_alpha([(True, True)] * 5, resamples=10)
+    assert same["low"] is None and same["no_alpha"] == 10
+    assert sh.bootstrap_alpha([])["resamples"] == 0
+
+
+def test_the_repeat_check_counts_where_the_second_pass_took_each_answer():
+    no = dict.fromkeys(CODE_FIELDS, False)
+    rules = {r: {**no, "hazard": True} for r in range(1, 5)}
+    first = {r: {**no, "hazard": v} for r, v in {1: True, 2: False, 3: False, 4: True}.items()}
+    second_key = {
+        1: {"earlier_row": "3"},
+        2: {"earlier_row": "1"},
+        3: {"earlier_row": "4"},
+        4: {"earlier_row": "2"},
+    }
+    second = {r: {**no, "hazard": v} for r, v in {1: True, 2: False, 3: True, 4: False}.items()}
+    out = sh.repeat_check(first, second, second_key, rules)
+    h = out["codes"]["hazard"]
+    assert (h["first_differed_from_rules"], h["second_stood_by_first"]) == (2, 1)
+    assert (h["second_sided_with_rules"], h["first_agreed_with_rules"]) == (1, 2)
+    assert h["new_differences"] == 1 and h["passes_differ_rows"] == [1, 2]
+    assert h["table"] == {
+        "first_no_second_yes": 1,
+        "first_yes_second_no": 1,
+        "first_yes_second_yes": 1,
+        "first_no_second_no": 1,
+    }
+    assert out["codes"]["time"]["agreement"] == 1 and out["codes"]["time"]["alpha"] is None
+    with pytest.raises(SystemExit, match="Row 1 of the repeat"):
+        sh.repeat_check(first, {1: {**no, "hazard": None}}, {1: second_key[1]}, rules)
+
+
+def test_rules_by_row_reads_the_six_codes_for_each_key_row():
+    key = {1: {"message_id": "a", "info_index": "0", "unit": "wea90"}}
+    got = sh.rules_by_row(key, [code("a", "wea90", hazard=True)])
+    assert got == {1: {**dict.fromkeys(CODE_FIELDS, False), "hazard": True}}
+    with pytest.raises(SystemExit, match="no codes in the codes table"):
+        sh.rules_by_row(key, [])
+
+
+def test_the_resolution_list_is_blind_and_consolidates_the_answers(tmp_path):
+    messages, codes, texts = corpus(24)
+    chosen = sh.draw(sh.candidates(messages, codes, texts), seed=3, total=4)
+    items = dict(enumerate(chosen, start=1))
+    repeat_key = {n: {"earlier_row": str(10 + n)} for n in items}
+    entries = sh.resolution_order({"hazard": [1, 3], "time": [3]}, seed=5)
+    assert sorted(entries) == [(1, "hazard"), (3, "hazard"), (3, "time")]
+    assert entries == sh.resolution_order({"time": [3], "hazard": [3, 1]}, seed=5)
+    paths = sh.write_resolution(entries, items, repeat_key, tmp_path, "resolve")
+    read = xlsx.read_workbook(paths["workbook"])
+    assert [s.name for s in read if not s.hidden] == ["Resolution", "Definitions"]
+    rows = read[0].rows
+    assert rows[0][1][:6] == ("Row", "Text", "Code", "Definition", "Answer", "Note")
+    cells = {c for _, row in rows for c in row}
+    assert not cells & {"True", "False", "first", "second", "rules", "11", "13"}
+    assert {"Hazard", "Time"} <= cells and sh.DEFINITIONS[4][1] in cells
+    key = sh.read_key(paths["key"])
+    assert [(int(k["repeat_row"]), k["code"]) for k in key.values()] == entries
+    assert {k["earlier_row"] for k in key.values()} == {"11", "13"}
+    assert sh.read_resolution(paths["workbook"]) == {1: None, 2: None, 3: None}
+    # Filled: yes, no and the third choice; the rest of the first pass stands.
+    filled = [
+        list(c for c, _ in r) for r in sh.resolution_sheet([(items[r], f) for r, f in entries]).rows
+    ]
+    for n, answer in zip((1, 2, 3), sh.RESOLVE_CHOICES, strict=True):
+        filled[n][4] = answer
+    xlsx.write_workbook(
+        tmp_path / "f.xlsx", xlsx.Sheet("Resolution", [[(c, sh._TEXT) for c in r] for r in filled])
+    )
+    answers = sh.read_resolution(tmp_path / "f.xlsx")
+    assert list(answers.values()) == [True, False, sh.OPEN]
+    first = {r: dict.fromkeys(CODE_FIELDS, False) for r in (11, 12, 13)}
+    merged = sh.consolidate(first, answers, key)
+    for n, k in key.items():
+        assert merged[int(k["earlier_row"])][k["code"]] == answers[n]
+    assert merged[12] == first[12]
+    with pytest.raises(SystemExit, match="Row 1 of the resolution list has no answer"):
+        sh.consolidate(first, {1: None}, key)
+    filled[1][4] = "maybe"
+    xlsx.write_workbook(
+        tmp_path / "g.xlsx", xlsx.Sheet("Resolution", [[(c, sh._TEXT) for c in r] for r in filled])
+    )
+    with pytest.raises(SystemExit, match="other than the three"):
+        sh.read_resolution(tmp_path / "g.xlsx")

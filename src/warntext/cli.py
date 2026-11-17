@@ -410,6 +410,58 @@ def cmd_sheet_repeat(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sheet_repeat_check(args: argparse.Namespace) -> int:
+    """One person's two passes over the same texts: consistency per code, and where the second
+    pass took the differing answers. Counts and row numbers only."""
+    first = sh.read_filled(args.first)
+    second = sh.read_filled(args.second)
+    second_key = sh.read_key(args.second_key)
+    codes = pq.read_table(Path(args.tables) / "alerts" / "codes.parquet").to_pylist()
+    earlier_key = sh.read_key(args.first_key)
+    rules = sh.rules_by_row(
+        {int(k["earlier_row"]): earlier_key[int(k["earlier_row"])] for k in second_key.values()},
+        codes,
+    )
+    result = sh.repeat_check(first, second, second_key, rules)
+    Path(args.out).write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
+    for field, r in result["codes"].items():
+        a = "n/a" if r["alpha"] is None else f"{r['alpha']:.2f}"
+        print(
+            f"{field}: {r['rows']} rows, the two passes agree {r['agreement']}, alpha {a}; of "
+            f"{r['first_differed_from_rules']} answers that differed from the rules, "
+            f"{r['second_stood_by_first']} stood and {r['second_sided_with_rules']} turned; "
+            f"{r['new_differences']} new differences"
+        )
+    return 0
+
+
+def cmd_sheet_resolve(args: argparse.Namespace) -> int:
+    """The resolution list: every answer where the two passes differ, blind to both passes and
+    to the rules. Counts only."""
+    result = json.loads(Path(args.repeat_check).read_text(encoding="utf-8"))
+    passes_differ = {f: r["passes_differ_rows"] for f, r in result["codes"].items()}
+    entries = sh.resolution_order(passes_differ, args.seed)
+    repeat_key = sh.read_key(args.repeat_key)
+    tables = Path(args.tables) / "alerts"
+    texts = []
+    for name in ("text_federal", "text_other"):
+        texts += pq.read_table(tables / f"{name}.parquet").to_pylist()
+    rows = sorted({row for row, _ in entries})
+    items = sh.items_for_key({r: repeat_key[r] for r in rows}, texts)
+    if args.check_against:
+        earlier = sh.texts_of_workbook(args.check_against)
+        differ = sum(earlier.get(r) != items[r].text for r in rows)
+        if differ:
+            raise SystemExit(f"{differ} texts differ from the repeat workbook's; nothing written.")
+    paths = sh.write_resolution(entries, items, repeat_key, args.out, args.name)
+    by_code = {f: len(v) for f, v in passes_differ.items()}
+    print(
+        f"{len(entries)} answers to resolve, in {len(rows)} texts; by code {by_code}; "
+        f"workbook {paths['workbook']}, key {paths['key']}."
+    )
+    return 0
+
+
 def cmd_sheet_check(args: argparse.Namespace) -> int:
     """Compare a filled hand sheet with the rules: alpha per code and the rows that differ."""
     filled = sh.read_filled(args.sheet)
@@ -712,6 +764,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True, help="a folder under data/interim (never tracked)")
     p.add_argument("--name", required=True, help="file names: NAME.xlsx, NAME_key.csv ...")
     p.set_defaults(func=cmd_sheet_repeat)
+
+    p = sub.add_parser(
+        "sheet-repeat-check", help="one person's two passes: consistency and where answers went"
+    )
+    p.add_argument("--first", required=True, help="the earlier sheet, filled")
+    p.add_argument("--first-key", required=True, help="the earlier sheet's key")
+    p.add_argument("--second", required=True, help="the repeat, filled")
+    p.add_argument("--second-key", required=True, help="the repeat's key (with earlier_row)")
+    p.add_argument("--tables", required=True, help="the rules' tables the earlier sheet scored")
+    p.add_argument("--out", required=True, help="JSON file for the result (counts, row numbers)")
+    p.set_defaults(func=cmd_sheet_repeat_check)
+
+    p = sub.add_parser("sheet-resolve", help="the resolution list where two passes differ")
+    p.add_argument("--repeat-check", required=True, help="sheet-repeat-check's result")
+    p.add_argument("--repeat-key", required=True, help="the repeat's key")
+    p.add_argument("--tables", required=True, help="the tables the sheets were drawn from")
+    p.add_argument("--seed", type=int, required=True)
+    p.add_argument("--check-against", help="the repeat workbook: its texts must be the same")
+    p.add_argument("--out", required=True, help="a folder under data/interim (never tracked)")
+    p.add_argument("--name", required=True, help="file names: NAME.xlsx and NAME_key.csv")
+    p.set_defaults(func=cmd_sheet_resolve)
 
     p = sub.add_parser("sheet-check", help="alpha per code between a filled sheet and the rules")
     p.add_argument("--sheet", required=True, help="the filled hand_sheet.xlsx")

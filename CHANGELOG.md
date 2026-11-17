@@ -89,6 +89,13 @@ All notable changes to this project are recorded here. The format follows
   seed, and puts them in a new order with new row ids. The texts are read again from the text
   layer and must match the earlier workbook's. The earlier row numbers go into the key only. The
   same command makes a recheck copy of a sheet (no kept rows, a seeded subset).
+- `warntext sheet-repeat-check` and `warntext sheet-resolve`: one person's two passes over the
+  same texts. The first scores the passes against each other per code (agreement, alpha with a
+  bootstrap interval, the two-by-two table). It also says where the second pass took the answers
+  that differed from the rules, and counts new differences. The second lists every answer where
+  the passes differ, blind to both passes and to the rules, with three choices (yes, no, the
+  definition does not settle this). The consolidated answers take the resolution where the passes
+  differ and the first pass elsewhere.
 
 ### Changed
 - Messages with a people code carry their times rounded down to the hour in the record layer

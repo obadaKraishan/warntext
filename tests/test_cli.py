@@ -435,6 +435,52 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
         cli.main([*repeat[:-5], str(other), repeat[-4], str(tmp_path / "p3"), *repeat[-2:]])
     assert not (tmp_path / "p3").exists()
 
+    # Both passes scored against each other and the rules (counts and row numbers only).
+    second = filled_sheet(tmp_path / "second.xlsx", {n: ["no"] * 6 for n in range(1, 3)})
+    both = tmp_path / "both.json"
+    check2 = [
+        "sheet-repeat-check",
+        "--first",
+        str(filled),
+        "--first-key",
+        str(key),
+        "--second",
+        str(second),
+        "--second-key",
+        str(tmp_path / "pass2" / "second_pass_key.csv"),
+        "--tables",
+        str(tmp_path / "t"),
+        "--out",
+        str(both),
+    ]
+    assert cli.main(check2) == 0
+    printed = capsys.readouterr().out
+    assert "hazard: 2 rows, the two passes agree 0.0" in printed and "Brush fire" not in printed
+    assert json.loads(both.read_text())["codes"]["hazard"]["passes_differ_rows"] == [1, 2]
+    resolve = [
+        "sheet-resolve",
+        "--repeat-check",
+        str(both),
+        "--repeat-key",
+        str(tmp_path / "pass2" / "second_pass_key.csv"),
+        "--tables",
+        str(tmp_path / "t"),
+        "--seed",
+        "3",
+        "--check-against",
+        str(tmp_path / "pass2" / "second_pass.xlsx"),
+        "--out",
+        str(tmp_path / "resolve"),
+        "--name",
+        "resolve",
+    ]
+    assert cli.main(resolve) == 0
+    printed = capsys.readouterr().out
+    assert "answers to resolve, in 2 texts" in printed and "Brush fire" not in printed
+    assert len(sh.read_key(tmp_path / "resolve" / "resolve_key.csv")) >= 2
+    with pytest.raises(SystemExit, match="differ from the repeat workbook"):
+        cli.main([*resolve[:-5], str(other), *resolve[-4:]])
+
 
 def test_update_command_starts_the_state_then_runs(tmp_path, monkeypatch, capsys):
     from test_update import Server, rec

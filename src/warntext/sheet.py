@@ -669,3 +669,233 @@ def check(
             "rows_that_differ": differ,
         }
     return out
+
+
+def bootstrap_alpha(
+    pairs: Sequence[tuple[Any, Any]], resamples: int = 2000, seed: int = 20261115
+) -> dict[str, Any]:
+    """A 95% percentile interval for ``alpha_nominal`` from resamples of the pairs (with
+    replacement), and the share of resamples at or over the bar. Resamples in which every value
+    is the same have no alpha and are counted apart."""
+    if not pairs:
+        return {"low": None, "high": None, "share_at_bar": None, "resamples": 0, "no_alpha": 0}
+    rng = random.Random(seed)
+    values = []
+    for _ in range(resamples):
+        a = alpha_nominal([pairs[rng.randrange(len(pairs))] for _ in pairs])
+        if a is not None:
+            values.append(a)
+    values.sort()
+    if not values:
+        return {
+            "low": None,
+            "high": None,
+            "share_at_bar": None,
+            "resamples": resamples,
+            "no_alpha": resamples,
+        }
+    return {
+        "low": values[int(0.025 * (len(values) - 1))],
+        "high": values[int(0.975 * (len(values) - 1))],
+        "share_at_bar": round(sum(v >= BAR for v in values) / len(values), 4),
+        "resamples": resamples,
+        "no_alpha": resamples - len(values),
+    }
+
+
+def rules_by_row(
+    key: Mapping[int, Mapping[str, str]], codes: Iterable[Mapping[str, Any]]
+) -> dict[int, dict[str, bool]]:
+    """The rules' six codes for each row of a key."""
+    by_unit = {(c["message_id"], int(c["info_index"]), c["unit"]): c for c in codes}
+    out = {}
+    for row, k in key.items():
+        c = by_unit.get((k["message_id"], int(k["info_index"]), k["unit"]))
+        if c is None:
+            raise SystemExit(
+                f"Row {row} of the key has no codes in the codes table; rebuild first."
+            )
+        out[row] = {field: bool(c[field]) for _, field in CODES}
+    return out
+
+
+def repeat_check(
+    first: Mapping[int, Mapping[str, bool | None]],
+    second: Mapping[int, Mapping[str, bool | None]],
+    second_key: Mapping[int, Mapping[str, str]],
+    rules: Mapping[int, Mapping[str, bool]],
+    seed: int = 20261115,
+) -> dict[str, Any]:
+    """One person's two passes over the same texts, per code (counts and row numbers only).
+
+    ``first`` and ``rules`` are by the earlier sheet's row numbers; ``second`` and
+    ``second_key`` by the repeat's, whose key gives each row's ``earlier_row``. Reported:
+    agreement and alpha between the passes, with a bootstrap interval and the two-by-two table;
+    for the first pass's answers that differed from the rules, how many the second pass kept and
+    how many it turned to the rules' answer; for those that agreed with the rules, how many the
+    second pass now differs on (new differences); and the repeat's rows where the passes differ.
+    """
+    out: dict[str, Any] = {"rows": len(second_key), "codes": {}}
+    for _, field in CODES:
+        pairs, table = [], Counter()
+        stood = turned = agreed = new = 0
+        passes_differ = []
+        for row in sorted(second_key):
+            earlier = int(second_key[row]["earlier_row"])
+            a, b = first.get(earlier, {}).get(field), second.get(row, {}).get(field)
+            if a is None or b is None:
+                raise SystemExit(
+                    f"Row {row} of the repeat (or its earlier row) has no answer for {field}; "
+                    "fill it first."
+                )
+            pairs.append((a, b))
+            table[f"first_{'yes' if a else 'no'}_second_{'yes' if b else 'no'}"] += 1
+            if a != b:
+                passes_differ.append(row)
+            rule = rules[earlier][field]
+            if a != rule:
+                stood += b == a
+                turned += b == rule
+            else:
+                agreed += 1
+                new += b != rule
+        alpha = alpha_nominal(pairs)
+        out["codes"][field] = {
+            "rows": len(pairs),
+            "agreement": round(sum(a == b for a, b in pairs) / len(pairs), 4),
+            "alpha": alpha,
+            "interval": bootstrap_alpha(pairs, seed=seed),
+            "table": dict(table),
+            "first_differed_from_rules": stood + turned,
+            "second_stood_by_first": stood,
+            "second_sided_with_rules": turned,
+            "first_agreed_with_rules": agreed,
+            "new_differences": new,
+            "passes_differ_rows": passes_differ,
+        }
+    return out
+
+
+# --- the resolution list: the answers where one person's two passes differ ----------------
+
+#: The three choices of the resolution list.
+RESOLVE_CHOICES = ("yes", "no", "the definition does not settle this")
+OPEN = "open"
+RESOLVE_KEY_COLUMNS = ["row", "repeat_row", "earlier_row", "code", *KEY_COLUMNS[1:]]
+
+
+def resolution_sheet(entries: Sequence[tuple[Item, str]]) -> xlsx.Sheet:
+    """One row per (text, code): the text, the code's column heading, its definition and an
+    empty answer with three choices. Nothing says what either pass or the rules answered."""
+    heading = {f: h for h, f in CODES}
+    definition = {h: d for h, d, _, _ in DEFINITIONS}
+    head = [(h, _HEAD) for h in ("Row", "Text", "Code", "Definition", "Answer", "Note")]
+    rows = [head]
+    for n, (it, field) in enumerate(entries, start=1):
+        h = heading[field]
+        rows.append(
+            [
+                (str(n), _TEXT),
+                (it.text, _TEXT),
+                (h, _BOLD),
+                (definition[h], _TEXT),
+                ("", _OPEN),
+                ("", _NOTE),
+            ]
+        )
+    return xlsx.Sheet(
+        name="Resolution",
+        rows=rows,
+        widths=(6, 60, 18, 50, 22, 30),
+        dropdowns=(
+            xlsx.Dropdown(
+                column=4,
+                first_row=2,
+                last_row=len(entries) + 1,
+                choices=RESOLVE_CHOICES,
+                error="Choose one of the three answers.",
+            ),
+        ),
+        active_cell="E2",
+    )
+
+
+def resolution_order(
+    passes_differ: Mapping[str, Sequence[int]], seed: int
+) -> list[tuple[int, str]]:
+    """Every (repeat row, code) where the two passes differ, in a seeded random order."""
+    entries = sorted((row, field) for field, rows in passes_differ.items() for row in rows)
+    random.Random(seed).shuffle(entries)
+    return entries
+
+
+def write_resolution(
+    entries: Sequence[tuple[int, str]],
+    items: Mapping[int, Item],
+    repeat_key: Mapping[int, Mapping[str, str]],
+    out_dir: Path | str,
+    name: str,
+) -> dict[str, Path]:
+    """The resolution workbook (with the Definitions sheet) and its key, side by side."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    book = xlsx.write_workbook(
+        out_dir / f"{name}.xlsx",
+        resolution_sheet([(items[row], field) for row, field in entries]),
+        extra=(definitions_sheet(),),
+    )
+    key = out_dir / f"{name}_key.csv"
+    with key.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(RESOLVE_KEY_COLUMNS)
+        for n, (row, field) in enumerate(entries, start=1):
+            it = items[row]
+            w.writerow(
+                [
+                    n,
+                    row,
+                    repeat_key[row]["earlier_row"],
+                    field,
+                    it.message_id,
+                    it.info_index,
+                    it.unit,
+                    it.record_id,
+                    it.category,
+                    it.period,
+                ]
+            )
+    return {"workbook": book, "key": key}
+
+
+def read_resolution(path: Path | str) -> dict[int, bool | str | None]:
+    """The resolution answers by row: True, False, ``OPEN`` (the definition does not settle
+    it) or None where the cell is empty."""
+    rows = next(s for s in xlsx.read_workbook(path) if not s.hidden).rows
+    header = [c.strip().lower() for c in rows[0][1]]
+    r, a = header.index("row"), header.index("answer")
+    out: dict[int, bool | str | None] = {}
+    for _, cells in rows[1:]:
+        if len(cells) <= r or not cells[r].strip().isdigit():
+            continue
+        v = cells[a].strip().lower() if a < len(cells) else ""
+        if v not in ("", *RESOLVE_CHOICES):
+            raise SystemExit(f"{path}: row {cells[r]} holds an answer other than the three.")
+        out[int(cells[r])] = None if v == "" else OPEN if v == RESOLVE_CHOICES[2] else v == "yes"
+    return out
+
+
+def consolidate(
+    first: Mapping[int, Mapping[str, bool | None]],
+    resolution: Mapping[int, bool | str | None],
+    resolution_key: Mapping[int, Mapping[str, str]],
+) -> dict[int, dict[str, bool | str | None]]:
+    """The consolidated answers by the earlier sheet's row: the resolution's answer where the
+    two passes differed (True, False or ``OPEN``), otherwise the first pass's answer (which the
+    second pass, where there was one, repeated)."""
+    out = {row: dict(v) for row, v in first.items()}
+    for n, k in resolution_key.items():
+        answer = resolution.get(n)
+        if answer is None:
+            raise SystemExit(f"Row {n} of the resolution list has no answer; fill it first.")
+        out[int(k["earlier_row"])][k["code"]] = answer
+    return out
