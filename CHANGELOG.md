@@ -281,3 +281,32 @@ All notable changes to this project are recorded here. The format follows
   development figures, the differences sorted, and the broader reading of "hazard" with the order
   flag kept beside the frozen tables.
 - The data card and coding options say how version 3 fared on the third sheet.
+- Privacy patterns widened, none loosened (the first release's seven are pinned by hash). A text is
+  withheld when it holds a phone number in any written form (`phone_any_form`: ten digits
+  together, eleven with a leading 1, brackets or several or other separators, a line end;
+  `phone_seven`: seven digits with a dash or dot, or after a word that asks to call;
+  `phone_letters`: letters for digits; `phone_international`: another country code), an email
+  address written out (`email_any_form`), or an age or a height or weight in another form
+  (`age_any_form`, `height_weight_any_form`). Each added pattern skips what the first seven
+  match, so its name marks what it adds. Forms that read as "at", web addresses, ids, EAS headers
+  and decimals are left out after two readings of samples of what the patterns newly withheld.
+- The description rule: a message whose text fields, read together, give two or more elements
+  of a description of a person (an age, a person with a physical description, clothing, height,
+  weight, hair or eyes, a name beside "missing", "wanted" or the like, a medical condition, a
+  vehicle or plate being looked for) is withheld with or without the cue words, and keeps only
+  the hour and the county, as a message about a missing person does (`person_described` in
+  `withheld_patterns`; reason `person_described` where no earlier rule gave one).
+- The withholding scan reads `audience` and the resource descriptions too, as the pack check
+  already did; sender names are refused when they hold a phone number or email address in any
+  form.
+- The tables check and the pack check fail on the added patterns and on a described person's row
+  that is not withheld or keeps a time finer than the hour or a part-of-county digit; the pack
+  check fails on a message whose released text fields, read together, describe a person.
+- `warntext release build --codes-from`: the codes tables from another build of the same units,
+  so a pack can carry version 1's codes, unchanged by hash, with record and text layers built by
+  the current rules.
+- Release 0.1.0 rebuilt with the widened rules: 107 more real alerts (all under hazard codes) and
+  9 more tests have their text withheld, and 148 messages already withheld also keep only the
+  hour and the county; the card says what is withheld in two plain sentences and gives the
+  reading of a sample of what is left as a limit. Each content code is judged on its own for
+  release.

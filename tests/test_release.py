@@ -511,6 +511,8 @@ def test_the_card_says_what_is_withheld_and_the_reading_of_what_is_left(pack):
     reading = {"alerts": 300, "tests": 100, "contact": 0, "described": 0, "named": 2, "rounds": 2}
     sentence = release.privacy_reading_sentence(reading)
     assert "300 released alert texts and 100 released test texts" in sentence
-    assert "after 1 round(s) in which the patterns were widened" in sentence
+    assert "was read in the last of 2 rounds" in sentence
+    assert "was read once: 0 held" in release.privacy_reading_sentence(release.PRIVACY_READING)
+    assert "300 released alert texts and 100 released test texts" in text
     assert "0 held a phone number or an email address, 0 described a person" in sentence
     assert "and 2 named a private individual" in sentence

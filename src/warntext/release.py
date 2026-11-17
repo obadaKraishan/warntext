@@ -366,7 +366,16 @@ def pack_facts(
 #: The reading of what is left after a pack was built: a seeded random sample of released texts
 #: read for a phone number or an email address, a description of a person, and a private
 #: individual named without being described. Counts only; measured once per version.
-PRIVACY_READING: dict[str, Any] = {}
+PRIVACY_READING: dict[str, Any] = {
+    "version": "0.1.0",
+    "alerts": 300,
+    "tests": 100,
+    "seed": 20261121,
+    "rounds": 1,
+    "contact": 0,
+    "described": 0,
+    "named": 0,
+}
 
 
 def privacy_reading_sentence(reading: Mapping[str, Any] = PRIVACY_READING) -> str:
@@ -374,14 +383,15 @@ def privacy_reading_sentence(reading: Mapping[str, Any] = PRIVACY_READING) -> st
     if not reading:
         return "No reading of a sample of the released text has been made for this version."
     rounds = reading["rounds"]
-    after = (
-        "after the first reading"
+    how = (
+        "read once"
         if rounds == 1
-        else f"after {rounds - 1} round(s) in which the patterns were widened and the pack rebuilt"
+        else f"read in the last of {rounds} rounds (after each earlier round the patterns were "
+        "widened and the pack rebuilt)"
     )
     return (
         f"After this version was built, a random sample of {reading['alerts']:,} released "
-        f"alert texts and {reading['tests']:,} released test texts was read, {after}: "
+        f"alert texts and {reading['tests']:,} released test texts was {how}: "
         f"{reading['contact']} held a phone number or an email address, {reading['described']} "
         f"described a person, and {reading['named']} named a private individual without "
         "describing them (officials who sign or speak are not counted). A sample this size can "
