@@ -410,3 +410,20 @@ def test_the_resolution_list_is_blind_and_consolidates_the_answers(tmp_path):
     )
     with pytest.raises(SystemExit, match="other than the three"):
         sh.read_resolution(tmp_path / "g.xlsx")
+
+
+def test_consolidated_answers_leave_open_ones_out_of_the_development_figure(tmp_path):
+    key = {n: {"message_id": f"m{n}", "info_index": "0", "unit": "wea90"} for n in range(1, 7)}
+    codes = [code(f"m{n}", "wea90", hazard=n <= 3) for n in range(1, 7)]
+    merged = {n: dict.fromkeys(CODE_FIELDS, False) for n in range(1, 7)}
+    for n in (1, 2):
+        merged[n]["hazard"] = True
+    merged[3]["hazard"] = sh.OPEN
+    merged[4]["hazard"] = True
+    out = sh.check_consolidated(merged, key, codes)
+    h = out["codes"]["hazard"]
+    assert out["figure"] == "development" and h["open"] == 1 and h["rows_coded"] == 5
+    assert h["rows_that_differ"] == [4] and h["interval"]["resamples"] == 2000
+    path = sh.write_consolidated(merged, tmp_path / "c.csv")
+    lines = path.read_text().splitlines()
+    assert lines[0].split(",")[:2] == ["row", "hazard"] and lines[3].startswith("3,open,no")

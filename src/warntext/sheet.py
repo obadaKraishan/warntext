@@ -899,3 +899,46 @@ def consolidate(
             raise SystemExit(f"Row {n} of the resolution list has no answer; fill it first.")
         out[int(k["earlier_row"])][k["code"]] = answer
     return out
+
+
+def write_consolidated(
+    consolidated: Mapping[int, Mapping[str, bool | str | None]], path: Path | str
+) -> Path:
+    """The consolidated answers as a CSV by row: yes, no, open, or empty (no answer)."""
+    path = Path(path)
+    word = {True: "yes", False: "no", OPEN: OPEN, None: ""}
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["row", *(field for _, field in CODES)])
+        for row in sorted(consolidated):
+            w.writerow([row, *(word[consolidated[row].get(field)] for _, field in CODES)])
+    return path
+
+
+def check_consolidated(
+    consolidated: Mapping[int, Mapping[str, bool | str | None]],
+    key: Mapping[int, Mapping[str, str]],
+    codes: Iterable[Mapping[str, Any]],
+    seed: int = 20261115,
+) -> dict[str, Any]:
+    """``check`` against consolidated answers: open answers and empty cells are left out (and
+    counted), and each code gets a bootstrap interval. A sheet that has been read gives a
+    development figure here, never a check."""
+    scored = {
+        row: {f: (None if v == OPEN else v) for f, v in values.items()}
+        for row, values in consolidated.items()
+    }
+    out = check(scored, key, codes)
+    rules = rules_by_row(key, codes)
+    for _, field in CODES:
+        pairs = [
+            (scored[row][field], rules[row][field])
+            for row in sorted(key)
+            if scored.get(row, {}).get(field) is not None
+        ]
+        out["codes"][field]["interval"] = bootstrap_alpha(pairs, seed=seed)
+        out["codes"][field]["open"] = sum(
+            consolidated.get(row, {}).get(field) == OPEN for row in key
+        )
+    out["figure"] = "development"
+    return out

@@ -101,6 +101,10 @@ All notable changes to this project are recorded here. The format follows
   2's module is unchanged, and version 3 with no change codes exactly as version 2. One more
   change is written but held back until an open definition is settled (an order or ban alone as a
   hazard). A language check finds texts that are not in English in general, not only Spanish.
+- `warntext sheet-consolidate`: a sheet's consolidated answers (the first pass, with the
+  resolution where the two passes differed) and the rules of one or more builds against them, as
+  development figures. Open answers are left out and counted, and each code gets a bootstrap
+  interval.
 
 ### Changed
 - Messages with a people code carry their times rounded down to the hour in the record layer

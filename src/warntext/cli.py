@@ -462,6 +462,34 @@ def cmd_sheet_resolve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sheet_consolidate(args: argparse.Namespace) -> int:
+    """The consolidated answers of a sheet (first pass, with the resolution where the two passes
+    differed), and the rules of each table against them: development figures. Counts only."""
+    first = sh.read_filled(args.first)
+    key = sh.read_key(args.key)
+    merged = sh.consolidate(
+        first, sh.read_resolution(args.resolution), sh.read_key(args.resolution_key)
+    )
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    sh.write_consolidated(merged, out / "consolidated.csv")
+    results = {}
+    for item in args.tables:
+        label, _, path = item.partition("=")
+        codes = pq.read_table(Path(path) / "alerts" / "codes.parquet").to_pylist()
+        results[label] = sh.check_consolidated(merged, key, codes)
+    (out / "consolidated_check.json").write_text(
+        json.dumps(results, indent=1) + "\n", encoding="utf-8"
+    )
+    for label, r in results.items():
+        line = ", ".join(
+            f"{f} {'n/a' if c['alpha'] is None else format(c['alpha'], '.2f')}"
+            for f, c in r["codes"].items()
+        )
+        print(f"{label} (development figure): {line}")
+    return 0
+
+
 def cmd_sheet_check(args: argparse.Namespace) -> int:
     """Compare a filled hand sheet with the rules: alpha per code and the rows that differ."""
     filled = sh.read_filled(args.sheet)
@@ -785,6 +813,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True, help="a folder under data/interim (never tracked)")
     p.add_argument("--name", required=True, help="file names: NAME.xlsx and NAME_key.csv")
     p.set_defaults(func=cmd_sheet_resolve)
+
+    p = sub.add_parser(
+        "sheet-consolidate", help="consolidated answers and the rules against them (development)"
+    )
+    p.add_argument("--first", required=True, help="the sheet, filled (first pass)")
+    p.add_argument("--key", required=True, help="the sheet's key")
+    p.add_argument("--resolution", required=True, help="the resolution list, filled")
+    p.add_argument("--resolution-key", required=True)
+    p.add_argument(
+        "--tables", action="append", required=True, help="LABEL=PATH of a build (repeatable)"
+    )
+    p.add_argument("--out", required=True, help="a folder under data/interim (never tracked)")
+    p.set_defaults(func=cmd_sheet_consolidate)
 
     p = sub.add_parser("sheet-check", help="alpha per code between a filled sheet and the rules")
     p.add_argument("--sheet", required=True, help="the filled hand_sheet.xlsx")

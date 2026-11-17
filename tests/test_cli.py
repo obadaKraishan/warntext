@@ -340,7 +340,7 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
     from test_sheet import filled_sheet
     from test_tables import COUNTY, record, run
     from warntext import sheet as sh
-    from warntext import tables
+    from warntext import tables, xlsx
 
     recs = [
         record(
@@ -480,6 +480,35 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
     assert len(sh.read_key(tmp_path / "resolve" / "resolve_key.csv")) >= 2
     with pytest.raises(SystemExit, match="differ from the repeat workbook"):
         cli.main([*resolve[:-5], str(other), *resolve[-4:]])
+    # Consolidated answers: the resolution filled with "no" everywhere.
+    res_dir = tmp_path / "resolve"
+    rows = [[c for c, _ in r] for r in sh.resolution_sheet([]).rows]
+    n_res = len(sh.read_key(res_dir / "resolve_key.csv"))
+    rows += [[str(n), "", "", "", "no", ""] for n in range(1, n_res + 1)]
+    xlsx.write_workbook(
+        res_dir / "filled.xlsx",
+        xlsx.Sheet("Resolution", [[(c, sh._TEXT) for c in r] for r in rows]),
+    )
+    consolidate = [
+        "sheet-consolidate",
+        "--first",
+        str(filled),
+        "--key",
+        str(key),
+        "--resolution",
+        str(res_dir / "filled.xlsx"),
+        "--resolution-key",
+        str(res_dir / "resolve_key.csv"),
+        "--tables",
+        f"v={tmp_path / 't'}",
+        "--out",
+        str(tmp_path / "cons"),
+    ]
+    assert cli.main(consolidate) == 0
+    assert "v (development figure): hazard" in capsys.readouterr().out
+    data = json.loads((tmp_path / "cons" / "consolidated_check.json").read_text())
+    assert data["v"]["figure"] == "development" and data["v"]["rows_in_key"] == 4
+    assert (tmp_path / "cons" / "consolidated.csv").exists()
 
 
 def test_update_command_starts_the_state_then_runs(tmp_path, monkeypatch, capsys):
