@@ -150,17 +150,24 @@ release check reads.
 1. **Alerts about people keep their row and lose their text.** Always for the four people codes
    (CAE, MEP, BLU, LEW); and for any other message in which a personal-detail pattern finds
    something in a field that could reach a text table (event, headline, description,
-   instruction, web, the phone and broadcast texts, area descriptions, resource addresses). The
-   patterns: a North American phone number, a plate or tag number, an age, a height or weight,
-   an email address, "last seen", "last known" or "last heard", and words that mark a message
-   about a person (missing, abducted, wanted, suspect, "described as", wearing, "have you
-   seen", and the named alert programs such as AMBER and Silver Alerts). They are simple and
-   over-count; withholding too much is accepted. The organization name is not scanned.
+   instruction, web, audience, the phone and broadcast texts, area descriptions, resource
+   descriptions and addresses). The patterns of the first release: a North American phone
+   number with separators, a plate or tag number, an age, a height or weight, an email address,
+   "last seen", "last known" or "last heard", and words that mark a message about a person
+   (missing, abducted, wanted, suspect, "described as", wearing, "have you seen", and the named
+   alert programs such as AMBER and Silver Alerts). Added in section 22, so that the written form
+   does not matter: a phone number in any form (`phone_any_form`, `phone_seven`,
+   `phone_letters`, `phone_international`), an email address written out (`email_any_form`), and
+   an age or a height or weight in other forms (`age_any_form`, `height_weight_any_form`). They
+   over-count; withholding too much is accepted. The organization name is not scanned. All the
+   patterns live in one module (`warntext.patterns`), which the build, the weekly update, both
+   checks and the scan before going public read.
 2. **A withheld message has no text anywhere:** no row in either text table, and no polygons or
    circles in `areas` (a shape can mark one address). Its codes, times, counties, counts,
    lengths and flags stay; `text_withheld` gives the reason (`people_code`, `personal_pattern`,
-   `missing_person` (rule 6), or `unparsed` for XML that cannot be read) and `withheld_patterns`
-   the pattern names.
+   `missing_person` (rule 6), `person_described` (rule 7), or `unparsed` for XML that cannot be
+   read) and `withheld_patterns` the pattern names, `person_described` among them when rule 7
+   applies.
 3. **Parameters are allow-listed.** A parameter is kept only if its name is on the list below and
    its value has the allowed form; free-text parameters that are part of the message go to the
    text layer; everything else is dropped by name.
@@ -197,6 +204,13 @@ release check reads.
    Silver or AMBER Alert, "have you seen" or "last seen", in English or Spanish, in any of its
    text fields. Its text and shapes are withheld (`missing_person` when no other rule already
    withheld it), its times keep only the hour and its area codes only the county.
+7. **A message whose text describes a person is treated as rule 6 says,** with or without the
+   cue words of rule 1: its text fields, read together, give two or more of an age (digits or
+   words), a person noun with a physical description, clothing, height, weight, hair or eyes, a
+   name beside "missing", "last seen", "wanted" or the like, a medical condition, a vehicle or
+   plate being looked for. Its text and shapes are withheld (`person_described` when no people
+   code and no detail pattern withheld it, and before rule 6's reason only where rule 6 does not
+   apply), its times keep only the hour and its area codes only the county.
 
 ## 8. The two layers
 - **Record layer** (`messages`, `infos`, `areas`, `references`, `threads`, `codes`): no message
@@ -1029,3 +1043,127 @@ coded units it is "yes" for 2,439, 1,840 of them without a named hazard. Under "
 the share beside Olson et al. is 60.0% at 90 characters and 74.1% at 360, against the frozen 51.7%
 and 65.1% and their 70.3% and 80.6% (codebook, section 9). The flag is kept in its own file beside
 version 3's tables, which stay as they were scored.
+
+## 22. The privacy rules widened, the sweep for near misses, and a reading of what is left
+
+**Why.** While the third sheet was scored, the phone pattern was found to need separators: ten
+digits written together passed it, and so did a few texts that describe a person without the
+cue words the patterns know. The rules were widened before any public release. No rule was
+loosened: the first release's seven patterns are kept byte for byte (a test pins their SHA-256),
+and the people codes, the missing-person rule, the rounding of times and the county rule are
+unchanged.
+
+**The sweep.** Before any change, candidate patterns for every written form were counted over
+the released text rows of release 0.1.0 as first built (each table, each split) and over every
+message, released or withheld, from one in-memory build. Counts only; no text was read. Among
+the messages whose text was released, the forms that got through were: ten digits together in
+North American shape (41 real alerts, 8 tests), seven digits with a hyphen (39 real alerts, 31 of
+them after a word such as "call"; 1 test), brackets or several separators (4 real alerts), a
+leading 1 before a separated number (1), letters for digits with dashes (10), an age in words or
+as "yo" or "years of age" (10), a person noun with a description (17), a color and a garment
+(18), hair or eyes (1), and 12 real alerts with two or more elements of a description (11 a
+person and clothing, 1 an age and hair). Other candidate forms were too wide to be rules: "at"
+before a web address read as an email (260 real alerts), spaced capital words after a number
+read as letters for digits (about 200), ten-digit runs inside links (6 real alerts, 134 tests),
+and a three-and-seven split that is never North American in shape (23).
+
+**The widening.** Each added pattern skips the places where the first ones already match, so its
+name marks what it adds, and each alone withholds the text, as rule 1 says:
+- `phone_any_form` (rule 1): ten digits together, eleven with a leading 1, the area code in
+  brackets with any separator, several or other separators (en and em dashes, slashes, a line
+  end); the unseparated forms must have the North American shape (area code and exchange from 2
+  to 9), and no form may sit inside a word or a link's file name;
+- `phone_seven` (rule 1): seven digits with a dash or dot, or with a space after a word that asks
+  to call, but not a span of clock times;
+- `phone_letters` (rule 1): letters for digits after a toll-free area code, or in three parts
+  joined by dashes;
+- `phone_international` (rule 1): a plus and another country code, eight digits or more;
+- `email_any_form` (rule 1): an address with [at] or (at), or "email" then "at" and "dot";
+- `age_any_form` and `height_weight_any_form` (rule 1): ages in words, "yo", "y.o.", "years of
+  age" (not an age limit), months old, "in his or her 20s", a date of birth; 5-foot-10, 5ft10,
+  curly quotes and primes, "weighs 150", 150-pound, "six feet tall";
+- `person_described` (rule 7, which extends rule 6): two or more elements of a description in
+  a message's text fields read together.
+
+**Two readings of what the widened rules newly withheld.** A background reader read a seeded
+sample of 60 newly withheld texts and returned counts only.
+
+| reading | seed | contact | described | both | neither | what "neither" was |
+|---|---:|---:|---:|---:|---:|---|
+| first | 20261117 | 34 | 6 | 1 | 19 | ten-digit runs in audio-file links (10), "@" for "at" before a web address (4), a web address read aloud (1), a date and time with "@" (1), a range of house numbers (1), an age group or limit (2) |
+| second, after narrowing | 20261118 | 49 | 6 | 0 | 5 | "@" for "at" with no domain ending (2), a range of house numbers (1), an age limit with "&" (1), a located infant's age alone (1) |
+
+After the first reading the forms were narrowed: no run of digits after a letter, an underscore,
+a dash, a slash or "=", no spaced "@", "at ... dot" only after "email", no "in their 20s", no age
+limit. After the second, the "@ with no domain ending" form was dropped and "&" added to the age
+limits. Of the 84 texts with a number in the two readings, 79 gave an agency's or organization's
+line, 5 a line under an official's or staff member's name, and none a private person's own.
+
+**A first rebuild failed its own check.** The record layer is scanned with every pattern too, and
+the added phone patterns matched segments of FEMA's record ids, an EAS header's purge time before
+its day and time, and a circle's radius with ten decimals. The patterns were fixed (a country code
+is "+1" or "1" with a separator, or a bare 1 only before ten digits together; never "1." before
+ten digits; no letters form after a dash), each case has a test on an invented value, and the
+newly withheld counts did not move.
+
+**Before and after.** The rules newly withhold 107 real alerts and 9 tests:
+
+| | real alerts | tests |
+|---|---:|---:|
+| newly withheld | 107 (all under hazard codes) | 9 |
+| by reason: a detail pattern / the description rule | 96 / 11 | 9 / 0 |
+| by kind of sender | local 95, state 7, federal 4, tribal 1 | local 7, state 2 |
+| `phone_any_form` fires / alone | 45 / 43 | 8 / 8 |
+| `phone_seven` | 40 / 40 | 1 / 1 |
+| `phone_letters` | 7 / 7 | 0 |
+| `age_any_form` | 6 / 4 | 0 |
+| `person_described` | 12 / 11 | 0 |
+| `email_any_form`, `height_weight_any_form`, `phone_international` | 0 | 0 |
+| already withheld, now also keeping only the hour and the county (they describe a person) | 146 (143 under hazard codes) | 2 |
+
+The description rule fires on 7,352 real alerts and 10 tests in all, nearly all of them already
+withheld as about people. Three real alerts withheld as about a missing person alone are now
+also withheld by a detail pattern (the reason names the first rule that applies). On 7,606 more
+withheld messages only the list of pattern names changes, by an added name.
+
+**Version 1's release view.** Version 1's codes can no longer be computed (the code version 1
+was coded with is gone), but the record and text layers do not depend on the codes: the builds of
+version 1, version 2 and version 3 hold the same record and text layers byte for byte. So the
+record and text layers were rebuilt with the widened rules, and the release takes version 1's
+`codes` table from version 1's build (`release build --codes-from`, which stops unless both
+builds code the same units). Against version 1's build, the rebuild changes only rows of the
+messages newly withheld or newly coarsened: 7,851 messages rows (pattern names 7,851, times 158,
+reasons 110, shapes 86), 166 infos rows (times), 120 areas rows (shapes), 42 references rows
+(times), 139 threads rows (times); in the tests, 19, 2, 12, 0 and 2. Text rows leave only for
+messages newly withheld. The released `codes` table is byte for byte the one released before.
+Any later rebuild of a version's tables must show the same: every frozen code column unchanged by
+hash, the new rules moving only rows they withhold or coarsen.
+
+**Release 0.1.0 rebuilt** (15 files, 500,009 rows, 34.7 MB; before 500,139 rows): real alerts
+with text 16,814 (local 12,917, state 3,419, federal 219, territorial 219, tribal 24, unknown 16),
+tests with text 48,125. Withheld real alerts 13,885: a people code 8,860, a detail pattern 4,999,
+about a missing person alone 15, describing a person alone 11; under hazard codes 3,945, under
+other codes 9,940. Real alerts keeping only the hour and the county: 12,384.
+
+**A reading of what is left.** After the rebuild a background reader read a seeded random sample
+of the released text (seeds 20261121 and 20261122): 300 of the 16,814 real alerts with text and
+100 of the 48,125 tests with text, for a phone number or an email address in any form, a
+description of a person, and a private individual named without being described.
+
+| sample | texts | phone or email | described | private individual named | none of these |
+|---|---:|---:|---:|---:|---:|
+| real alerts | 300 | 0 | 0 | 0 | 300 |
+| tests | 100 | 0 | 0 | 0 | 100 |
+
+Not counted: three-digit public service numbers (911 and 511, in digits, with dashes or in words;
+18 real alerts and 2 more naming the 911 service), an agency's six-digit text short code (1 test),
+officials named in their role, and personal names that are part of a road or school name. No
+second round was needed. Zero in 300 bounds the share of released alert texts that still hold
+such a detail at about 1% (95%), and zero in 100 the tests' at about 3%; the rules can still let a
+rare form through, which the card says, with the removal route.
+
+**Counted, not changed.** Street addresses with a house number are in 1,229 released alert text
+rows (1,228 of them in `text_other`) and 8 test rows, and "the N block of" in 135; the reader saw
+them for shelters, distribution points, siren sites and incidents. Tokens of letters and digits
+that could be plates, with no plate word, are in about 800 alert rows and 505 test rows, nearly
+all of them codes and identifiers.
