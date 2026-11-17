@@ -701,12 +701,33 @@ def _norm(text: str | None) -> str:
     return " ".join((text or "").lower().split())
 
 
-def code_rows(u: Unit, i: Info, k: int) -> list[dict[str, Any]]:
+#: The codebook versions a build can code with: version 2 (``codes``, the default) and the
+#: draft version 3 (``codes_v3``). Version 1 lives only in the tables built with it.
+CODEBOOK_VERSIONS = ("2", "3")
+
+
+def coder(version: str):
+    """The module that codes a codebook version."""
+    if version not in CODEBOOK_VERSIONS:
+        raise ValueError(
+            f"Codebook version {version!r} cannot be built; choose one of {CODEBOOK_VERSIONS}."
+        )
+    if version == "3":
+        from warntext import codes_v3
+
+        return codes_v3
+    return cd
+
+
+def code_rows(
+    u: Unit, i: Info, k: int, codebook_version: str = cd.CODEBOOK_VERSION
+) -> list[dict[str, Any]]:
     """The codes of one language block's units (record layer: codes only, never text).
 
     Units are the 90-character phone text, the 360-character phone text and the full text
     (headline, description, instruction); a unit the block does not have gets no row.
     """
+    rules = coder(codebook_version)
     spanish = i.language.lower().startswith("es")
     texts = {
         "wea90": i.wea_short,
@@ -723,14 +744,14 @@ def code_rows(u: Unit, i: Info, k: int) -> list[dict[str, Any]]:
     for unit, text in texts.items():
         if not text or not text.strip():
             continue
-        c = cd.code_unit(unit, text, ctx, spanish=spanish)
+        c = rules.code_unit(unit, text, ctx, spanish=spanish)
         row = {
             "message_id": u.message_id,
             "info_index": k,
             "unit": unit,
             "record_id": u.first.record_id,
             "source": ENDPOINT,
-            "codebook_version": cd.CODEBOOK_VERSION,
+            "codebook_version": codebook_version,
             "language": i.language,
             "coded": c.coded,
             "not_coded_reason": c.not_coded_reason,
@@ -753,8 +774,11 @@ def build(
     overrides: Mapping[int, sd.Override] | None = None,
     fema: Mapping[int, au.Authority] | None = None,
     name_review: Mapping[tuple[int | None, str], str] | None = None,
+    codebook_version: str = cd.CODEBOOK_VERSION,
 ) -> Build:
     """Apply every rule to the parsed records and return the rows of every table.
+
+    ``codebook_version`` chooses the content codes' rules (``CODEBOOK_VERSIONS``).
 
     ``overrides`` are the hand overrides by alerting authority, and ``fema`` is FEMA's list of
     alerting authorities; by default both are the tracked files shipped with the package
@@ -1167,7 +1191,7 @@ def build(
             if not withheld:
                 t[text_table_for(u.kind)].append(text_row(u, i, k))
             if u.config == "alerts":
-                t["codes"].extend(code_rows(u, i, k))
+                t["codes"].extend(code_rows(u, i, k, codebook_version))
         same_geos = sorted(set(geos))
         states, counties = measures.places(same_geos)
         p = _primary(m) if m else None

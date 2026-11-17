@@ -441,3 +441,29 @@ def test_missing_person_and_people_code_rows_keep_the_hour_and_the_county_only()
     assert t["eas_headers_coarsened"] == 1
     private = {(x["message_id"], x["field"]): x["value"] for x in b.people_times}
     assert private[("m1", "EASHeader")] == header
+
+
+def test_a_build_codes_with_the_codebook_version_it_is_given():
+    from warntext import codes as cd
+    from warntext import codes_v3
+
+    rec = record(
+        invented(
+            identifier="EX-V3",
+            sender=COUNTY,
+            sent="2021-05-01T10:00:00-05:00",
+            headline="Invented headline",
+            parameters=(("CMAMtext", "Obey all traffic laws and drive with care."),),
+        ),
+        "rv3",
+    )
+    by_version = {}
+    for version in ("2", "3"):
+        b = tables.build(tables.parse_records([(Line(), rec)]), codebook_version=version)
+        rows = {r["unit"]: r for r in b.tables["alerts"]["codes"]}
+        assert {r["codebook_version"] for r in rows.values()} == {version}
+        by_version[version] = rows["wea90"]["hazard"]
+    assert by_version == {"2": True, "3": False}
+    assert tables.coder("2") is cd and tables.coder("3") is codes_v3
+    with pytest.raises(ValueError, match="cannot be built"):
+        tables.coder("1")

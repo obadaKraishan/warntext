@@ -39,6 +39,7 @@ from typing import Any
 from warntext import authorities as au
 from warntext import backfill as bf
 from warntext import check as ck
+from warntext import codes as cd
 from warntext import probe, tables
 from warntext.sample import NWS_SENDER
 
@@ -327,9 +328,15 @@ def run_update(
 
 
 def rebuild_from_state(
-    state_path: Path | str, raw_root: Path | str, out_dir: Path | str, private_dir: Path | str
+    state_path: Path | str,
+    raw_root: Path | str,
+    out_dir: Path | str,
+    private_dir: Path | str,
+    codebook_version: str = cd.CODEBOOK_VERSION,
 ) -> dict[str, Any]:
     """Rebuild both layers from every raw folder the state lists, with no request.
+
+    ``codebook_version`` chooses the content codes' rules; the default is the current version.
 
     It uses the FEMA list the last run saved (or the packaged snapshot), and checks the tables
     against the state's year counts. The state is not changed.
@@ -340,7 +347,11 @@ def rebuild_from_state(
     if list_name:
         path = Path(state_path).parent / "authorities" / list_name
         fema = au.parse_csv(path.read_text(encoding="utf-8"))
-    build = tables.build(tables.parse_records(records(raw_root, state["raw_folders"])), fema=fema)
+    build = tables.build(
+        tables.parse_records(records(raw_root, state["raw_folders"])),
+        fema=fema,
+        codebook_version=codebook_version,
+    )
     written = tables.write(build, out_dir, private_dir)
     year_counts = {int(y): n for y, n in state["year_counts"].items()}
     failures = ck.check(

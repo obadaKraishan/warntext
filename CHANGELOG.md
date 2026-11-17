@@ -105,6 +105,9 @@ All notable changes to this project are recorded here. The format follows
   resolution where the two passes differed) and the rules of one or more builds against them, as
   development figures. Open answers are left out and counted, and each code gets a bootstrap
   interval.
+- `warntext update --rebuild --codebook-version 3`: a build can code with the draft version 3
+  rules into its own folder. The default is still version 2, and version 1 is kept only in the
+  tables built with it.
 
 ### Changed
 - Messages with a people code carry their times rounded down to the hour in the record layer

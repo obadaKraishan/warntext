@@ -224,3 +224,13 @@ def test_rebuild_from_state_needs_no_request_and_keeps_the_state(world):
     assert r["check"] == "passed" and r["records"] == 5
     assert r["fema_list"] == "alerting_authorities-2026-11-18.csv"
     assert update.read_state(world["state"]) == before
+    import pyarrow.parquet as pq
+
+    r3 = update.rebuild_from_state(
+        world["state"], world["raw"], world["tmp"] / "t3", world["tmp"] / "p3", "3"
+    )
+    assert r3["check"] == "passed"
+    versions = pq.read_table(world["tmp"] / "t3" / "alerts" / "codes.parquet").column(
+        "codebook_version"
+    )
+    assert set(versions.to_pylist()) <= {"3"}

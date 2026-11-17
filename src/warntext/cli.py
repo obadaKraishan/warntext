@@ -516,7 +516,9 @@ def cmd_update(args: argparse.Namespace) -> int:
         print(f"State started at {args.state}: raw {args.init}, window end {until}.")
         return 0
     if args.rebuild:
-        result = up.rebuild_from_state(args.state, args.raw_root, args.out, args.private)
+        result = up.rebuild_from_state(
+            args.state, args.raw_root, args.out, args.private, args.codebook_version
+        )
         failures = result.pop("failures")
         build_summary = result.pop("summary")
         out = Path(args.summary)
@@ -844,6 +846,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-list", action="store_true", help="keep the packaged FEMA list")
     p.add_argument(
         "--rebuild", action="store_true", help="rebuild from the state's raw folders, no request"
+    )
+    p.add_argument(
+        "--codebook-version",
+        default=tb.CODEBOOK_VERSIONS[0],
+        choices=tb.CODEBOOK_VERSIONS,
+        help="with --rebuild: the content codes' rules (3 is a draft, built into its own folder)",
     )
     p.add_argument("--init", nargs="+", help="start the state from these raw folders, no calls")
     p.add_argument("--counts", nargs="*", help="with --init: backfill-counts files")
