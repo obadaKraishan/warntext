@@ -213,3 +213,15 @@ def test_every_added_pattern_skips_what_the_first_ones_match():
     for text in ("Call 555-555-0123.", "Write someone@example.org.", "A 12-year-old."):
         added = [n for n in names(text) if n not in patterns.FIRST_RELEASE]
         assert added == [], text
+
+
+def test_codes_ids_and_numbers_of_the_record_layer_are_not_phone_numbers():
+    for text in (
+        "ZCZC-CIV-CEM-048201-048203+1200-3191547-EXAMPLE1-",  # a purge time before the day
+        "30.1234,-97.5678 1.2345678901",  # a circle's radius with ten decimals
+        "abcdefab-1800-4bcd-a12b-0123456789ab",  # an invented record id
+        "abcdefab-1888-9a9a-a12b-0123456789ab",
+    ):
+        assert names(text) == [], text
+    assert names("Invented: call +1 5555550123 now.") == ["phone_any_form"]
+    assert names("Invented: call 1 555 5550123 now.") == ["phone_any_form"]

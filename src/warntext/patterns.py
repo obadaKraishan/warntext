@@ -86,14 +86,19 @@ _NAME = r"(?-i:[A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+)"
 
 #: Ten digits in any other written form: any separators (several, a line end, other dashes, a
 #: slash) between the three parts; the area code in brackets with any separator or none; or one
-#: or no separator in North American shape; with +1 or 1 before it or not. Not a run of digits
-#: inside a word or a link's file name (after a letter, an underscore, a dash, a slash or "=",
-#: or before a letter).
+#: or no separator in North American shape. A country code is "+1" or "1" with a separator
+#: before it, or a bare "1" only before ten digits written together, so a purge time ("+1200")
+#: before an EAS header's day and time does not read as one, nor does a decimal ("1." then ten
+#: digits). Not a run of digits inside a word or a link's file name (after a letter, an
+#: underscore, a dash, a slash or "=", or before a letter).
+_CC = rf"\+?1{_S}{{1,3}}"
 _PHONE_ANY = (
-    rf"(?<![\w.\-/=])(?!{_PHONE})(?:\+?1{_S}{{0,3}})?"
-    rf"(?:(?:\(\s*\d{{3}}\s*\){_S}{{0,3}}|\d{{3}}{_S}{{1,3}})\d{{3}}{_S}{{1,3}}\d{{4}}"
-    rf"|\(\s*\d{{3}}\s*\){_S}{{0,3}}\d{{3}}{_S}{{0,3}}\d{{4}}"
-    rf"|{_NANP}{_S}?{_NANP}{_S}?\d{{4}})(?![\w])"
+    rf"(?<![\w.\-/=])(?!{_PHONE})(?!1\.\d)(?:"
+    rf"(?:{_CC}|\+1)?(?:(?:\(\s*\d{{3}}\s*\){_S}{{0,3}}|\d{{3}}{_S}{{1,3}})\d{{3}}{_S}{{1,3}}\d{{4}}"
+    rf"|\(\s*\d{{3}}\s*\){_S}{{0,3}}\d{{3}}{_S}{{0,3}}\d{{4}})"
+    rf"|(?:\+?1)?{_NANP}[2-9]\d{{6}}"
+    rf"|(?:{_CC})?{_NANP}{_S}?{_NANP}{_S}?\d{{4}}"
+    r")(?![\w])"
 )
 #: Seven digits with a dot or a dash (a local number without its area code), or with a space
 #: after a word that asks to call; not a span of clock times ("830-1130 am").
@@ -106,10 +111,10 @@ _PHONE_SEVEN = (
 #: Letters for digits: a toll-free area code then letters (1-800-INVENTED), or a number in
 #: three parts joined by dashes or dots with letters in the last parts (555-HELP-NOW).
 _PHONE_LETTERS = (
-    rf"(?<![\w.])(?:\+?1{_D}?)?(?:\(\s*{_TOLL_FREE}\s*\)|{_TOLL_FREE}){_D}"
-    rf"(?=[A-Za-z0-9.\-]*[A-Za-z])[A-Za-z0-9]{{3,4}}{_D}?[A-Za-z0-9]{{3,6}}\b"
-    rf"|(?<![\w.])(?:1{_D})?(?![2-9]11\b){_NANP}{_D}(?=[A-Z0-9.\-]*[A-Z])[A-Z0-9]{{3,4}}{_D}"
-    r"[A-Z0-9]{4,5}\b"
+    rf"(?<![\w.\-/=])(?:\+?1{_D})?(?:\(\s*{_TOLL_FREE}\s*\)|{_TOLL_FREE}){_D}"
+    rf"(?=[A-Za-z0-9.\-]*[A-Za-z])[A-Za-z0-9]{{3,4}}{_D}?[A-Za-z0-9]{{3,6}}\b(?!-)"
+    rf"|(?<![\w.\-/=])(?:1{_D})?(?![2-9]11\b){_NANP}{_D}(?=[A-Z0-9.\-]*[A-Z])[A-Z0-9]{{3,4}}"
+    rf"{_D}[A-Z0-9]{{4,5}}\b(?!-)"
 )
 #: A number with a plus and another country code, eight digits or more.
 _PHONE_INTERNATIONAL = (
