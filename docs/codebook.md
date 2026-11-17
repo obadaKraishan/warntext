@@ -14,6 +14,10 @@ first sheet has been read to build version 2, so its scores for version 2 are a 
 figure, not a check. On the second sheet only `time` reached .80, and `hazard` did not, so no code
 of version 2 is released: version 0.1.0 of the dataset carries version 1's codes.
 
+**Version 3 (DRAFT, section 9)** changes the rules where a second pass over the second sheet
+showed a rule fault, keeps version 2's reading wherever a definition is still open, and waits for
+a third blind sheet. It is not released.
+
 The definitions below are this project's own words. Each says which study it follows; none
 copies a study's wording, statements or templates. Every example is invented: the places,
 agencies and roads in them do not exist.
@@ -541,7 +545,125 @@ The counts are over all 71,408 coded units of version 2's tables, each read wher
 | A "City of X:" opener read as a location (codebook 2.2) | 23 | 10 | 5 | 38 |
 | A clock time in a promised update read as time (codebook 2.3) | 1 | 3 | 2 | 6 |
 
-## 9. References
+## 9. Version 3 (DRAFT): what changed and why
+
+**DRAFT for the maintainer's review. Not released.** Version 3 of the rules
+(`src/warntext/codes_v3.py`, `CODEBOOK_VERSION = "3"`) is built into its own tables
+(`warntext update --rebuild --codebook-version 3`), never into a release. Release 0.1.0 carries
+version 1's codes, and every content code there stays experimental. Version 3's check is a third
+blind sheet, drawn from its tables and not yet coded (method, section 19).
+
+**Why a version 3.** The second sheet compared version 2 with one pass by one coder, so a
+difference could be a rule fault or a coding slip. A second blind pass by the same coder over the
+rows that differed, and a resolution list for the answers where his two passes disagreed, sorted
+the 81 differing answers (method, section 19):
+
+| | answers | share |
+|---|---:|---:|
+| coding slips (the consolidated answer is the rules') | 11 | 14% |
+| rule faults: the rules missed a clear case | 49 | 60% |
+| rule faults: the rules over-read a clear case | 12 | 15% |
+| the definition does not settle the case | 9 | 11% |
+
+**How it is built.** Version 2's module is frozen; version 3 reuses its patterns and replaces only
+the functions that change. Every change has a name (`codes_v3.CHANGES`), rests on a general
+pattern and a section of this codebook, and is tested on invented messages (each test codes the
+message with the change and without it). With no change switched on, version 3 codes every one
+of the 84,598 units exactly as version 2. No rule was written for one text, and nothing was
+changed for a case the definitions leave open.
+
+**The changes**, with the units each one moves among the real alerts' units (version 3 against
+version 3 without that change; "+" to yes, "-" to no). Changes overlap, so the counts do not add
+up to the total.
+
+| change | what changes | codebook | units it moves |
+|---|---|---|---|
+| `lang` | A text not in English is not coded, whatever the language: a text mostly in another script, or one where at least three common words of another language make 40% or more of that language's and English's common words together. A Spanish place name or a short "En español" line keeps a text English. Spanish is named as before (`spanish_text`); other languages are `other_language`. | 1 | 574 units move between coded and not coded |
+| `cut` | A name found as a speaker or an organization never runs across a line break or a sentence end, so a title line or the next sentence is not blanked with it ("From Sampleton County EM. Hail expected tonight." keeps the hail). | 1 and 2.4 | hazard +60; description +14; source +94 / -199; guidance +21; time +18 / -1; location +34 / -9 |
+| `opener_from` | In an opener such as "Wildfire Warning from Exville Sheriff:", only the agency is the organization; the hazard words stay. | 2.4 | hazard +201; description +15; location +12 |
+| `initials` | Initials are a short capitalized token that is not a word the rules know (English, alert, hazard, verb or generic words), or a mixed token with a lowercase letter ("RivCo"); an all-caps word such as "MANDATORY" or "SEVERE" is not initials, and a hazard phrase in an opener ("DAM FAILURE-") is not a speaker. "City of X" stays one organization. | 2.4 | hazard +62 / -17; description +48; source -619; guidance +89 / -11; time +7; location +25 / -145 |
+| `bare_fire` | "Fire" after a fire's qualifier ("brush fire", "veg fire") is a fire, not a fire department. | 2.4 | hazard +22; description +5; source -41; guidance +1; location +2 / -3 |
+| `verb_case` | In a mixed-case text, a capitalized word after a name ("Oak Fire Evacuation Order") is a noun, not a speaking verb. | 2.4 | hazard +139; description +3; source -323; guidance -3; location +6 |
+| `signature` | A closing "- X" that holds a verb or a function word ("- Cell phones still work") is no signature, and in an all-caps text a signature needs an agency word or a known acronym. | 2.4 | hazard +45; description +9; source -225; guidance +118; time +26; location +92 |
+| `stamp` | Initials, then a date or a time, then a colon open the text as its speaker ("EXSD 6/1 2:10 PM:"); "-SD" (a sheriff's department) is an agency ending. | 2.4 | source +66; location +2 |
+| `place_acronym` | "Sampleton County OES" (a place, County, Co., City, Parish ... and an agency acronym) is one organization: the speaker when it opens the text or stands alone on a line, and never a place. | 2.4 and 2.2 | source +99; guidance -10; location -49 |
+| `lines` | Each line of the full text may open with its speaker (a headline, then "NWS: ..."), and a semicolon closes an opener like a colon. | 2.4 | hazard -5; source +378; guidance -3; location -54 |
+| `by` | "Issued by", "sent by", "authorized by", "test by" ... name the speaker, as "from" and "this is" do. | 2.4 | hazard -3; source +155; location -11 |
+| `start_org` | A name and an agency word or acronym that start the text, followed by an opener's punctuation or a speaking verb ("EXC Health Officer has an order ...", "Exville sheriff issuing ..."), name the speaker; an agency only acting ("Exville Police are at the scene") is read as version 2 reads it (question 6). | 2.4 | source +152; time -1; location -7 |
+| `bare_place` | A bare place opener ("Exville:") is written as the speaker: it is the source and, as settled, not a location. Alert, hazard, road, time and generic words ("Update:", "Attention:") are not places. | 2.4 and 2.2 | hazard -4; source +460; location -42 |
+| `message_opener` | An opening sentence of a jurisdiction or an agency and a message word ("Sampleton Boro message.") names the speaker; "Boro" and "Co." are jurisdiction words. | 2.4 | hazard -4; description -1; source +18; location -23 |
+| `alert_system` | An alert system's name at the start ("Alert Exville -", "Exville Alerts:") names the speaker's system, so it is the source, and its place is not a location. A message title ("Travel Alert:") is neither. | 2.4 and 2.2 | source +40; location -14 |
+| `traffic_alone` | "Traffic" alone ("obey traffic laws") names no threat; a crash or a closed road still does. | 2.1 | hazard -481; description -279 |
+| `hazard_words` | Rising water and floodgates, demolition, "LE activity" (as "law enforcement activity" already counts) and a tropical storm written "T.S. X" are named hazards. | 2.1 | hazard +79; description +25 |
+| `caused` | A closure, curfew, cancellation, outage or delay due to a named hazard is what the hazard causes (the guide's edge case of a closure due to flooding, in either word order within a clause). | 3.1 | description +294 |
+| `extent` | "Imminent", "widespread", "in various areas", and "to affect" ("potential for a debris flow to affect homes") say how soon, how big or what it can cause. | 3.1 | description +256 |
+| `on_roads` | A hazard over or on the roads ("flooding over roadways") says where it is and what it affects. | 3.1 | description +44 |
+| `caution` | A clause that opens with "caution" or "careful" is an instruction. | 2.5 | guidance +27 |
+| `verbs` | "Disperse" and "store" are protective verbs; evacuations issued or ordered, and "detoured", are instructions as nouns (version 2 counted "detour"). | 2.5 | guidance +59 |
+| `now_in_effect` | "Now in effect" says when: the definition counts "now". | 2.3 | time +60 |
+| `about` | "In about 30 minutes" and "throughout the night" say when or for how long. | 2.3 | time +38 |
+| `while` | An instruction for as long as something lasts ("avoid Oak Road while crews work") gives how long, as "until" does. | 2.3 | time +101 |
+| `immediate_help` | "Immediate assistance" and "immediate danger" name a kind of help or danger, not when to act. | 2.3 | time -145 |
+| `caps_clauses` | An all-caps clause of a mixed-case text is read for place names as an all-caps text is. | 2.2 | location +9 |
+| `roads` | "IH 35", "IH35W", "I 69", mile markers and intersections ("X @ Y", "at S 4th & Elm") are roads. | 2.2 | location +439 |
+| `place_words` | Words of the message's area descriptions that are alert or season words ("winter", "weather", "advisory") are not place names. | 2.2 | location -133 |
+| `not_places` | "Wireless", "various", "several" and like words after "of" or "in" are not a place's name. | 2.2 | location -47 |
+| `particles` | A place name may start with a short particle: El, La, Los, St., Mt., Ft. ("near El Oakito"). | 2.2 | location +35 |
+
+**Version 2 to version 3 in all** (units coded by both versions): hazard +697 / -549; description +738 / -274; source +1376 / -1700; guidance +412 / -30; time +304 / -146; location +715 / -526; 574 units move between coded and not coded.
+
+**Held back, waiting for an answer.** One change is written and tested but left out of version 3,
+so version 3 keeps version 2's reading there: `orders`, "an order or a ban alone (a curfew, a
+stay-at-home order, a burn ban) is no hazard". The two sheets disagree on it. On the first sheet,
+coded with the earlier guide, such texts were coded as a hazard four times; on the second, after
+the resolution, a curfew was not a hazard twice and a stay-at-home order once. Switched on, it
+would move hazard -907; description -84.
+
+**Questions the definitions leave open.** Each comes with invented examples. Version 3 keeps
+version 2's reading for each until it is answered.
+
+| | code | question | invented examples |
+|---|---|---|---|
+| 1 | time | Is the hour at which an order ended or changed "until when it lasts", or the time something already happened? | "The evacuation order for Oak Hills was lowered to a warning at 3 PM." "The boil water notice for Exville is no longer in effect as of 6 PM Friday." |
+| 2 | time | Is the end of a danger with no hour ("is over", "has ended", "crews are still at work") time? | "The gas leak on Elm Street is over. You may go home." "The order for Oak Road is now a warning; crews are still at work." |
+| 3 | time | Is a state that goes on, with no end given, time, like "until further notice"? | "A smoke advisory remains in place for Exville." "Bridge work in progress on Oak Road." |
+| 4 | hazard | Is a vague event label a named hazard? (Version 2 counts "police activity".) | "The police event on Oak Road is over." "An incident on Route 9 has been cleared." "Traffic emergency on Elm Road." |
+| 5 | hazard description | Is what is being done about the hazard part of its description? | "Gas will be shut off on Oak Road shortly; repairs will follow." |
+| 6 | source | Is an organization named as the one acting, not as the speaker, the source? | "Exville County will offer free flu shots at the fairgrounds on Saturday." "Exville Police are at the scene on Oak Road." |
+| 7 | guidance | Is a fact that tells people what still works, or what to use instead, guidance? | "Landline 911 is down in Exville. Cell phones can still reach 911." |
+| 8 | location | Is an area named only after the hazard, or a district word, a named place? | "Some Oak Fire areas must leave now." "All residents must leave downtown now." |
+| 9 | hazard | Is an order or a ban with no threat named a hazard? | "A curfew is in effect from 9 PM to 6 AM." "Burn ban in Exville County." |
+
+The rules that wait: question 9 is the held change `orders`; for question 6, `start_org` needs a
+speaking verb or an opener's punctuation; for question 4, version 2's hazard words stay, and if a
+qualified label such as "traffic emergency" is to count, `traffic_alone` needs that exception;
+for questions 1 to 3, 5, 7 and 8 version 2's rules stay as they are.
+
+**The language check** takes 572 units out of the coded set (554 read as Spanish, 18 as another
+language) and codes 2 that version 2 left out as Spanish: 70,838 coded units instead of 71,408.
+
+**Development figures, not a check.** Both sheets were read to build version 3, so these figures
+show how well the rules learned those texts, not how well they code new ones. Version 2 scored
+0.93 to 0.97 on the first sheet, which built it, and 0.55 to 0.82 on the second, fresh one.
+
+| code | sheet 1, version 2 | sheet 1, version 3 | sheet 2 (consolidated), version 2 | sheet 2 (consolidated), version 3 |
+|---|---:|---:|---:|---:|
+| hazard | 0.95 | 0.95 | 0.67 | 0.90 |
+| hazard description | 0.93 | 0.93 | 0.75 | 0.95 |
+| source | 0.96 | 0.96 | 0.61 | 0.96 |
+| guidance | 0.93 | 0.93 | 0.79 | 1.00 |
+| time | 0.93 | 0.93 | 0.87 | 0.98 |
+| location | 0.97 | 0.97 | 0.55 | 0.86 |
+
+On the first sheet, version 3 codes every row as version 2 does. On the second, what still
+differs is mostly what waits for an answer: three orders and one vague label (hazard), a state in
+progress (time), and a place named after a fire and a district word (location). The rest are a
+few narrow forms the rules still miss: a sign-off joined to the text by a dash and a tribal
+nation's name before an alert title (source); county initials as a place, a place before
+"Evacuation", and a capitalized word in a title-case headline read as a place (location); and a
+list of precipitation types, and a cause whose abbreviation ("T.S.") ends a clause (description).
+
+## 10. References
 
 - Kuligowski, E. D., Waugh, N. A., Sutton, J., & Cova, T. J. (2023). Ember alerts: Assessing
   wireless emergency alert messages in wildfires using the warning response model. *Natural

@@ -212,4 +212,8 @@ All notable changes to this project are recorded here. The format follows
   narrower pattern rule would release, and the live check of the rebuild), schema (the credit
   columns), automation (a second dry run, and why its pack could not be built with the version-1
   statuses).
+- Codebook: section 9, version 3 (DRAFT). The 81 differences of the second sheet by cause; every
+  change with its reason and the units it moves; the held change and nine open questions with
+  invented examples, and which rules wait for them; the language check; development figures on
+  both sheets. References are now section 10.
 
