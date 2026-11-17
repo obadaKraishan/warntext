@@ -68,7 +68,7 @@ CASES = [
     ("verbs", "Store water in case of an outage.", "guidance", True),
     ("verbs", "The sheriff is issuing evacuations for Oak Hills.", "guidance", True),
     ("verbs", "Northbound traffic is detoured onto Elm St.", "guidance", True),
-    ("now_in_effect", "An evacuation warning is now in effect for Oak Hills.", "time", True),
+    ("now_in_effect", "A warning to leave Oak Hills is now in effect.", "time", True),
     ("about", "The siren on Oak Road will sound in about 30 minutes.", "time", True),
     ("about", "Heavy rain throughout the night in Exville.", "time", True),
     ("while", "Avoid Oak Road while crews repair the main.", "time", True),
