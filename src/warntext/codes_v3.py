@@ -54,17 +54,24 @@ CHANGES: tuple[tuple[str, str, str], ...] = (
     ("place_words", "location", "alert and season words of the area descriptions are no places"),
     ("not_places", "location", "'Wireless', 'various' and like words are not place names"),
     ("particles", "location", "place names may start with El, La, Los, St., Mt., Ft. ..."),
+    # The answers to the nine open definitions (codebook section 9).
+    ("orders", "hazard", "an order or ban alone (curfew, burn ban, boil water) is no hazard"),
+    ("kind_label", "hazard", "a generic event noun with a kind word ('police event') is a hazard"),
+    ("message_label", "hazard", "kind and message words ('health advisory') name no hazard"),
+    ("shut_off", "hazard", "a utility shut off ('gas will be shut off') is an outage, the event"),
+    ("responders", "hazard_description", "what responders do ('removed') is no description"),
+    ("own_name", "source", "the sender's own name counts only where written as the one speaking"),
+    ("still_works", "guidance", "what still works ('can still call 911') is a fact"),
+    ("order_changed", "time", "the time at which an order ended or changed is not time"),
+    ("time_word", "time", "'will continue', 'expected to' and like verbs need a time expression"),
+    ("hazard_names", "location", "a name used only as the hazard's ('Oak Fire areas') is no place"),
+    ("named_landmark", "location", "a landmark counts only named ('Oak Creek', not 'the creek')"),
+    ("district_name", "location", "a district word and a name ('downtown Exville') is a place"),
+    ("dotted", "hazard_description", "dotted initials ('T.S. Exia') end no clause"),
 )
 ALL = frozenset(name for name, _, _ in CHANGES)
-#: Changes written but held back: each waits for an answer on an open definition, so version 3
-#: keeps version 2's answer there. They can be switched on to count what they would move.
-HELD: tuple[tuple[str, str, str], ...] = (
-    (
-        "orders",
-        "hazard",
-        "an order or ban alone (curfew, stay-at-home order, burn ban) is no hazard",
-    ),
-)
+#: Changes written but held back for an open definition (none since the nine were answered).
+HELD: tuple[tuple[str, str, str], ...] = ()
 KNOWN = ALL | frozenset(name for name, _, _ in HELD)
 
 # --- language ----------------------------------------------------------------------------
@@ -604,10 +611,41 @@ _ALERT_SYSTEM = re.compile(
     v2._LEAD_STAMP + r"((?:Alert\s+[A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)?)|(?:[A-Z][\w'-]+\s+Alerts))"
     r"(?=\s*(?:[:\-\u2013\u2014|]|$))"
 )
+#: Orders and bans: they say what to do, not what the danger is (answer 9). Vaccination and
+#: testing sites, which the held draft of this rule also took out, are neither and stay hazards.
 _ORDERS = _rx(
     r"\b(?:curfews?|stay[- ]at[- ]home(?:\s+orders?)?|isolation\s+orders?|"
-    r"quarantine(?:\s+orders?)?|vaccin\w+|testing\s+sites?|burn\s+bans?|"
-    r"burn(?:ing)?\s+restrictions|fire\s+bans?)\b"
+    r"quarantine(?:\s+orders?)?|burn\s+bans?|"
+    r"burn(?:ing)?\s+restrictions|fire\s+(?:bans?|restrictions)|"
+    r"boil\s+(?:water\s+)?(?:notices?|advisor(?:y|ies)|orders?)|boil\s+water|"
+    r"do\s+not\s+drink(?:\s+(?:notices?|advisor(?:y|ies)|orders?))?|"
+    r"(?:public\s+)?health\s+orders?|lockdown|lock\s+down|water\s+(?:restrictions?|conservation)"
+    r"(?:\s+(?:notices?|advisor(?:y|ies)|orders?))?)\b"
+)
+#: The same orders as instructions stated as nouns (answer 9: they are guidance).
+_ORDERS_GUIDANCE = _rx(
+    r"\b(?:curfews?|quarantine(?:\s+orders?)?|isolation\s+orders?|burn(?:ing)?\s+restrictions|"
+    r"fire\s+restrictions|stay[- ]at[- ]home(?:\s+(?:orders?|advisor(?:y|ies)))?|"
+    r"(?:public\s+)?health\s+orders?|water\s+conservation\s+(?:notices?|orders?))\b"
+)
+#: A generic event noun with a word that gives its kind (answer 4).
+_KIND_LABEL = _rx(
+    r"\b(?:police|law\s+enforcement|sheriff'?s?|swat|traffic|medical|hazmat|haz-mat|"
+    r"hazardous\s+materials?|gas|utility|electrical|rail(?:road)?|train|aircraft|aviation|"
+    r"marine|boating|sewer|industrial|military|security)\s+(?:events?|activity|activities|"
+    r"incidents?|emergenc(?:y|ies)|situations?|operations?)\b"
+)
+#: A kind word and a word for the message itself (answer 4): no threat is named.
+_MESSAGE_LABEL = _rx(
+    r"(?:public\s+)?health\s+(?:alerts?|advisor(?:y|ies)|warnings?|notices?)|"
+    r"weather\s+(?:alerts?|warnings?)|water\s+(?:advisor(?:y|ies)|notices?|alerts?)"
+)
+#: A utility shut off: an outage, the event itself (answer 5).
+_SHUT_OFF = _rx(
+    r"\b(?:natural\s+gas|gas|water|power|electricity|electric(?:al)?\s+service|utilit(?:y|ies))"
+    r"\s+(?:(?:will|may|is|are|has|have|was|were)\s+(?:be\s+|been\s+|being\s+)?)?"
+    r"(?:shut\s?off|shut\s+down|turned\s+off|disconnected|interrupted|cut\s+off)\b|"
+    r"\b(?:gas|water|utility)\s+shut[- ]?offs?\b"
 )
 #: "Traffic" alone is not a threat: "obey traffic laws", "traffic control".
 _TRAFFIC = _rx(r"\btraffic\b")
@@ -680,6 +718,172 @@ _NAMED_PLACE3 = re.compile(
     r"downtown|greater|unincorporated|old)\s+)?"
     r"((?:El|La|Las|Los|Le|De|Du|St\.?|Mt\.?|Ft\.?|Pt\.?)\s+[A-Z][a-z]{2,}(?:[\s-][A-Z][a-z]{2,}){0,2})"
 )
+
+#: Version 2's characteristics without what responders do about a hazard (answer 5).
+_REMOVED = r"(?:safely\s+)?removed|"
+assert _REMOVED in v2._CHARACTERISTICS.pattern
+_CHARACTERISTICS3 = _rx(v2._CHARACTERISTICS.pattern.replace(_REMOVED, ""))
+#: Where the sender's own name is written as the one speaking (answer 6): after a speaker cue,
+#: before a speaking verb or an announcement, as the opener, or as a closing signature.
+_OWN_CUE = _rx(
+    r"(?:\bthis\s+is|\bmessage\s+from|\bfrom|\bon\s+behalf\s+of|\b(?:issued|sent|authorized|"
+    r"provided|requested|ordered|declared)\s+by|\b(?:alert|notice|notification|update|test)\s+"
+    r"(?:from|by))\s+(?:the\s+)?$"
+)
+_OWN_SPEAKS = _rx(
+    r"^\s*(?:(?:is|are|has|have)\s+(?:now\s+|also\s+)?)?(?:advis|urg|ask|report|issu|announc|"
+    r"recommend|order|request|say|said|encourag|remind|confirm|declar|warn|notif|inform|"
+    r"alert)\w*\b|^\s*with\s+(?:an?\s+)?(?:important|emergency|urgent)\b"
+)
+_OWN_OPENER = re.compile(
+    r"^[ \t]*(?:[\w.'&/]+[ \t]+){0,4}?[\w.'&/]*[ \t]*(?::|;|-{1,2}|\u2013|\u2014)(?:\s|$)"
+)
+_OWN_SIGNED = re.compile(r"(?:^|\s)(?:-{1,2}|\u2013|\u2014|~)\s*$|\n\s*$")
+#: A clause that says what still works, not what to do (answer 7).
+_STILL = _rx(
+    r"\b(?:can|could)\s+still\b|\bstill\s+(?:be\s+)?able\b|\bstill\s+(?:works?|functional|"
+    r"operational|available|in\s+service)\b"
+)
+_STILL_WORKS = _rx(r"\bstill\s+(?:works?|functional|operational|available|in\s+service)\b")
+#: A clause about an order or event that ended or changed (answer 1), unless it is still to come.
+_CHANGED = _rx(
+    r"\b(?:lifted|lowered|downgraded|upgraded|reduced|rescinded|cancel+ed|ended|expired|"
+    r"reopened|resolved|restored|cleared|terminated|deactivated|no\s+longer\s+in\s+effect|"
+    r"(?:changed|raised|moved)\s+to)\b"
+)
+_NOT_YET = _rx(r"\b(?:will|shall|to\s+be|expected|scheduled|planned|until|till|once|when|if)\b")
+#: "Now" in an order changed to a lesser one ("is now a warning") is not a time to act.
+_NOW_CHANGED = _rx(r"\bnow\s+(?:an?\s+)?(?:\w+\s+)?(?:warning|advisory|watch|notice|statement)\b")
+#: Version 2's expiry without "expired" (something that already happened: answer 1).
+_EXPIRED = r"expired|"
+assert _EXPIRED in v2._EXPIRY.pattern
+_EXPIRY3 = _rx(v2._EXPIRY.pattern.replace(_EXPIRED, ""))
+#: Version 2's impact time, only where a time word is part of the phrase (answers 2 and 3):
+#: "will continue" or "expected to arrive" alone have no time expression.
+_IMPACT3 = _rx(
+    r"\b(?:expected\s+(?:at|by|around|between|within|later|soon|overnight|tonight)|"
+    r"(?:opening|reopen\w*|clear\w*|expected|end\w*|lift\w*)\s+(?:very\s+)?soon|"
+    r"(?:begin(?:s|ning)?|start(?:s|ing)?)\s+(?:(?:at|around|by|after)\s+\d|tonight|today|tomorrow|"
+    r"this\s+(?:morning|afternoon|evening|weekend)|shortly)|"
+    r"through\s+(?:tonight|today|tomorrow|the\s+(?:morning|afternoon|evening|weekend|night|day)|"
+    r"\w+day)|later\s+(?:today|tonight|this))\b"
+)
+#: A hazard's own name, which is not a place (answer 8): a named fire or complex, a named storm.
+_HAZARD_NAME = re.compile(
+    r"\b(?:[A-Z][a-z]+[ \t]+){1,3}(?:Fire|Complex)\b(?![ \t]+(?:Department|Dept|District|Rescue|"
+    r"Station|Authority|Protection|Marshal|Chief|Company|Services?)\b)|"
+    r"\b(?:[A-Z]+[ \t]+){1,3}(?:FIRE|COMPLEX)\b(?![ \t]+(?:DEPARTMENT|DEPT|DISTRICT|RESCUE|STATION|"
+    r"AUTHORITY|PROTECTION|MARSHAL|CHIEF|SERVICES?)\b)|"
+    r"\b(?:Hurricane|Tropical[ \t]+Storm|Tropical[ \t]+Depression|Typhoon|Winter[ \t]+Storm|"
+    r"T\.\s?S\.)[ \t]+[A-Z][a-z]+\b"
+)
+
+#: Words before a landmark word that do not name it (answer 8: a location needs a proper name):
+#: "the river", "the nearest school", "all parks".
+_LANDMARK_FUNCTION = frozenset(
+    [
+        "the",
+        "a",
+        "an",
+        "this",
+        "that",
+        "these",
+        "those",
+        "your",
+        "our",
+        "their",
+        "its",
+        "all",
+        "any",
+        "each",
+        "every",
+        "local",
+        "nearest",
+        "nearby",
+        "area",
+        "affected",
+        "surrounding",
+        "same",
+        "other",
+        "no",
+        "some",
+        "several",
+        "many",
+    ]
+)
+#: Words that are part of a landmark's kind, not its name ("high school", "water plant"): look one
+#: word further back for the name ("Exville High School").
+_LANDMARK_KIND = frozenset(
+    [
+        "high",
+        "middle",
+        "elementary",
+        "junior",
+        "senior",
+        "primary",
+        "secondary",
+        "community",
+        "recreation",
+        "civic",
+        "medical",
+        "shopping",
+        "water",
+        "treatment",
+        "wastewater",
+        "sewage",
+        "power",
+        "gas",
+        "county",
+        "city",
+        "state",
+        "national",
+        "regional",
+        "public",
+        "memorial",
+        "municipal",
+        "main",
+        "new",
+        "old",
+        "upper",
+        "lower",
+        "north",
+        "south",
+        "east",
+        "west",
+        "northern",
+        "southern",
+        "eastern",
+        "western",
+        "central",
+        "police",
+        "fire",
+        "sheriff",
+        "rescue",
+        "ems",
+        "bus",
+        "train",
+        "rail",
+        "transit",
+        "evacuation",
+        "emergency",
+    ]
+)
+
+#: A district word and its place's name (answer 8: "downtown Exville" is a place, "downtown"
+#: alone is not).
+_DISTRICT = re.compile(r"\b(?i:downtown|uptown|midtown)[ \t]+([A-Z][A-Za-z'-]{2,})")
+_DOTTED_SPLIT = re.compile(
+    r"(?<=[.!?;:])(?<!\b[A-Z]\.[A-Z]\.)(?<!\b[A-Z]\.\s[A-Z]\.)\s+|(?<=\b[AaPp]\.[Mm]\.)\s+|\n+|"
+    r"\s+[-\u2013\u2014•|]\s+|^[-\u2013\u2014•]\s*"
+)
+
+
+def clauses3(text: str) -> list[str]:
+    """Clauses as version 2 splits them, except after dotted initials ("T.S. Exia", "U.S. 41"),
+    which do not end a sentence; "a.m." and "p.m." still may."""
+    return [
+        c.strip(" \t\"'()*•-\u2013\u2014") for c in _DOTTED_SPLIT.split(text) if c and c.strip()
+    ]
 
 
 class Rules:
@@ -885,15 +1089,29 @@ class Rules:
                 spans.append((first.start(1), first.end(1)))
         spans += self._new_speakers(text)
         if ctx.organization:
-            full = re.search(re.escape(ctx.organization), text, IC)
-            if full:
-                spans.append(full.span())
+            found = list(re.finditer(re.escape(ctx.organization), text, IC))[:1]
             initials = "".join(
                 w[0] for w in re.findall(r"[A-Za-z]+", ctx.organization) if w[0].isupper()
             )
             if len(initials) >= 3:
-                spans += [m.span() for m in re.finditer(rf"\b{re.escape(initials)}\b", text)]
+                found += list(re.finditer(rf"\b{re.escape(initials)}\b", text))
+            for m in found:
+                if not self.on("own_name") or self._written_as_speaker(text, *m.span()):
+                    spans.append(m.span())
         return v2._merge(spans)
+
+    @staticmethod
+    def _written_as_speaker(text: str, a: int, b: int) -> bool:
+        """Whether a name at ``a:b`` is written as the one speaking (answer 6): after a speaker
+        cue ("from", "this is", "issued by"), before a speaking verb or "with an important
+        message", as the text's opener, or as its closing signature. A name only acting ("will
+        offer", "are at the scene") is not."""
+        before, after = text[:a], text[b:]
+        if _OWN_CUE.search(before) or _OWN_SPEAKS.search(after):
+            return True
+        if re.fullmatch(v2._LEAD_STAMP + r"(?:(?i:the)\s+)?", before) and _OWN_OPENER.match(after):
+            return True
+        return bool(_OWN_SIGNED.search(before) and re.fullmatch(r"\W*", after))
 
     def _new_speakers(self, text: str) -> list[tuple[int, int]]:
         """Speakers only version 3 reads: a stamped opener, a place-and-acronym organization
@@ -1023,6 +1241,10 @@ class Rules:
         spans = [m.span() for rx in v2.HAZARD_WORDS.values() for m in rx.finditer(rest)]
         if self.on("hazard_words"):
             spans += [m.span() for m in _HAZARD_EXTRA.finditer(rest)]
+        if self.on("kind_label"):
+            spans += [m.span() for m in _KIND_LABEL.finditer(rest)]
+        if self.on("shut_off"):
+            spans += [m.span() for m in _SHUT_OFF.finditer(rest)]
         alone = []
         if self.on("traffic_alone"):
             alone += [m.span() for m in _TRAFFIC.finditer(rest)]
@@ -1030,10 +1252,12 @@ class Rules:
             alone += [m.span() for m in _ORDERS.finditer(rest)]
         if alone:
             spans = [s for s in spans if not any(a <= s[0] and s[1] <= b for a, b in alone)]
+        if self.on("message_label"):
+            spans = [s for s in spans if not _MESSAGE_LABEL.fullmatch(rest[s[0] : s[1]])]
         return spans
 
     def _caused(self, rest: str) -> bool:
-        for clause in clauses(rest):
+        for clause in clauses3(rest) if self.on("dotted") else clauses(rest):
             if not _EFFECT.search(clause):
                 continue
             for m in _CAUSE.finditer(clause):
@@ -1046,10 +1270,15 @@ class Rules:
     def guidance_actions(self, text: str) -> list[str]:
         verb = _VERB3 if self.on("verbs") else v2._VERB
         noun = _NOUN_GUIDANCE3 if self.on("verbs") else v2._NOUN_GUIDANCE
+        still = self.on("still_works")
         found: list[str] = []
         for clause in clauses(text):
+            if still and _STILL_WORKS.search(clause):
+                continue
             last_end = None
             for m in verb.finditer(clause):
+                if still and _STILL.search(clause[: m.start()]):
+                    continue
                 before = clause[: m.start()].strip().lower()
                 between = (
                     clause[last_end : m.start()].strip().lower() if last_end is not None else None
@@ -1067,6 +1296,11 @@ class Rules:
         for m in v2._STRONG.finditer(text):
             if v2._AFTER_BEING.search(text[max(0, m.start() - 12) : m.start()].lower()):
                 continue
+            if still:
+                lead = re.split(r"[.!?;:\n]", text[max(0, m.start() - 60) : m.start()])[-1]
+                tail = re.split(r"[.!?;:\n]", text[m.end() : m.end() + 60])[0]
+                if _STILL.search(lead) or _STILL_WORKS.search(lead + " " + tail):
+                    continue
             v = verb.match(m.group(0))
             action = " ".join((v.group(0) if v else m.group(0).split()[0]).lower().split())
             if action not in found:
@@ -1074,7 +1308,10 @@ class Rules:
         for clause in clauses(text):
             if v2._ENDED.search(clause):
                 continue
-            for m in noun.finditer(clause):
+            nouns = list(noun.finditer(clause))
+            if self.on("orders"):
+                nouns += list(_ORDERS_GUIDANCE.finditer(clause))
+            for m in nouns:
                 action = " ".join(m.group(0).lower().split())
                 if not any(action.startswith(a) or a.startswith(action) for a in found):
                     found.append(action)
@@ -1086,17 +1323,24 @@ class Rules:
 
     def time_kinds(self, text: str) -> dict[str, bool]:
         out = {"time_impact": False, "time_action": False, "time_expiry": False}
+        changed = self.on("order_changed")
+        expiry = _EXPIRY3 if changed else v2._EXPIRY
         not_now = _NOT_NOW3 if self.on("now_in_effect") else v2._NOT_NOW
         probe = not_now.sub(" ", text)
         if self.on("immediate_help"):
             probe = _IMMEDIATE_HELP.sub(" ", probe)
+        if changed:
+            probe = _NOW_CHANGED.sub(" ", probe)
         if v2._NOW.search(probe):
             out["time_action"] = True
-        if v2._EXPIRY.search(text):
+        if expiry.search(text):
             out["time_expiry"] = True
-        if v2._IMPACT.search(text):
+        if (_IMPACT3 if self.on("time_word") else v2._IMPACT).search(text):
             out["time_impact"] = True
         for clause in clauses(text):
+            # The hour, day or date at which an order ended or changed already happened.
+            if changed and _CHANGED.search(clause) and not _NOT_YET.search(clause):
+                continue
             acts = bool(self.guidance_actions(clause))
             absolute = bool(
                 v2._CLOCK.search(clause)
@@ -1108,7 +1352,7 @@ class Rules:
             if acts and v2._AT_THIS_TIME.search(clause):
                 out["time_action"] = True
             if v2._UNTIL.search(clause):
-                if acts and not v2._EXPIRY.search(clause):
+                if acts and not expiry.search(clause):
                     out["time_action"] = True
                 else:
                     out["time_expiry"] = True
@@ -1118,7 +1362,7 @@ class Rules:
                 or re.search(r"\bbefore\b", v2._BEFORE_USE.sub(" ", clause), IC)
             ):
                 out["time_action"] = True
-            elif absolute and not v2._EXPIRY.search(clause) and not v2._PAST_EVENT.search(clause):
+            elif absolute and not expiry.search(clause) and not v2._PAST_EVENT.search(clause):
                 out["time_impact"] = True
         return out
 
@@ -1172,6 +1416,11 @@ class Rules:
                     break
         if not boundary and mixed and self.on("particles"):
             boundary = bool(_NAMED_PLACE3.search(text))
+        if not boundary and self.on("district_name"):
+            boundary = any(
+                self._caps_name(m.group(1)) and not (mixed and m.group(1).islower())
+                for m in _DISTRICT.finditer(text)
+            )
         if not boundary and not mixed:
             boundary = self._caps_place(text)
         if not boundary and mixed and self.on("caps_clauses"):
@@ -1199,7 +1448,13 @@ class Rules:
             or v2._BLOCK_OF.search(text)
             or (self.on("roads") and _ROADS3.search(text))
         )
-        landmark = bool(v2._LANDMARK.search(text))
+        if self.on("named_landmark"):
+            landmark = any(
+                self._named_landmark(text, m, mixed, place_words)
+                for m in v2._LANDMARK.finditer(text)
+            )
+        else:
+            landmark = bool(v2._LANDMARK.search(text))
         zone = bool(
             v2._ZONE.search(text)
             or (v2._ZONE_ID.search(text) and v2._ZONE_CONTEXT.search(text))
@@ -1216,6 +1471,52 @@ class Rules:
         if out["location"]:
             out["loc_vague_or_none"] = False
         return out
+
+    def _named_landmark(
+        self, text: str, m: re.Match[str], mixed: bool, place_words: Iterable[str] = ()
+    ) -> bool:
+        """Whether a landmark word is named (answer 8): a name before it, past the words of its
+        kind ("Exville High School", "Oak Creek"), a name after it in the same clause ("Lake
+        Exville", "University of Exville"), or one of the message's place words beside it. A name
+        is a word that is not a function, kind, common English, alert, hazard, road or instruction
+        word; in a mixed-case text it is also capitalized."""
+        words = frozenset(w.lower() for w in place_words)
+        before = re.split(r"[.!?;:\n]", text[: m.start()])[-1].split()
+        for w in reversed(before[-4:]):
+            w = w.strip(",'\"()")
+            low = w.lower()
+            if low in words:
+                return True
+            if not w or low in _LANDMARK_FUNCTION or (mixed and not w[0].isupper()):
+                break
+            if low in _LANDMARK_KIND or v2._LANDMARK.fullmatch(w):
+                continue
+            return self._caps_name(w)
+        after = re.match(
+            r"[ \t]+(?:(?i:of)[ \t]+(?:(?i:the)[ \t]+)?)?([A-Za-z][\w'-]*)", text[m.end() :]
+        )
+        if after:
+            w = after.group(1)
+            if w.lower() in words:
+                return True
+            if w[0].isupper() and w.lower() not in _LANDMARK_FUNCTION | _LANDMARK_KIND:
+                return self._caps_name(w)
+        return False
+
+    def _caps_name(self, w: str) -> bool:
+        """An all-caps word that may be a name: not a generic, alert, hazard, road or instruction
+        word (as version 2 reads place names in an all-caps text)."""
+        return len(w) >= 3 and not (
+            self._not_a_place(w)
+            or v2._ROAD_WORDS.fullmatch(w)
+            or v2._EN.fullmatch(w)
+            or v2._VERB.fullmatch(w)
+            or v2._ALERT_WORDS.fullmatch(w)
+            or w.upper() in v2._NOT_ACRONYMS
+            or w.upper() in _CAPS_WORDS
+            or w.lower() in _ENGLISH_WORDS
+            or any(rx.fullmatch(w) for rx in v2.HAZARD_WORDS.values())
+        )
 
     # --- one unit ------------------------------------------------------------------------
 
@@ -1239,9 +1540,9 @@ class Rules:
         named_hazard = bool(hazard_spans)
         distinct = {rest[a:b].lower() for a, b in hazard_spans}
         described = rest if len(distinct) > 1 else blank(rest, hazard_spans)
+        characteristics = _CHARACTERISTICS3 if self.on("responders") else v2._CHARACTERISTICS
         chars = named_hazard and bool(
-            v2._CHARACTERISTICS.search(described)
-            or (self.on("extent") and _EXTENT.search(described))
+            characteristics.search(described) or (self.on("extent") and _EXTENT.search(described))
         )
         impacts = named_hazard and bool(
             v2._IMPACTS.search(described)
@@ -1256,7 +1557,10 @@ class Rules:
         words = ctx.place_words | v2.place_words_of([ctx.organization])
         if self.on("place_words"):
             words = frozenset(w for w in words if not _NOT_PLACE_WORDS.match(w))
-        places = self.location_kinds(rest, words)
+        place_text = rest
+        if self.on("hazard_names"):
+            place_text = blank(rest, [m.span() for m in _HAZARD_NAME.finditer(rest)])
+        places = self.location_kinds(place_text, words)
         links = v2.link_kinds(text)
         n_abbr = v2.abbreviations(text)
         letters = [ch for ch in text if ch.isalpha()]

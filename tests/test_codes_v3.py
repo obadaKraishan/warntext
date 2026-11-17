@@ -85,6 +85,47 @@ CASES = [
     ("not_places", "Test of Wireless Emergency Alerts", "location", False),
     ("not_places", "PHONE OUTAGE IN VARIOUS AREAS", "location", False),
     ("particles", "Brush fire near El Oakito. Leave now.", "location", True),
+    # The answers to the nine open definitions (codebook section 9).
+    ("orders", "A curfew is in effect from 9 PM to 6 AM.", "hazard", False),
+    ("orders", "Burn ban in Exville County.", "hazard", False),
+    ("orders", "Boil water notice for Exville until further notice.", "hazard", False),
+    ("orders", "Citywide curfew tonight from 9 PM.", "guidance", True),
+    ("kind_label", "The police event on Oak Road is over.", "hazard", True),
+    ("kind_label", "Traffic emergency on Elm Road.", "hazard", True),
+    ("kind_label", "Medical emergency at the Exville fairgrounds.", "hazard", True),
+    ("message_label", "Health advisory for Exville residents.", "hazard", False),
+    ("shut_off", "Gas will be shut off on Oak Road shortly; repairs will follow.", "hazard", True),
+    (
+        "responders",
+        "Suspicious package on Elm Street was safely removed.",
+        "hazard_description",
+        False,
+    ),
+    (
+        "still_works",
+        "Landline 911 is down in Exville. Cell phones can still call 911.",
+        "guidance",
+        False,
+    ),
+    (
+        "order_changed",
+        "The evacuation order for Oak Hills was lowered to a warning at 3 PM.",
+        "time",
+        False,
+    ),
+    (
+        "order_changed",
+        "The order for Oak Road is now a warning; crews are still at work.",
+        "time",
+        False,
+    ),
+    ("time_word", "Heavy rain will continue over Exville.", "time", False),
+    ("time_word", "Storms are expected to move into Exville.", "time", False),
+    ("hazard_names", "Residents near the Oak Fire must leave now.", "location", False),
+    ("named_landmark", "Stay away from the river tonight.", "location", False),
+    ("named_landmark", "Shelter open at the high school.", "location", False),
+    ("district_name", "Crane work in progress Downtown Exville. Stay away.", "location", True),
+    ("dotted", "Due to T.S. Exia, parish curfew in effect tonight.", "hazard_description", True),
 ]
 
 
@@ -108,16 +149,87 @@ def test_alert_system_names_and_place_words_are_not_locations():
     assert v3.Rules().code_text("Travel Alert: I-20 closed.")["source_named"] is False
 
 
-def test_what_waits_for_an_answer_keeps_version_2s_reading():
-    text = "Curfew in effect from 10 PM tonight."
-    assert v3.Rules().code_text(text)["hazard"] is True
-    assert v3.Rules(v3.ALL | {"orders"}).code_text(text)["hazard"] is False
-    # A police department named only as the actor is not read as the speaker.
-    assert (
-        v3.Rules().code_text("Exville Police are at the scene on Oak Road.")["source_named"]
-        is v2.code_text("Exville Police are at the scene on Oak Road.")["source_named"]
+#: The answers to the nine open definitions (codebook section 9), with their invented examples
+#: and a few more of the same kinds: (answer, field, invented text, the answer it settles).
+ANSWERS = [
+    (1, "time", "The evacuation order for Oak Hills was lowered to a warning at 3 PM.", False),
+    (
+        1,
+        "time",
+        "The boil water notice for Exville is no longer in effect as of 6 PM Friday.",
+        False,
+    ),
+    (2, "time", "The gas leak on Elm Street is over. You may go home.", False),
+    (3, "time", "A smoke advisory remains in place for Exville.", False),
+    (3, "time", "Bridge work in progress on Oak Road.", False),
+    (3, "time", "Oak Road is closed until further notice.", True),
+    (3, "time", "Shelter in place until the order is lifted.", True),
+    (4, "hazard", "The police event on Oak Road is over.", True),
+    (4, "hazard", "Police activity on Oak Road. Avoid the area.", True),
+    (4, "hazard", "Traffic emergency on Elm Road.", True),
+    (4, "hazard", "Hazmat incident on Route 9.", True),
+    (4, "hazard", "An incident on Route 9 has been cleared.", False),
+    (4, "hazard", "An emergency in Exville. Stay inside.", False),
+    (4, "hazard", "A situation downtown. Avoid the area.", False),
+    (4, "hazard", "Traffic alert for Elm Road.", False),
+    (5, "hazard", "Gas will be shut off on Oak Road shortly; repairs will follow.", True),
+    (
+        5,
+        "hazard_description",
+        "Gas will be shut off on Oak Road shortly; repairs will follow.",
+        False,
+    ),
+    (5, "hazard_description", "Brush fire near Oak Road. Crews are on scene.", False),
+    (6, "source_named", "Exville Police are at the scene on Oak Road.", False),
+    (
+        6,
+        "source_named",
+        "Exville County will offer free flu shots at the fairgrounds on Saturday.",
+        False,
+    ),
+    (6, "source_named", "Exville Police ask residents to stay inside.", True),
+    (7, "guidance", "Landline 911 is down in Exville. Cell phones can still reach 911.", False),
+    (7, "guidance", "Landline 911 is down in Exville. Use a cell phone to call 911.", True),
+    (8, "location", "Some Oak Fire areas must leave now.", False),
+    (8, "location", "All residents must leave downtown now.", False),
+    (8, "location", "All residents must leave downtown Exville now.", True),
+    (9, "hazard", "Burn ban because of extreme fire danger.", True),
+    (9, "hazard", "Stay-at-home order for Exville County.", False),
+    (9, "hazard", "Water main break on Oak Road. Boil water before use.", True),
+    (9, "hazard", "Oak Road closed at Elm St.", True),
+    (9, "guidance", "Burn ban in Exville County.", True),
+    (9, "guidance", "Stay-at-home order for Exville County.", True),
+]
+
+
+@pytest.mark.parametrize(("answer", "field", "text", "settled"), ANSWERS)
+def test_version_3_reads_each_answer_as_settled(answer, field, text, settled):
+    assert v3.Rules().code_text(text)[field] is settled, (answer, text)
+
+
+def test_the_senders_own_name_is_the_source_only_where_written_as_the_speaker():
+    county, police = (
+        Context(organization="Exville County"),
+        Context(organization="Exville Police Department"),
     )
-    assert {n for n, _, _ in v3.HELD}.isdisjoint(v3.ALL)
+    acting = [
+        ("Exville County will offer free flu shots at the fairgrounds on Saturday.", county),
+        ("Flooding on Oak Road in Exville County. Avoid the area.", county),
+        ("Crash on Oak Road. EPD is on scene.", police),
+    ]
+    for text, ctx in acting:
+        assert with_and_without("own_name", text, "source_named", ctx) == (False, True), text
+    speaking = [
+        ("Exville County: boil water before use.", county),
+        ("Message from Exville County: boil water before use.", county),
+        ("Exville County asks residents to conserve water.", county),
+        ("Flooding on Oak Road. Avoid the area. - Exville County", county),
+        ("Crash on Oak Road. EPD advises drivers to avoid it.", police),
+        ("Crash on Oak Road.\nEPD", police),
+    ]
+    for text, ctx in speaking:
+        assert v3.Rules().code_text(text, ctx)["source_named"] is True, text
+    assert v3.HELD == ()
 
 
 def test_the_language_check_finds_other_languages_and_keeps_english():

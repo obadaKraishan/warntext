@@ -227,3 +227,14 @@ All notable changes to this project are recorded here. The format follows
   it as the rules' "no". The check lists such rows and their reasons, and each code counts the
   answers it left out. On the first sheet this takes out its one Spanish row, which every code had
   counted as a difference.
+- Codebook version 3 takes the answers to the nine open definitions, each as a named change
+  tested on invented messages: an order or ban alone (a curfew, a burn ban, a boil water notice, a
+  stay-at-home order, a lockdown) is guidance and no hazard (the held change, now on); a generic
+  event noun with a kind word ("police event", "traffic emergency") is a hazard, and a kind word
+  with a word for the message ("health advisory") is not; a utility shut off is an outage; what
+  responders do is no description; the sender's own name is the source only where it is written
+  as the one speaking; a fact about what still works is no instruction; the time at which an order
+  ended or changed is not time, and a verb of state or of what comes needs a time expression; a
+  hazard's name, a landmark without its name and a district word alone are no place, and a
+  district word with a name is. Dotted initials ("T.S.") no longer end a clause for the
+  description.
