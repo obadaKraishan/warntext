@@ -15,9 +15,11 @@ figure, not a check. On the second sheet only `time` reached .80, and `hazard` d
 of version 2 is released: version 0.1.0 of the dataset carries version 1's codes.
 
 **Version 3 (frozen, section 9)** changes the rules where a second pass over the second sheet
-showed a rule fault, and takes the answers to the nine definitions that sheet left open. It is
-frozen until a third blind sheet is scored against it, under a rule for release fixed before that
-sheet is read (section 9). It is not released.
+showed a rule fault, and takes the answers to the nine definitions that sheet left open. It was
+frozen before a third blind sheet was coded, under a rule for release fixed before that sheet was
+read, and the third sheet has been scored against it once (section 9): time and location reach
+.80 and wait for the coder's recheck; hazard, hazard description, source and guidance stay
+experimental. It is not released.
 
 The definitions below are this project's own words. Each says which study it follows; none
 copies a study's wording, statements or templates. Every example is invented: the places,
@@ -548,8 +550,9 @@ The counts are over all 71,408 coded units of version 2's tables, each read wher
 
 ## 9. Version 3 (frozen): what changed and why
 
-**Frozen, not released.** Version 3 of the rules (`src/warntext/codes_v3.py`,
-`CODEBOOK_VERSION = "3"`) is frozen until the third blind sheet is scored against it. The file's
+**Frozen, checked once, not released.** Version 3 of the rules (`src/warntext/codes_v3.py`,
+`CODEBOOK_VERSION = "3"`) was frozen before the third blind sheet was coded, and the sheet has been
+scored against it once (the end of this section); it stays frozen. The file's
 SHA-256 is `21413980b7bcd8041e140104b1f7905e6b9e18daf981d4352328f584185980ed`, and a test pins it
 (`tests/test_codes_v3.py`): a change to the rules after this point needs a new version and a new
 blind sheet. It holds 45 named changes and none held back: 31 found on the first two sheets, and 14
@@ -778,7 +781,124 @@ The answers move the hazard further from Olson et al.'s share (an order or a ban
 hazard here; their coders appear to have counted such messages), and the landmark too (an unnamed
 landmark is no place here). Time to act rises because the orders now count as instructions, so the
 clock times in their clauses are times to act, not times to impact. The published shares are not a
-check: they come from other coders and other definitions (section 8).
+check: they come from other coders and other definitions (section 8). The distance in the hazard
+share is a difference of definition, not a fault of the rules; the order flag below makes the
+broader reading available beside the frozen code.
+
+### The check: the third sheet, scored once
+
+The third sheet (100 texts drawn blind from version 3's tables: 35 phone texts of 90 characters, 31
+of 360 and 34 full texts; 40 sent before 2020) was coded by the maintainer with version 3 of the
+guide, in one to two hours over two or three sittings, and scored once against the frozen rules
+(`warntext sheet-check`, 2,000 bootstrap resamples of the row pairs, seed 20261115). All 600
+answer cells were filled and the rules code every unit, so every code is scored on 100 rows and no
+row is left out.
+
+| code | alpha (95% interval) | agreement | share "yes": coder / rules | coder yes, rules no | coder no, rules yes |
+|---|---|---:|---:|---:|---:|
+| hazard | 0.73 (0.58 to 0.87) | 0.88 | 0.71 / 0.63 | 10 | 2 |
+| hazard description | 0.56 (0.37 to 0.73) | 0.82 | 0.35 / 0.21 | 16 | 2 |
+| source | 0.796 (0.66 to 0.91) | 0.91 | 0.35 / 0.30 | 7 | 2 |
+| guidance | 0.73 (0.54 to 0.88) | 0.91 | 0.82 / 0.77 | 7 | 2 |
+| time | 0.91 (0.82 to 0.98) | 0.96 | 0.37 / 0.37 | 2 | 2 |
+| location | 0.800 (0.64 to 0.92) | 0.93 | 0.78 / 0.77 | 4 | 3 |
+
+Of the 59 differing answers (in 39 of the 100 rows), 46 are the rules' "no" where the coder said
+"yes": as on the first two sheets, the rules mostly miss. The development figures on the first two
+sheets (0.85 to 1.00 above) are far higher than these: the third sheet is the check, and the
+difference is what fitting the rules to the sheets they were built on does not carry to new texts.
+A code whose "yes" is common (guidance, location) or rare (hazard description) has a lower alpha
+for the same agreement, so each code's shares are given beside it.
+
+**The rule for release, first half.** Alpha on the third sheet is at least .80 for **time** (0.91)
+and **location** (0.8003; with one more differing row it would be 0.77). They are **not yet
+validated**: each waits for the second half, the coder's own consistency on the recheck copy (30 of
+the third sheet's rows in a new order, coded again no earlier than seven days after the third
+sheet, that is on or after 2026-11-24), which must also reach .80. **Hazard** (0.73), **hazard
+description** (0.56), **source** (0.796; with one fewer differing row it would be 0.82) and
+**guidance** (0.73) are under .80 and **stay experimental: that is final for version 3**. The
+recheck copy has not been opened, and nothing about which rows differ has been shown to the coder.
+No release changes now: release 0.1.0 keeps version 1's codes, every one experimental.
+
+**Did the coding follow the nine answers?** Leaving each of the 14 changes that take the answers
+out of the frozen rules in turn, 12 of the sheet's 600 cells (in 11 rows) are cells where one of
+them decides the rules' answer: hazard 5, guidance 2, time 2, location 3. The coder answered 11 of
+the 12 as the rules do (hazard 5 of 5, guidance 1 of 2, time 2 of 2, location 3 of 3). Eleven more
+cells are decided by one of the 31 earlier changes of version 3 (10 answered as the rules); the
+other 577 cells are decided by version 2's rules, which version 3 keeps, and 57 of the 59
+differences sit there. Version 3's changes and the answers are followed; what the third sheet
+measures is mostly the reach of the patterns version 3 took over unchanged.
+
+**The differences by kind.** Each of the 59 differing answers was read against the guide and this
+codebook and sorted (the texts stay out of every file here): 40 are the rules' misses (the
+definition says yes, the rules no), 10 their over-reads (the definition says no, the rules yes), 1
+is a coding slip (an answer against one of the guide's edge cases), and 8 are cells that the
+definitions, with the nine answers, do not settle.
+
+| code | rule miss | rule over-read | coding slip | open |
+|---|---:|---:|---:|---:|
+| hazard | 9 | 0 | 0 | 3 |
+| hazard description | 14 | 2 | 0 | 2 |
+| source | 6 | 2 | 0 | 1 |
+| guidance | 6 | 2 | 1 | 0 |
+| time | 2 | 1 | 0 | 1 |
+| location | 3 | 3 | 0 | 1 |
+
+The 50 misses and over-reads by the rules they come from: the reach of the hazard word list 8 and
+of the description word lists 8, descriptions lost because the hazard was missed 6, when a name is
+the speaker 7, how much text is blanked with an organization's name 4, how the rules tell that
+something has ended 3, the reach of the place-name patterns 3, which of the message's own area
+words are place names 2, which words describe the hazard itself 2, the reach of the time
+expressions 2 and of the instructions 2, where a clause begins when punctuation is missing 2, and
+a place named as the one acting that is also a location 1. One invented example of each kind (none
+is on the sheet): a miss, "A swarm of bees is at Exville Park. Keep children inside." (a threat is
+named; the rules find no hazard); an over-read, "The Exville Tornadoes play their home game at Pine
+Field on Friday." (a team's name; the rules read a hazard); a slip, coding "Library hours change on
+Monday. Details at exvillelibrary.org." as naming its source, against edge case 2; an open cell,
+whether a comparison with earlier events ("The heat wave in Exville is the third one this summer.")
+describes the hazard.
+
+**What a version 4 would have to settle.** The open cells ask when a name that holds a hazard's
+name is the speaker, and whether the hazard then counts as named (2); when a hazard word names no
+present threat (1); whether a place in the name of an organization that does not speak is a
+location, on which section 8 and the guide do not say the same (1); which statements about a named
+hazard are its description (1); when a condition attached to an instruction is a duration (1); and
+two more that cannot be put in general words without describing the texts (2). The rest is the
+rules' reach: the word lists for hazards and their descriptions (22 of the 50 rule faults) and the
+rules for the speaker (11). No version 4 is started: version 3 stays frozen, nothing the third
+sheet showed has changed a rule, and a version 4 would need its own blind sheet.
+
+**The flag "an order or ban is named"** (`src/warntext/order_flag.py`). An experimental, mechanical
+flag beside the content codes, not a content code: it has no release status and no hand check. It
+reuses version 3's own pattern for orders and bans by import and reads the text as version 3's
+hazard rule does, with the names of organizations blanked first. Among real alerts' 70,838 coded
+units it is "yes" for 2,439 (3.4%): 1,840 where the frozen hazard is "no" and 599 together with a
+named hazard. "Hazard or order" covers 33,112 units, against 31,272 for the frozen hazard. The
+flagged units' categories (by the frozen rules): public safety 1,177, law enforcement 877, wildfire
+288, public health 84, other 13. The flag is kept in a file of its own beside version 3's tables
+(the unit's keys and the flag, no text) and not built into them: building it in would mean
+changing the build and rewriting the tables the third sheet was scored against, which stay byte
+for byte as they were (shown by hash before and after).
+
+**Beside Olson et al. (2024) under both readings** (shares at 90 / 360 characters, their filters;
+6,549 texts, 4,673 at 90 and 1,876 at 360). Only the hazard code and `complete`, which needs it,
+move; every other share is the frozen one.
+
+| | frozen hazard | hazard or order | Olson et al. |
+|---|---|---|---|
+| hazard | 51.7 / 65.1 | 60.0 / 74.1 | 70.3 / 80.6 |
+| complete | 3.6 / 10.9 | 4.0 / 12.7 | 2.9 / 21.1 |
+| hazard description | 8.6 / 27.3 | 8.6 / 27.3 | 16.7 / 33.5 |
+| location | 69.4 / 83.8 | 69.4 / 83.8 | 81.2 / 91.5 |
+| time | 30.7 / 47.7 | 30.7 / 47.7 | 32.8 / 53.5 |
+| source | 25.0 / 42.2 | 25.0 / 42.2 | 26.6 / 52.1 |
+| guidance | 69.6 / 88.6 | 69.6 / 88.6 | 64.0 / 88.0 |
+| shares more than 5 points off | 32 | 32 | |
+
+The broader reading closes about 8 to 9 points of the hazard gap at both lengths, and the frozen
+rules without their orders change give nearly the same shares (60.0 / 74.0): the flag gives back
+the reading the answer on orders took out. About 10 points at 90 characters and 6.5 at 360 remain,
+so orders explain part of the distance from the published share, not all of it.
 
 ## 10. References
 

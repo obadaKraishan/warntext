@@ -269,3 +269,10 @@ All notable changes to this project are recorded here. The format follows
   the text as version 3's hazard rule does (organizations' names blanked first). It is not a
   content code and has no release status; "hazard or order" is a reading for comparison with
   published shares that counted orders as hazards, and the hazard code stays as frozen.
+- Codebook section 9: the check of frozen version 3 on the third sheet, scored once (alpha with
+  its interval, agreement, each side's share of "yes" and the differences by direction per code),
+  the first half of the rule for release (time and location reach .80 and wait for the coder's
+  recheck; hazard, hazard description, source and guidance stay experimental for good), whether
+  the coding followed the nine answers, the differences sorted into kinds with an invented example
+  each and what a version 4 would have to settle, and the order flag with the comparison with
+  Olson et al. under both readings of the hazard code.
