@@ -96,6 +96,11 @@ All notable changes to this project are recorded here. The format follows
   the passes differ, blind to both passes and to the rules, with three choices (yes, no, the
   definition does not settle this). The consolidated answers take the resolution where the passes
   differ and the first pass elsewhere.
+- Codebook version 3 (draft rules, `warntext.codes_v3`): version 2 with 30 named changes, each a
+  general pattern found on the first two hand sheets and each tested on invented messages. Version
+  2's module is unchanged, and version 3 with no change codes exactly as version 2. One more
+  change is written but held back until an open definition is settled (an order or ban alone as a
+  hazard). A language check finds texts that are not in English in general, not only Spanish.
 
 ### Changed
 - Messages with a people code carry their times rounded down to the hour in the record layer
