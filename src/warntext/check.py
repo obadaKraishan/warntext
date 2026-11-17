@@ -199,9 +199,23 @@ def check(
 
     # Messages with a people code, and messages about a missing person, carry no time finer than
     # the hour (nor do the references and threads that touch them), and keep the county only.
+    # A message whose text describes a person is treated the same way.
     people = {r["message_id"] for r in messages if r["text_withheld"] == "people_code"}
     missing = {r["message_id"] for r in messages if r.get("about_missing_person")}
-    for label, ids in (("people-code", people), ("missing-person", missing)):
+    described = {
+        r["message_id"] for r in messages if privacy.DESCRIBED in (r.get("withheld_patterns") or [])
+    }
+    unmarked = sum(1 for r in messages if r["message_id"] in described and not r["text_withheld"])
+    if unmarked:
+        fail.append(
+            f"messages: {unmarked} message(s) describe a person but are not marked withheld; "
+            "rebuild the tables."
+        )
+    for label, ids in (
+        ("people-code", people),
+        ("missing-person", missing),
+        ("person-described", described),
+    ):
         threads = {r["thread_id"] for r in messages if r["message_id"] in ids}
         for c in CONFIGS:
             exact = _exact_times(tables[c], ids, threads)
@@ -210,12 +224,13 @@ def check(
                     f"{c}: {label} rows hold times finer than the hour: {dict(exact)}. "
                     "Rebuild the tables; the exact times belong in the private table only."
                 )
-    coarse = people | missing
+    coarse = people | missing | described
     for c in CONFIGS:
         parts = _part_digits(tables[c], coarse)
         if parts:
             fail.append(
-                f"{c}: people-code or missing-person rows hold a part-of-county digit: "
+                f"{c}: people-code, missing-person or person-described rows hold a "
+                "part-of-county digit: "
                 f"{dict(parts)}. Rebuild the tables; these rows keep the county only."
             )
 

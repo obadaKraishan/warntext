@@ -191,6 +191,7 @@ def test_text_for_a_message_any_privacy_rule_withholds_fails_in_either_split(pac
             ("event_codes", ["CAE"], "a people code"),
             ("about_missing_person", True, "the missing-person rule"),
             ("withheld_patterns", ["phone"], "the pattern rule"),
+            ("withheld_patterns", ["person_described"], "the description rule"),
             ("text_withheld", "personal_pattern", "the withheld flag"),
         ):
             changed = [dict(m, **{field: value}) if m is target else m for m in messages]
@@ -428,3 +429,73 @@ def test_a_card_rewrite_measures_new_facts_and_refuses_a_manifest_that_disagrees
     (d / "manifest.json").write_text(json.dumps(wrong, indent=1) + "\n")
     with pytest.raises(SystemExit, match="differ from the pack's files"):
         release.rewrite_card(d)
+
+
+def test_any_written_form_of_a_number_or_a_description_in_released_text_fails(pack):
+    d = pack["dir"]
+    for config in ("alerts", "tests"):
+        messages = pq.read_table(d / config / "messages.parquet").to_pylist()
+        text = pq.read_table(d / config / "text_other.parquet").to_pylist()
+        tables_ = {c: {n: [] for n in release.RELEASED_TABLES} for c in tables.CONFIGS}
+        tables_[config]["messages"] = messages
+        for field, value, hit in (
+            ("description", "Invented: call 5555550123 now.", "description:phone_any_form"),
+            ("wea_short", "Invented: call 555-0123 now.", "wea_short:phone_seven"),
+            ("instruction", "Invented: call 1-800-555-HELP.", "instruction:phone_letters"),
+            ("web", "Invented: tips[at]example[dot]org", "web:email_any_form"),
+            ("headline", "Invented: a twelve-year-old", "headline:age_any_form"),
+        ):
+            tables_[config]["text_other"] = [dict(text[0], **{field: value})]
+            out = release.text_problems(tables_, release.TEXT_KINDS)
+            assert any(hit in f for f in out), (config, field, out)
+        # a description split over two fields of one message, with no cue word in either
+        two = dict(
+            text[0],
+            headline="Invented: police seek a white male",
+            description="Invented: in a red hoodie near the example park.",
+        )
+        tables_[config]["text_other"] = [two]
+        out = release.text_problems(tables_, release.TEXT_KINDS)
+        assert any("describes a person" in f for f in out), out
+        tables_[config]["text_other"] = [dict(two, description="Invented: near the park.")]
+        assert release.text_problems(tables_, release.TEXT_KINDS) == []
+
+
+def test_codes_from_another_build_of_the_same_units(pack, tmp_path):
+    # the same records built twice: the codes of one, the record and text layers of the other
+    other = tmp_path / "other"
+    shutil.copytree(pack["tmp"] / "t", other)
+    m = release.build_pack(
+        pack["tmp"] / "t",
+        tmp_path / "pack3",
+        "0.1.0",
+        "2026-11-14T17:00:00.000Z",
+        "2026-11-15",
+        cd.CODEBOOK_VERSION,
+        codes_from=other,
+    )
+    assert {f["path"]: f["sha256"] for f in m["files"]} == {
+        f["path"]: f["sha256"] for f in pack["manifest"]["files"]
+    }
+    codes = pq.read_table(other / "alerts" / "codes.parquet")
+    pq.write_table(codes.slice(1), other / "alerts" / "codes.parquet")
+    with pytest.raises(SystemExit, match="different: build both from the same records"):
+        release.build_pack(
+            pack["tmp"] / "t",
+            tmp_path / "pack4",
+            "0.1.0",
+            "x",
+            "y",
+            cd.CODEBOOK_VERSION,
+            codes_from=other,
+        )
+    with pytest.raises(SystemExit, match="is missing"):
+        release.build_pack(
+            pack["tmp"] / "t",
+            tmp_path / "pack5",
+            "0.1.0",
+            "x",
+            "y",
+            cd.CODEBOOK_VERSION,
+            codes_from=tmp_path / "none",
+        )

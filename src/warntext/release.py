@@ -197,18 +197,24 @@ def build_pack(
     retrieved: str,
     codebook_version: str = CODE_STATUS_VERSION,
     text_kinds: tuple[str, ...] | list[str] = TEXT_KINDS,
+    codes_from: Path | str | None = None,
 ) -> dict[str, Any]:
     """Write the release files, the manifest and the card to ``out_dir`` (which must be new).
 
     The tables' codes must be of ``codebook_version``, the version the statuses were measured on.
     ``text_kinds`` are the sender kinds whose text is released (``FEDERAL_ONLY`` for the federal
-    text alone).
+    text alone). ``codes_from`` takes the ``codes`` tables from another build's folder (a build
+    of the statuses' codebook version) while the record and text layers come from
+    ``tables_dir``; its coded units must be exactly the units of ``tables_dir``'s messages.
     """
     tables_dir, out_dir = Path(tables_dir), Path(out_dir)
     text_tables = text_tables_for(text_kinds)
     if out_dir.exists() and any(out_dir.iterdir()):
         raise SystemExit(f"{out_dir} is not empty; a pack is built once into a new folder.")
-    codes_path = tables_dir / "alerts" / "codes.parquet"
+    codes_dir = Path(codes_from) if codes_from is not None else tables_dir
+    if codes_from is not None:
+        same_units(tables_dir, codes_dir)
+    codes_path = codes_dir / "alerts" / "codes.parquet"
     if codes_path.exists():
         found = set(pq.read_table(codes_path, columns=["codebook_version"]).column(0).to_pylist())
         if found and found != {codebook_version}:
@@ -222,7 +228,7 @@ def build_pack(
         (out_dir / config).mkdir(parents=True, exist_ok=True)
         messages: list[dict[str, Any]] = []
         for name in (*RECORD_TABLES, *text_tables):
-            src = tables_dir / config / f"{name}.parquet"
+            src = (codes_dir if name == "codes" else tables_dir) / config / f"{name}.parquet"
             if not src.exists():
                 raise SystemExit(f"{src} is missing; run `warntext build` or `warntext update`.")
             table = pq.read_table(src)
@@ -266,6 +272,43 @@ def build_pack(
     return manifest
 
 
+#: The columns that key a coded unit.
+UNIT_KEY = ("message_id", "info_index", "unit")
+
+
+def same_units(tables_dir: Path | str, codes_dir: Path | str) -> None:
+    """Stop unless the ``codes`` of ``codes_dir`` code exactly the units the ``codes`` of
+    ``tables_dir`` code (the same messages, language blocks and units), in both configurations,
+    and every coded message is in ``tables_dir``'s messages."""
+    for config in CONFIGS:
+        mine = Path(tables_dir) / config / "codes.parquet"
+        theirs = Path(codes_dir) / config / "codes.parquet"
+        if not theirs.exists():
+            raise SystemExit(f"{theirs} is missing; give the folder of a full build.")
+        keys = {
+            tuple(r.values()) for r in pq.read_table(theirs, columns=list(UNIT_KEY)).to_pylist()
+        }
+        if mine.exists():
+            want = {
+                tuple(r.values()) for r in pq.read_table(mine, columns=list(UNIT_KEY)).to_pylist()
+            }
+            if keys != want:
+                raise SystemExit(
+                    f"{theirs} codes {len(keys):,} units and {mine} {len(want):,}, "
+                    f"{len(keys ^ want):,} different: build both from the same records."
+                )
+        ids = set(
+            pq.read_table(Path(tables_dir) / config / "messages.parquet", columns=["message_id"])
+            .column(0)
+            .to_pylist()
+        )
+        stray = {k[0] for k in keys} - ids
+        if stray:
+            raise SystemExit(
+                f"{theirs}: {len(stray):,} coded message(s) are not in {tables_dir}'s messages."
+            )
+
+
 def pack_facts(
     pack_dir: Path,
     text_tables: list[str] | None = None,
@@ -303,6 +346,9 @@ def pack_facts(
             1 for r in alerts if r["text_withheld"] == "personal_pattern"
         ),
         "withheld_missing_person": sum(1 for r in alerts if r["text_withheld"] == "missing_person"),
+        "withheld_person_described": sum(
+            1 for r in alerts if r["text_withheld"] == "person_described"
+        ),
         "rounded": sum(1 for r in alerts if r["times_rounded"]),
         "federal_text_alerts": len(with_text("alerts", ["text_federal"])),
         "text_alerts": len(alert_text),
@@ -556,6 +602,7 @@ WITHHOLDING_RULES = {
     "a people code": lambda m: bool(set(m.get("event_codes") or []) & privacy.PEOPLE_CODES),
     "the missing-person rule": lambda m: bool(m.get("about_missing_person")),
     "the pattern rule": lambda m: bool(m.get("withheld_patterns")),
+    "the description rule": lambda m: privacy.DESCRIBED in (m.get("withheld_patterns") or []),
     "the withheld flag": lambda m: bool(m.get("text_withheld")),
 }
 
@@ -569,7 +616,9 @@ def text_problems(
       missing-person rule, the pattern rule), and every such message is marked withheld;
     - every text row of a released kind, with its credit: the message's alerting authority
       (FEMA's identifier and the released organization name) and the credit line;
-    - no personal-detail pattern and no missing-person wording in any released text field.
+    - no personal-detail pattern (a phone number or an email address in any form, the rest)
+      and no missing-person wording in any released text field, and no message whose released
+      text fields, read together, describe a person.
     """
     fail: list[str] = []
     for config in CONFIGS:
@@ -617,12 +666,14 @@ def text_problems(
                     "authority's FEMA ID and released name, and the credit line)."
                 )
             found: dict[str, int] = {}
+            by_message: dict[str, list[str]] = {}
             for r in rows:
                 for field in TEXT_FIELDS:
                     value = r.get(field)
                     for cell in value if isinstance(value, list) else [value]:
                         if not isinstance(cell, str) or not cell:
                             continue
+                        by_message.setdefault(r["message_id"], []).append(cell)
                         hits = [p for p, hit in patterns.present(cell).items() if hit]
                         if privacy.MISSING_PERSON.search(cell):
                             hits.append("missing_person")
@@ -632,6 +683,12 @@ def text_problems(
                 fail.append(
                     f"{config}/{name}: released text matches personal-detail patterns or "
                     f"missing-person wording: {found}"
+                )
+            described = sum(1 for cells in by_message.values() if patterns.describes_person(cells))
+            if described:
+                fail.append(
+                    f"{config}/{name}: the released text of {described} message(s) describes a "
+                    "person (two or more elements of a description)."
                 )
     return fail
 

@@ -318,3 +318,18 @@ def test_the_rebuild_plan_never_reads_withheld_text_or_text_already_released(bui
     pq.write_table(pa.table({"message_id": ["r03"]}), tmp_path / "text_federal.parquet")
     assert rebuild.released_ids(tmp_path) == {"r01", "r03"}
     assert rebuild.released_ids(tmp_path / "none") == set()
+
+
+def test_a_described_person_row_with_an_exact_time_or_no_withholding_fails(built):
+    t, senders = built
+    t = copy.deepcopy(t)
+    hazard = next(r for r in t["alerts"]["messages"] if r["message_id"] == "r01")
+    hazard["withheld_patterns"] = ["person_described"]
+    hazard["text_withheld"] = "person_described"
+    hazard["has_text"] = False
+    t["alerts"]["text_other"] = [r for r in t["alerts"]["text_other"] if r["message_id"] != "r01"]
+    out = check.check(t, senders, None)
+    assert any("person-described rows hold times finer than the hour" in f for f in out), out
+    hazard["text_withheld"] = None
+    out = check.check(t, senders, None)
+    assert any("describe a person but are not marked withheld" in f for f in out), out

@@ -594,6 +594,7 @@ def cmd_release_build(args: argparse.Namespace) -> int:
         args.retrieved,
         args.codebook_version,
         text_kinds=kinds,
+        codes_from=args.codes_from,
     )
     kaggle = Path(f"{args.out.rstrip('/')}-kaggle")
     rl.build_kaggle(args.out, kaggle)
@@ -913,6 +914,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=",".join(rl.TEXT_KINDS),
         help="sender kinds whose text is released (default: %(default)s; 'federal' builds the "
         "federal text only)",
+    )
+    q.add_argument(
+        "--codes-from",
+        default=None,
+        help="take the codes tables from this build's folder (of the statuses' codebook "
+        "version); the record and text layers come from --tables, and both must code the same "
+        "units",
     )
     q.set_defaults(func=cmd_release_build)
     q = rsub.add_parser("card", help="a card-only fix: README.md again, data files untouched")
