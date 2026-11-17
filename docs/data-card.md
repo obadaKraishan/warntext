@@ -67,14 +67,19 @@ suspects. They carry names, ages, descriptions, car plates and phone numbers. Wa
 their rows and withholds their text, by code and with no hand review:
 - always for the four people codes: CAE (child abduction), MEP (missing and endangered
   persons), BLU (Blue Alert) and LEW (law enforcement warning);
-- also for any other message in which a personal-detail pattern (a phone number, an email
-  address, a plate, an age, a height or weight, "last seen") appears in any text field;
-  this withholds some ordinary hazard messages (an agency's hotline number is enough), by design;
+- also for any other message in which a personal-detail pattern (a phone number or an email
+  address in any written form, a plate, an age or a height or weight in any form, "last seen",
+  words about a person) appears in any text field; this withholds some ordinary hazard messages
+  (an agency's hotline number is enough), by design;
+- also for any message whose text fields, read together, describe a person, with or without
+  those words: two or more of an age, a person with a physical description, clothing, height,
+  weight, hair or eyes, a name beside "missing", "wanted" or the like, a medical condition, a
+  vehicle or plate being looked for;
 - a withheld message has no text in either text table and no area shapes (a polygon or circle
   can mark one address); its counts, codes, times, counties, lengths and flags stay, with the
   reason in `text_withheld`;
-- a message with a people code, and any message about a missing person whatever its code,
-  carries its times rounded down to the hour (sent, effective, onset, expiry, the times of the
+- a message with a people code, any message about a missing person whatever its code, and any
+  message that describes a person carries its times rounded down to the hour (sent, effective, onset, expiry, the times of the
   references and threads that touch it, and the time in its EAS header) and its area codes at
   county level only (the part-of-county digit is set to 0); the exact values are kept only on the
   maintainer's machine. A message about a missing person also loses its text and shapes.
@@ -147,11 +152,13 @@ Each row's `retrieved_at` gives the exact time its message was read.
 ## The first release (uploaded privately, not public)
 Version 0.1.0 covers records sent before 2026-11-14T17:00Z: 34,678 real alerts from 1,260
 authorities and 49,186 tests. It holds the record layer of both configurations, the released
-codes and both text tables: 15 Parquet files, 500,139 rows, 34.7 MB. Of the real alerts, 16,921
-carry their text, 13,778 have it withheld (8,860 by a people code, 4,900 by a personal-detail
-pattern, 18 as about a missing person alone) and 3,979 carry no words in the archive (each a
-cancellation with no information block); 12,226 keep only the hour and the county. Of the tests,
-48,134 carry their text, 1,041 have it withheld and 11 are the national authority's.
+codes and both text tables: 15 Parquet files, 500,009 rows, 34.7 MB. Of the real alerts, 16,814
+carry their text, 13,885 have it withheld (8,860 by a people code, 4,999 by a personal-detail
+pattern, 15 as about a missing person alone, 11 as describing a person alone) and 3,979 carry no
+words in the archive (each a cancellation with no information block); 12,384 keep only the hour
+and the county. Of the tests, 48,125 carry their text, 1,050 have it withheld and 11 are the
+national authority's. The pack was rebuilt once with the widened rules (method, section 22):
+107 more real alerts and 9 more tests lost their text, and the released codes are unchanged.
 - **No validated content code.** The hand sheet (100 texts coded blind; method, section 14) put
   the hazard at alpha 0.86, but a second blind sheet (99 texts, one coder), scored against
   version 2 of the rules, bounds version 1's hazard at 0.56 to 0.72 (method, section 17), so the
@@ -205,5 +212,7 @@ The field list is in `schema.md`, and how each field is derived in `method.md`.
   by the sender's identifier, which is unique in the archive.
 - The people patterns over-withhold by design (a hazard alert that gives a phone number loses its
   text too) and can still miss a detail written in an unusual way; that is why the pack's check
-  scans every released text field again for the patterns and for missing-person wording before
-  every upload.
+  scans every released text field again for the patterns, for missing-person wording and for a
+  description of a person before every upload. After the rebuild a reader found no phone
+  number, email address, description of a person or private individual's name in a random
+  sample of 300 released alert texts and 100 test texts (method, section 22).
