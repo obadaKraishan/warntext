@@ -321,6 +321,13 @@ def cmd_compare_olson(args: argparse.Namespace) -> int:
     return 0
 
 
+def _first_lines(args: argparse.Namespace) -> tuple[str, ...]:
+    """The guide's opening lines a sheet command was given (the sheet-2 line by default)."""
+    if args.sheet_3_opening:
+        return sh.SHEET_3_FIRST_LINES
+    return tuple(args.first_line) if args.first_line else (sh.GUIDE_FIRST_LINE,)
+
+
 def cmd_sheet(args: argparse.Namespace) -> int:
     """Draw the hand sheet (blind workbook and key) from the local tables. Prints counts only."""
     tables = Path(args.tables) / "alerts"
@@ -340,7 +347,8 @@ def cmd_sheet(args: argparse.Namespace) -> int:
         left_out = before - len(items)
     items = sh.one_per_text_group(items, groups, args.seed)
     chosen = sh.draw(items, args.seed, args.rows)
-    paths = sh.write(chosen, args.out, args.name)
+    first_lines = _first_lines(args)
+    paths = sh.write(chosen, args.out, args.name, first_lines=first_lines)
     made = {
         "seed": args.seed,
         "candidates": len(items),
@@ -388,7 +396,8 @@ def cmd_sheet_repeat(args: argparse.Namespace) -> int:
                 f"{len(order) - same} texts differ from the earlier workbook's; nothing written."
             )
     chosen = [items[r] for r in order]
-    paths = sh.write(chosen, args.out, args.name, earlier_rows=order)
+    first_lines = _first_lines(args)
+    paths = sh.write(chosen, args.out, args.name, earlier_rows=order, first_lines=first_lines)
     made = {
         "seed": args.seed,
         "earlier_key": Path(args.key).name,
@@ -779,6 +788,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         help="an earlier sheet's key: its text groups and texts are left out (repeatable)",
     )
+    p.add_argument("--first-line", action="append", help="the guide's opening lines (repeatable)")
+    p.add_argument(
+        "--sheet-3-opening", action="store_true", help="open the guide with SHEET_3_FIRST_LINES"
+    )
     p.set_defaults(func=cmd_sheet)
 
     p = sub.add_parser(
@@ -793,6 +806,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--check-against", help="the earlier workbook: its texts must be the same")
     p.add_argument("--out", required=True, help="a folder under data/interim (never tracked)")
     p.add_argument("--name", required=True, help="file names: NAME.xlsx, NAME_key.csv ...")
+    p.add_argument("--first-line", action="append", help="the guide's opening lines (repeatable)")
+    p.add_argument(
+        "--sheet-3-opening", action="store_true", help="open the guide with SHEET_3_FIRST_LINES"
+    )
     p.set_defaults(func=cmd_sheet_repeat)
 
     p = sub.add_parser(

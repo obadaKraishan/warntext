@@ -427,3 +427,19 @@ def test_consolidated_answers_leave_open_ones_out_of_the_development_figure(tmp_
     path = sh.write_consolidated(merged, tmp_path / "c.csv")
     lines = path.read_text().splitlines()
     assert lines[0].split(",")[:2] == ["row", "hazard"] and lines[3].startswith("3,open,no")
+
+
+def test_sheet_3_opens_its_guide_with_the_days_only_hand_task(tmp_path):
+    messages, codes, texts = corpus(24)
+    chosen = sh.draw(sh.candidates(messages, codes, texts), seed=3, total=4)
+    paths = sh.write(chosen, tmp_path, "hand_sheet_3", first_lines=sh.SHEET_3_FIRST_LINES)
+    guide = paths["guide"].read_text(encoding="utf-8").splitlines()
+    assert guide[0] == (
+        "This sheet is the only hand task of its day. About a minute per row, in two or three "
+        "sittings."
+    )
+    assert guide[1] == "Judge only the words in the text."
+    definitions = xlsx.read_workbook(paths["workbook"])[1].rows
+    assert [definitions[0][1][0], definitions[1][1][0]] == list(sh.SHEET_3_FIRST_LINES)
+    # The rest of the guide is the sheet-2 guide, word for word.
+    assert "\n".join(guide[2:]) == "\n".join(sh.guide_text().splitlines()[1:])

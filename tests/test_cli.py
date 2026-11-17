@@ -369,11 +369,14 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
                 "5",
                 "--rows",
                 "4",
+                "--sheet-3-opening",
             ]
         )
         == 0
     )
     assert "texts on the sheet" in capsys.readouterr().out
+    guide = (out / "hand_sheet_guide.txt").read_text(encoding="utf-8")
+    assert guide.startswith("This sheet is the only hand task of its day.")
     key = out / "hand_sheet_key.csv"
     assert key.exists() and (out / "hand_sheet.xlsx").exists()
     filled = filled_sheet(tmp_path / "filled.xlsx", {n: ["yes"] * 6 for n in range(1, 5)})
@@ -409,6 +412,8 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
         "1",
         "--seed",
         "9",
+        "--first-line",
+        "Invented opening line.",
         "--check-against",
         str(out / "hand_sheet.xlsx"),
         "--out",
@@ -425,6 +430,7 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
     old_texts = sh.texts_of_workbook(out / "hand_sheet.xlsx")
     new_texts = sh.texts_of_workbook(tmp_path / "pass2" / "second_pass.xlsx")
     assert {new_texts[n] for n in new_key} == {old_texts[e] for e in earlier}
+    assert (tmp_path / "pass2" / "second_pass_guide.txt").read_text().startswith("Invented opening")
     made = json.loads((tmp_path / "pass2" / "second_pass_strata.json").read_text())
     assert made["texts_same_as_earlier_workbook"] == 2 and made["left_out"] == [4]
     # A row both kept and left out, or a text that is not the earlier workbook's, stops it.

@@ -57,6 +57,12 @@ _BOLD = xlsx.Style(bold=True, align="left", direction="ltr")
 
 #: The guide's first line, on the definitions sheet and in the plain-text guide.
 GUIDE_FIRST_LINE = "Judge only the words in the text. About a minute per row."
+#: The opening lines from the third sheet on: the sheet is the day's only hand task.
+SHEET_3_FIRST_LINES = (
+    "This sheet is the only hand task of its day. About a minute per row, in two or three "
+    "sittings.",
+    "Judge only the words in the text.",
+)
 #: The settled definitions, in the sheet's column order: (column heading, definition, an
 #: invented text that is yes, an invented text that is no). Codebook, version 2.
 DEFINITIONS = (
@@ -381,10 +387,11 @@ def workbook(chosen: Sequence[Item]) -> xlsx.Sheet:
     )
 
 
-def definitions_sheet() -> xlsx.Sheet:
+def definitions_sheet(first_lines: Sequence[str] = (GUIDE_FIRST_LINE,)) -> xlsx.Sheet:
     """The second visible worksheet: the settled definitions and the edge cases, read-only."""
     head = [(h, _HEAD) for h in ("Column", "Yes when the text says ...", "Yes", "No")]
-    rows: list[list[tuple[str, xlsx.Style]]] = [[(GUIDE_FIRST_LINE, _BOLD)], head]
+    rows: list[list[tuple[str, xlsx.Style]]] = [[(line, _BOLD)] for line in first_lines]
+    rows.append(head)
     for heading, definition, yes, no in DEFINITIONS:
         rows.append([(heading, _BOLD), (definition, _TEXT), (yes, _TEXT), (no, _TEXT)])
     rows.append([])
@@ -407,9 +414,9 @@ def definitions_sheet() -> xlsx.Sheet:
     )
 
 
-def guide_text() -> str:
+def guide_text(first_lines: Sequence[str] = (GUIDE_FIRST_LINE,)) -> str:
     """The guide as plain text, to open with a double click next to the sheet."""
-    lines = [GUIDE_FIRST_LINE, ""]
+    lines = [*first_lines, ""]
     lines.append(
         "For each row, read the text and choose yes or no in each of the six columns. Leave a "
         "cell empty only when you cannot decide, and use the Note column for anything odd. The "
@@ -467,6 +474,7 @@ def write(
     out_dir: Path | str,
     name: str = "hand_sheet",
     earlier_rows: Sequence[int] | None = None,
+    first_lines: Sequence[str] = (GUIDE_FIRST_LINE,),
 ) -> dict[str, Path]:
     """Write the blind workbook (the sheet, then the definitions), its key and the plain-text
     guide, side by side: ``<name>.xlsx``, ``<name>_key.csv`` and ``<name>_guide.txt``.
@@ -479,10 +487,10 @@ def write(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     book = xlsx.write_workbook(
-        out_dir / f"{name}.xlsx", workbook(chosen), extra=(definitions_sheet(),)
+        out_dir / f"{name}.xlsx", workbook(chosen), extra=(definitions_sheet(first_lines),)
     )
     guide = out_dir / f"{name}_guide.txt"
-    guide.write_text(guide_text(), encoding="utf-8")
+    guide.write_text(guide_text(first_lines), encoding="utf-8")
     key = out_dir / f"{name}_key.csv"
     with key.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)

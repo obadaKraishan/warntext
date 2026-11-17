@@ -108,6 +108,10 @@ All notable changes to this project are recorded here. The format follows
 - `warntext update --rebuild --codebook-version 3`: a build can code with the draft version 3
   rules into its own folder. The default is still version 2, and version 1 is kept only in the
   tables built with it.
+- `warntext sheet` and `warntext sheet-repeat`: the guide's opening lines can be given
+  (`--first-line`, or `--sheet-3-opening` for the third sheet's two lines: the sheet is the only
+  hand task of its day, about a minute per row in two or three sittings). The rest of the guide is
+  unchanged.
 
 ### Changed
 - Messages with a people code carry their times rounded down to the hour in the record layer
