@@ -248,3 +248,9 @@ All notable changes to this project are recorded here. The format follows
 - Codebook version 3 is frozen until the third hand sheet is scored against it: 45 named changes,
   none held back, and a test that pins the module's SHA-256. The date and hour that open a text as
   its stamp are when it was sent, not time.
+- Codebook section 9, version 3 (frozen): its SHA-256 and the rule for release fixed before the
+  third sheet is read (alpha at least .80 on the third sheet and the coder's own consistency at
+  least .80 on the recheck copy); the nine answers, each with what the draft read, its change and
+  the units it moves; the seven narrow misses, one fixed and six left with the reason; units
+  changed from the draft and from version 2; development figures with the open answers decided;
+  where the earlier codings and the published shares part from the answers.

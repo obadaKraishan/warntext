@@ -14,9 +14,10 @@ first sheet has been read to build version 2, so its scores for version 2 are a 
 figure, not a check. On the second sheet only `time` reached .80, and `hazard` did not, so no code
 of version 2 is released: version 0.1.0 of the dataset carries version 1's codes.
 
-**Version 3 (DRAFT, section 9)** changes the rules where a second pass over the second sheet
-showed a rule fault, keeps version 2's reading wherever a definition is still open, and waits for
-a third blind sheet. It is not released.
+**Version 3 (frozen, section 9)** changes the rules where a second pass over the second sheet
+showed a rule fault, and takes the answers to the nine definitions that sheet left open. It is
+frozen until a third blind sheet is scored against it, under a rule for release fixed before that
+sheet is read (section 9). It is not released.
 
 The definitions below are this project's own words. Each says which study it follows; none
 copies a study's wording, statements or templates. Every example is invented: the places,
@@ -545,13 +546,28 @@ The counts are over all 71,408 coded units of version 2's tables, each read wher
 | A "City of X:" opener read as a location (codebook 2.2) | 23 | 10 | 5 | 38 |
 | A clock time in a promised update read as time (codebook 2.3) | 1 | 3 | 2 | 6 |
 
-## 9. Version 3 (DRAFT): what changed and why
+## 9. Version 3 (frozen): what changed and why
 
-**DRAFT for the maintainer's review. Not released.** Version 3 of the rules
-(`src/warntext/codes_v3.py`, `CODEBOOK_VERSION = "3"`) is built into its own tables
-(`warntext update --rebuild --codebook-version 3`), never into a release. Release 0.1.0 carries
-version 1's codes, and every content code there stays experimental. Version 3's check is a third
-blind sheet, drawn from its tables and not yet coded (method, section 19).
+**Frozen, not released.** Version 3 of the rules (`src/warntext/codes_v3.py`,
+`CODEBOOK_VERSION = "3"`) is frozen until the third blind sheet is scored against it. The file's
+SHA-256 is `21413980b7bcd8041e140104b1f7905e6b9e18daf981d4352328f584185980ed`, and a test pins it
+(`tests/test_codes_v3.py`): a change to the rules after this point needs a new version and a new
+blind sheet. It holds 45 named changes and none held back: 31 found on the first two sheets, and 14
+that take the answers to the nine definitions the second sheet left open. Version 3 is built into
+its own tables (`warntext update --rebuild --codebook-version 3`), never into a release. Release
+0.1.0 carries version 1's codes, and every content code there stays experimental. The codebook as
+a whole stays a DRAFT for the maintainer's review.
+
+**The rule for release, fixed before the third sheet is read.** A content code of version 3 is
+released as validated only when both hold:
+- its Krippendorff's alpha on the third sheet, against frozen version 3, is at least .80; and
+- the coder's own consistency for that code, on the recheck copy coded at least 7 days after the
+  third sheet, is at least .80.
+
+Otherwise the code stays experimental, and the card gives both numbers. A unit the rules do not
+code (a text not in English) is left out of a score and counted, never scored as the rules' "no"
+(`warntext sheet-check`). All 100 of the third sheet's units are coded by the frozen rules, and so
+are the recheck copy's 30.
 
 **Why a version 3.** The second sheet compared version 2 with one pass by one coder, so a
 difference could be a rule fault or a coding slip. A second blind pass by the same coder over the
@@ -569,12 +585,11 @@ the 81 differing answers (method, section 19):
 the functions that change. Every change has a name (`codes_v3.CHANGES`), rests on a general
 pattern and a section of this codebook, and is tested on invented messages (each test codes the
 message with the change and without it). With no change switched on, version 3 codes every one
-of the 84,598 units exactly as version 2. No rule was written for one text, and nothing was
-changed for a case the definitions leave open.
+of the 84,598 units exactly as version 2. No rule was written for one text.
 
-**The changes**, with the units each one moves among the real alerts' units (version 3 against
-version 3 without that change; "+" to yes, "-" to no). Changes overlap, so the counts do not add
-up to the total.
+**The changes found on the two sheets** (31), with the units each one moves among the real
+alerts' units, counted in the draft before the nine answers (version 3 against version 3 without
+that change; "+" to yes, "-" to no). Changes overlap, so the counts do not add up to the total.
 
 | change | what changes | codebook | units it moves |
 |---|---|---|---|
@@ -610,58 +625,160 @@ up to the total.
 | `not_places` | "Wireless", "various", "several" and like words after "of" or "in" are not a place's name. | 2.2 | location -47 |
 | `particles` | A place name may start with a short particle: El, La, Los, St., Mt., Ft. ("near El Oakito"). | 2.2 | location +35 |
 
-**Version 2 to version 3 in all** (units coded by both versions): hazard +697 / -549; description +738 / -274; source +1376 / -1700; guidance +412 / -30; time +304 / -146; location +715 / -526; 574 units move between coded and not coded.
+**The nine answers.** Each answer is a rule a careful reader can apply from the words of the text
+alone. The examples are invented. The definitions on the hand sheet carry the answers (the
+guide's edge cases 7 to 15), and the units moved are among the real alerts' units, counted as
+frozen version 3 against frozen version 3 without that change.
 
-**Held back, waiting for an answer.** One change is written and tested but left out of version 3,
-so version 3 keeps version 2's reading there: `orders`, "an order or a ban alone (a curfew, a
-stay-at-home order, a burn ban) is no hazard". The two sheets disagree on it. On the first sheet,
-coded with the earlier guide, such texts were coded as a hazard four times; on the second, after
-the resolution, a curfew was not a hazard twice and a stay-at-home order once. Switched on, it
-would move hazard -907; description -84.
+| | code | settled | did the draft read it so? | change | units it moves |
+|---|---|---|---|---|---|
+| 1 | time | The hour at which an order ended or changed is not time: it already happened. "The evacuation order for Oak Hills was lowered to a warning at 3 PM": no. | No: a clock time in a clause about an order's change read as time, and so did "expired". | `order_changed` | time -272 |
+| 2 | time | The end of a danger with no time expression is not time. "The gas leak on Elm Street is over. You may go home": no. | Mostly: "is over" was no, but "now" in an order changed to a lesser one ("is now a warning") read as a time to act. | `order_changed` (counted with answer 1) | |
+| 3 | time | A state that goes on with no time expression is not time. "A smoke advisory remains in place", "Bridge work in progress": no. | Partly: "remains" and "in progress" were no, but "will continue", "expected to" and like verbs with no time expression read as time, and so did the date and hour that open a text as its stamp. | `time_word`, `stamp_time` | time -99; time -122 |
+| 4 | hazard | A generic event word with a word that gives its kind is a hazard ("police event", "traffic emergency", "medical emergency", "hazmat incident"); a bare generic word is not, whatever place is attached; a word for the message itself ("alert", "advisory", "notice", "warning") is never the hazard. | Partly: "police activity" counted, "police event", "traffic emergency" and "medical emergency" did not; "health advisory", "weather alert" and "water notice" counted. | `kind_label`, `message_label` | hazard +126, description +24; hazard -57, description -5 |
+| 5 | hazard description | What is being done about the hazard is not its description; what the hazard does or causes still is. In "Gas will be shut off on Oak Road shortly; repairs will follow" the shut-off is the event (hazard yes) and the repairs are not its description. | Partly: "safely removed" counted as a characteristic, and a gas shut-off was no hazard. | `responders`, `shut_off` | description -17; hazard +22, description +2 |
+| 6 | source | An organization that acts but does not speak is not the source. It is the source when written as the sender, or as the one saying, issuing, advising, asking, warning or reporting. | Mostly: `start_org` already needed a speaking verb or an opener's punctuation, but the sender's own name or initials counted wherever they stood ("Flooding in Exville County", with Exville County the sender). | `own_name` | source -9 |
+| 7 | guidance | A fact about what still works is not guidance. "Cell phones can still reach 911": no; "Use a cell phone to call 911": yes. | Mostly: "can still reach 911" was no, but "can still call 911" and a clause that says something still works read as instructions. | `still_works` | guidance -4 |
+| 8 | location | An area named only after the hazard, or a generic district word, is not a location; a location needs a proper name, a numbered or lettered zone, a road name or number, or an address. "Oak Fire areas": no; "downtown": no; "downtown Exville": yes. | Partly: "Oak Fire areas" and "downtown" alone were no, but a fire's or a storm's name after a locative ("near the Oak Fire") and a landmark word without its name ("the river", "the high school") read as places, and a district word with a name and no locative was missed. | `hazard_names`, `named_landmark`, `district_name` | location -275 / +9; -451; +4 |
+| 9 | hazard | An order or a ban with no threat named is not a hazard: a curfew, a burn ban, a stay-at-home, evacuation or shelter-in-place order and a boil water notice say what to do, not what the danger is. They are guidance, unless the text also names the threat ("Burn ban because of extreme fire danger": hazard yes). A closure or an outage that is itself the event stays a hazard. | No: version 2's reading was kept while the question was open (the held change). | `orders` | hazard -1,836, description -135, guidance +348 |
 
-**Questions the definitions leave open.** Each comes with invented examples. Version 3 keeps
-version 2's reading for each until it is answered.
+How each answer is written into the rules:
+- **1 and 2** (`order_changed`). A clause that reports an order or an event that ended or changed
+  (lifted, lowered, downgraded, upgraded, reduced, rescinded, cancelled, ended, reopened, resolved,
+  restored, cleared, "no longer in effect", "changed to") gives no time, unless the clause still
+  looks ahead ("will", "to be", "expected", "until", "once", "when"). "Expired" is no longer read
+  as an expiry, and "now" before a lesser order ("is now a warning") is not a time to act. "The
+  order will be lifted at 6 PM" is still time.
+- **3** (`time_word`, `stamp_time`). Version 2's impact time counted a verb of what comes ("will
+  continue", "will arrive", "expected to") on its own; now only phrases that carry a time word
+  count ("expected tonight", "opening soon", "through the weekend", "later today"), and every
+  clock time, day, date and duration still does. A date or an hour that opens the text before a
+  colon or a dash, alone or after a short sender word ("EXSD 6/1 2:10 PM:", "UPDATE 3:45 PM -"),
+  is when the text was written, not a time still to come.
+- **4** (`kind_label`, `message_label`). A generic event noun (event, activity, incident,
+  emergency, situation, operation) after a kind word (police, law enforcement, sheriff, SWAT,
+  traffic, medical, hazmat, gas, utility, electrical, rail, train, aircraft, aviation, marine,
+  boating, sewer, industrial, military, security) names a hazard. A kind word with a message word
+  ("health advisory", "public health alert", "weather alert", "water notice") names none. **What
+  happens to `traffic_alone`:** it stays. "Traffic" alone is no hazard ("obey traffic laws",
+  "Traffic alert"); "traffic" with a generic event noun ("traffic emergency", "traffic incident")
+  is one, and a crash or a closed road still is.
+- **5** (`responders`, `shut_off`). "Removed" and "safely removed" are no longer characteristics.
+  A utility shut off (gas, water, power, electricity: "will be shut off", "turned off",
+  "disconnected", "a water shut-off") is an outage, the event itself.
+- **6** (`own_name`). `start_org` stays as narrowed (a name and an agency word that start the
+  text count only before an opener's punctuation or a speaking verb). The other change it needed:
+  the sender's own name or initials, which version 2 counted wherever they stood, now count only
+  where written as the one speaking: after a speaker cue ("from", "this is", "issued by"), before
+  a speaking verb or "with an important message", as the opener, or as the closing signature.
+- **7** (`still_works`). An instruction phrase after "can still", "could still" or "still able"
+  is a fact about what works, and so is a clause that says something "still works", "is still
+  available" or "is still in service". "Residents should still avoid Oak Road" is still guidance.
+- **8** (`hazard_names`, `named_landmark`, `district_name`). A fire's or a complex's name ("Oak
+  Fire", "OAK FIRE"), a named storm ("Hurricane Exia", "T.S. Exia") is the hazard's name and is not
+  read as a place. A landmark word counts only with its name: a name before it, past the words of
+  its kind ("Exville High School", "Oak Creek"), a name after it ("Lake Exville", "University of
+  Exville"), or one of the message's own place words beside it. A district word with a name
+  ("Downtown Exville") is a place; alone it is not.
+- **9** (`orders`). The held change, switched on and widened to the kinds the answer names:
+  curfews, burn bans and burning or fire restrictions, stay-at-home, isolation and quarantine
+  orders, boil water notices, orders and advisories, "do not drink" notices, health orders,
+  lockdowns, and water restrictions or conservation notices are not hazards. The held draft also
+  took out vaccination and testing sites; they are neither orders nor bans, so the frozen version
+  keeps them as public-health hazards (the second sheet codes a vaccine clinic as a hazard). The
+  orders are read as guidance: a curfew, a quarantine or isolation order, burning restrictions, a
+  stay-at-home order or a health order stated as a noun is an instruction, unless its clause says
+  it ended.
 
-| | code | question | invented examples |
+**The seven narrow misses on the second sheet.** Each was fixed only where a general pattern covers
+it without over-reading:
+- fixed: a cause abbreviated "T.S." that ended a clause. Dotted initials no longer end a clause
+  where the rules look for a closure caused by a hazard ("Due to T.S. Exia, parish curfew in
+  effect"); "a.m." and "p.m." still may (`dotted`: description +2);
+- left: a sign-off joined to the last word by a dash with no space, naming a military base
+  ("Oak Road closed due to ice-Camp Exville"): reading it would need a list of base names;
+- left: a tribal nation's name before an alert title with no colon: reading an unpunctuated title
+  as the sender would also make every "X County Flood Warning" title a sender;
+- left: county initials read as a place ("in EXC"): short capitals after "in" are as often not
+  places;
+- left: a place before "Evacuation" ("Oakton Evacuation"): a rule for it was tried and counted, and
+  45 of the 65 names it found are ordinary dictionary words, so it over-reads;
+- left: a capitalized word after a locative in a title-case headline ("Water Main Repairs Set
+  for Early Morning"): no general way tells a title-case name from a title-case word;
+- left: a list of precipitation types as a description ("a mixture of rain, sleet and snow"):
+  any pattern for it would also count "rain and snow tonight" as a description.
+
+**Units changed** among real alerts' units coded by both versions:
+
+| code | draft to frozen | version 2 to frozen |
+|---|---|---|
+| hazard | +137 / -1,873 | +805 / -2,393 |
+| hazard description | +28 / -152 | +742 / -402 |
+| source | -9 | +1,376 / -1,709 |
+| guidance | +348 / -4 | +760 / -34 |
+| time | -496 | +303 / -641 |
+| location | +10 / -769 | +706 / -1,276 |
+
+The frozen rules code the same 70,838 units as the draft (version 2: 71,408): the nine answers move
+no unit between coded and not coded. **The language check** takes 572 units out of the coded set
+(554 read as Spanish, 18 as another language) and codes 2 that version 2 left out as Spanish.
+
+**Development figures, not a check.** Both sheets were read to build version 3, so these show how
+well the rules learned those texts, not how well they code new ones. Version 2 scored 0.93 to 0.97
+on the first sheet, which built it, and 0.55 to 0.82 on the second, fresh one. Every figure below
+leaves out the first sheet's one text not in English (`warntext sheet-check` no longer scores it
+as the rules' "no"). The second sheet's 9 answers of "the definition does not settle this" are
+left out in the consolidated column and decided by the nine answers in the last (four to answers 1
+to 3, time no; two to answer 6, source no; one each to answer 4, hazard yes; answer 5, description
+no; answer 7, guidance no).
+
+| code | sheet 1, version 2 | sheet 1, frozen | sheet 2 consolidated, version 2 | sheet 2 consolidated, draft | sheet 2 consolidated, frozen | sheet 2 decided, frozen (95% interval) |
+|---|---:|---:|---:|---:|---:|---|
+| hazard | 0.98 | 0.85 | 0.67 | 0.90 | 0.93 | 0.93 (0.83 to 1.00) |
+| hazard description | 0.96 | 0.89 | 0.75 | 0.95 | 0.97 | 0.97 (0.91 to 1.00) |
+| source | 0.98 | 0.98 | 0.61 | 0.96 | 0.96 | 0.96 (0.90 to 1.00) |
+| guidance | 0.95 | 0.93 | 0.79 | 1.00 | 1.00 | 1.00 |
+| time | 0.95 | 0.95 | 0.87 | 0.98 | 0.96 | 0.94 (0.86 to 1.00) |
+| location | 1.00 | 0.97 | 0.55 | 0.86 | 0.86 | 0.86 (0.73 to 0.97) |
+
+**Where the earlier codings part from the nine answers.** The first sheet was coded with the
+earlier guide, before the answers; the second's consolidated answers were given before them too.
+Where the frozen rules follow an answer and the earlier coding does not, the figure drops:
+- **answer 9** (orders): the first sheet coded six orders or bans as hazards (three curfews, water
+  restrictions, a burn ban, a boil order), and one curfew alone as no guidance; the second sheet's
+  consolidated answers code a boil order as a hazard. The second sheet's two curfews and its
+  stay-at-home order, which the coder had marked as no hazard, now agree;
+- **answer 4**: the second sheet codes a traffic emergency as no hazard, and a cleared incident on
+  an interstate as a hazard;
+- **answer 5**: the first sheet codes a suspicious device that responders removed as a
+  description;
+- **answer 1**: the second sheet codes orders no longer in effect from a stated date and hour as
+  time;
+- **answer 3**: the second sheet codes a demolition in progress as time;
+- **answer 8**: the second sheet codes an area named after a fire and "downtown" alone as
+  locations, and the first sheet a lake whose name is written without capitals, which the
+  named-landmark rule cannot tell from a common word.
+
+**Beside Olson et al. (2024)** (shares at 90 / 360 characters, their filters; 6,549 texts both):
+
+| | draft | frozen | Olson et al. |
 |---|---|---|---|
-| 1 | time | Is the hour at which an order ended or changed "until when it lasts", or the time something already happened? | "The evacuation order for Oak Hills was lowered to a warning at 3 PM." "The boil water notice for Exville is no longer in effect as of 6 PM Friday." |
-| 2 | time | Is the end of a danger with no hour ("is over", "has ended", "crews are still at work") time? | "The gas leak on Elm Street is over. You may go home." "The order for Oak Road is now a warning; crews are still at work." |
-| 3 | time | Is a state that goes on, with no end given, time, like "until further notice"? | "A smoke advisory remains in place for Exville." "Bridge work in progress on Oak Road." |
-| 4 | hazard | Is a vague event label a named hazard? (Version 2 counts "police activity".) | "The police event on Oak Road is over." "An incident on Route 9 has been cleared." "Traffic emergency on Elm Road." |
-| 5 | hazard description | Is what is being done about the hazard part of its description? | "Gas will be shut off on Oak Road shortly; repairs will follow." |
-| 6 | source | Is an organization named as the one acting, not as the speaker, the source? | "Exville County will offer free flu shots at the fairgrounds on Saturday." "Exville Police are at the scene on Oak Road." |
-| 7 | guidance | Is a fact that tells people what still works, or what to use instead, guidance? | "Landline 911 is down in Exville. Cell phones can still reach 911." |
-| 8 | location | Is an area named only after the hazard, or a district word, a named place? | "Some Oak Fire areas must leave now." "All residents must leave downtown now." |
-| 9 | hazard | Is an order or a ban with no threat named a hazard? | "A curfew is in effect from 9 PM to 6 AM." "Burn ban in Exville County." |
+| hazard | 59.8 / 73.9 | 51.7 / 65.1 | 70.3 / 80.6 |
+| hazard description | 8.9 / 29.6 | 8.6 / 27.3 | 16.7 / 33.5 |
+| location | 71.2 / 85.6 | 69.4 / 83.8 | 81.2 / 91.5 |
+| loc_landmark | 20.2 / 32.2 | 15.9 / 26.2 | 27.4 / 33.3 |
+| time | 31.4 / 48.5 | 30.7 / 47.7 | 32.8 / 53.5 |
+| time to impact | 10.8 / 18.7 | 7.8 / 14.2 | 17.2 / 30.7 |
+| time to act | 15.7 / 28.8 | 19.1 / 34.4 | 11.2 / 19.2 |
+| source | 25.0 / 42.3 | 25.0 / 42.2 | 26.6 / 52.1 |
+| guidance | 66.6 / 86.2 | 69.6 / 88.6 | 64.0 / 88.0 |
+| shares more than 5 points off | 27 | 32 | |
 
-The rules that wait: question 9 is the held change `orders`; for question 6, `start_org` needs a
-speaking verb or an opener's punctuation; for question 4, version 2's hazard words stay, and if a
-qualified label such as "traffic emergency" is to count, `traffic_alone` needs that exception;
-for questions 1 to 3, 5, 7 and 8 version 2's rules stay as they are.
-
-**The language check** takes 572 units out of the coded set (554 read as Spanish, 18 as another
-language) and codes 2 that version 2 left out as Spanish: 70,838 coded units instead of 71,408.
-
-**Development figures, not a check.** Both sheets were read to build version 3, so these figures
-show how well the rules learned those texts, not how well they code new ones. Version 2 scored
-0.93 to 0.97 on the first sheet, which built it, and 0.55 to 0.82 on the second, fresh one.
-
-| code | sheet 1, version 2 | sheet 1, version 3 | sheet 2 (consolidated), version 2 | sheet 2 (consolidated), version 3 |
-|---|---:|---:|---:|---:|
-| hazard | 0.95 | 0.95 | 0.67 | 0.90 |
-| hazard description | 0.93 | 0.93 | 0.75 | 0.95 |
-| source | 0.96 | 0.96 | 0.61 | 0.96 |
-| guidance | 0.93 | 0.93 | 0.79 | 1.00 |
-| time | 0.93 | 0.93 | 0.87 | 0.98 |
-| location | 0.97 | 0.97 | 0.55 | 0.86 |
-
-On the first sheet, version 3 codes every row as version 2 does. On the second, 14 answers still
-differ. Seven wait for an answer: three orders and one vague label (hazard), a state in progress
-(time), and a place named after a fire and a district word (location). The other seven are narrow
-forms the rules still miss: a sign-off joined to the text by a dash and a tribal
-nation's name before an alert title (source); county initials as a place, a place before
-"Evacuation", and a capitalized word in a title-case headline read as a place (location); and a
-list of precipitation types, and a cause whose abbreviation ("T.S.") ends a clause (description).
+The answers move the hazard further from Olson et al.'s share (an order or a ban alone is no
+hazard here; their coders appear to have counted such messages), and the landmark too (an unnamed
+landmark is no place here). Time to act rises because the orders now count as instructions, so the
+clock times in their clauses are times to act, not times to impact. The published shares are not a
+check: they come from other coders and other definitions (section 8).
 
 ## 10. References
 
