@@ -24,6 +24,13 @@
 6. **A message about a missing person is treated the same way,** whatever its event code: its
    text and shapes are withheld (reason ``missing_person`` when no other rule withheld it), its
    times are rounded to the hour and its area codes keep the county only.
+7. **A message whose text describes a person is treated as rule 6 says,** with or without the
+   cue words the patterns know: two or more elements of a description
+   (:data:`warntext.patterns.DESCRIPTION_ELEMENTS`) in its text fields read together. Its
+   text and shapes are withheld (reason ``person_described`` when no detail pattern and no
+   people code withheld it), and its times and places are coarsened as for a missing person;
+   the name ``person_described`` is kept in ``withheld_patterns``. The phone numbers and email
+   addresses in any written form extend rule 1 (text withheld).
 
 The functions here return names and reasons, never the matched text.
 """
@@ -136,37 +143,55 @@ def same_codes(m: Message) -> set[str]:
     }
 
 
-def pattern_hits(m: Message) -> list[str]:
-    """The names of the personal-detail patterns found in the message's text fields.
+def scan_texts(m: Message) -> list[str]:
+    """Every text field of a message that could reach a text table, as the patterns read them.
 
     The organization name and ``contact`` are not scanned: the name is the sender's, and
-    ``contact`` is dropped anyway. Everything that could reach a text table is.
+    ``contact`` is dropped anyway. Everything that could reach a text table is, ``audience`` and
+    the resource descriptions included.
     """
-    texts = []
+    texts: list[str | None] = []
     for i in m.infos:
         texts += [getattr(i, f) for f in INFO_TEXT_FIELDS]
-        texts += [i.wea_short, i.wea_long]
+        texts += [i.audience, i.wea_short, i.wea_long]
         texts += [p.value for p in i.parameters if is_text_parameter(p.name)]
         texts += [a.description for a in i.areas]
-        texts += [r.uri for r in i.resources]
-    hits: set[str] = set()
-    for t in texts:
-        if t:
-            hits |= {name for name, found in patterns.present(t).items() if found}
-    return sorted(hits)
+        texts += [r.description for r in i.resources] + [r.uri for r in i.resources]
+    return [t for t in texts if t]
+
+
+def pattern_hits(m: Message) -> list[str]:
+    """The names of the personal-detail patterns found in the message's text fields, and
+    ``person_described`` when those fields, read together, describe a person."""
+    return patterns.hits(scan_texts(m))
+
+
+#: The name of the description rule in ``withheld_patterns``.
+DESCRIBED = patterns.DESCRIBED
 
 
 def withheld(m: Message) -> tuple[str | None, list[str]]:
-    """Why the message's text is withheld (``people_code`` or ``personal_pattern``), or None.
+    """Why the message's text is withheld (``people_code``, ``personal_pattern`` or
+    ``person_described``), or None.
 
-    Returns the reason and the pattern names that fired (also for people codes, as counts).
+    Returns the reason and the pattern names that fired (also for people codes, as counts). A
+    detail pattern is named before a description; either way a description's times and places
+    are coarsened (:func:`coarsened`).
     """
     hits = pattern_hits(m)
     if same_codes(m) & PEOPLE_CODES:
         return "people_code", hits
-    if hits:
+    if any(h != DESCRIBED for h in hits):
         return "personal_pattern", hits
+    if hits:
+        return "person_described", hits
     return None, hits
+
+
+def coarsened(reason: str | None, hits: Iterable[str], about_missing: bool) -> bool:
+    """Whether a message keeps only the hour and the county: a people code, a message about a
+    missing person, or a message whose text describes a person."""
+    return reason == "people_code" or about_missing or DESCRIBED in hits
 
 
 # --- messages about a missing person -----------------------------------------------------

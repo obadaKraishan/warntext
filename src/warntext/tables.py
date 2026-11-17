@@ -344,7 +344,7 @@ def org_name_check(name: str, raw_senders: set[str], official: bool = False) -> 
     """
     if not 3 <= len(name) <= 120:
         return "length"
-    if "@" in name or _EMAIL.search(name) or patterns.PATTERNS["phone"].search(name):
+    if "@" in name or _EMAIL.search(name) or patterns.has_contact(name):
         return "address_or_number"
     if name.casefold() in raw_senders:
         return "equals_a_sender_value"
@@ -639,9 +639,9 @@ def fema_summary(units: list[Unit], fema: Mapping[int, au.Authority]) -> dict[st
 
 
 def _people(u: Unit) -> bool:
-    """Whether a message keeps only the hour and the county: it carries a people code, or its
-    text is about a missing person."""
-    return u.withheld == "people_code" or u.about_missing
+    """Whether a message keeps only the hour and the county: it carries a people code, its text
+    is about a missing person, or its text describes a person."""
+    return privacy.coarsened(u.withheld, u.hits, u.about_missing)
 
 
 def _exact(message_id: str, table: str, index: int | None, name: str, value: str) -> dict:
@@ -944,7 +944,9 @@ def build(
             # A message about a missing person is treated like a people-code row, whatever
             # its code: no text, no shapes, times to the hour, the county only.
             u.about_missing = privacy.about_missing_person(m)
-            if u.about_missing and u.withheld is None:
+            # The missing-person reason comes before a description, as it always has: a
+            # description only adds a reason where no earlier rule gave one.
+            if u.about_missing and u.withheld in (None, "person_described"):
                 u.withheld = "missing_person"
 
     # Re-sends: the same text from the same sender under another identifier.
@@ -1332,6 +1334,15 @@ def build(
             1 for u in units if u.about_missing and u.withheld != "people_code"
         ),
         "withheld_only_as_missing_person": sum(1 for u in units if u.withheld == "missing_person"),
+        "describes_a_person": sum(1 for u in units if privacy.DESCRIBED in u.hits),
+        "describes_a_person_without_people_code_or_missing_person": sum(
+            1
+            for u in units
+            if privacy.DESCRIBED in u.hits and u.withheld != "people_code" and not u.about_missing
+        ),
+        "withheld_only_as_describing_a_person": sum(
+            1 for u in units if u.withheld == "person_described"
+        ),
         "part_digits_set_to_county": fixes.area_codes,
         "messages_with_a_part_digit": len(fixes.area_code_messages),
         "eas_headers_coarsened": fixes.eas_headers,

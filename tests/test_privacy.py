@@ -33,6 +33,39 @@ def test_patterns_are_found_in_phone_texts_and_area_descriptions_too():
     assert privacy.withheld(m) == ("personal_pattern", ["plate"])
 
 
+def test_a_number_in_another_written_form_is_withheld_by_the_pattern_rule():
+    m = msg(code="CEM", description="Invented. Call 5555550123 for help.")
+    assert privacy.withheld(m) == ("personal_pattern", ["phone_any_form"])
+    m = msg(code="CEM", description="Invented.", instruction="Call 555-0123.")
+    assert privacy.withheld(m) == ("personal_pattern", ["phone_seven"])
+
+
+def test_a_description_without_cue_words_is_withheld_and_coarsened():
+    m = msg(
+        code="LAE",
+        headline="Invented: police seek a white male",
+        description="Invented: in a red hoodie near the example park.",
+    )
+    reason, hits = privacy.withheld(m)
+    assert (reason, hits) == ("person_described", ["person_described"])
+    assert privacy.coarsened(reason, hits, about_missing=False)
+    # a detail pattern is named first; the description still coarsens the times
+    m = msg(code="LAE", headline="Invented: a white male", description="In a red hoodie; 555-0123.")
+    reason, hits = privacy.withheld(m)
+    assert reason == "personal_pattern" and "person_described" in hits
+    assert privacy.coarsened(reason, hits, about_missing=False)
+    assert not privacy.coarsened("personal_pattern", ["phone"], about_missing=False)
+    assert privacy.coarsened(None, [], about_missing=True)
+    assert privacy.coarsened("people_code", [], about_missing=False)
+
+
+def test_audience_and_resource_descriptions_are_scanned_too():
+    xml = invented(code="CEM", description="Invented.").replace(
+        "<category>", "<audience>Invented: call 5555550123</audience><category>"
+    )
+    assert privacy.withheld(cap.parse_xml(xml)) == ("personal_pattern", ["phone_any_form"])
+
+
 def test_a_plain_hazard_message_keeps_its_text():
     assert privacy.withheld(msg(code="EVI", description="Invented evacuation order.")) == (
         None,

@@ -368,6 +368,35 @@ def test_people_code_rows_keep_only_the_hour_and_the_exact_time_stays_private(tm
     assert "2024-05-01T10:47:12-05:00" not in {r["sent"] for r in released if r["times_rounded"]}
 
 
+def test_a_described_person_keeps_only_the_hour_and_the_county(tmp_path):
+    seek = invented(
+        identifier="EX-D1",
+        sender=COUNTY,
+        code="LAE",
+        sent="2024-05-01T10:47:12-05:00",
+        headline="Invented: police seek a white male",
+        description="Invented: in a red hoodie near the example park.",
+        geocodes=("148201",),
+    )
+    hazard = invented(identifier="EX-H2", sender=COUNTY, sent="2024-05-01T10:47:12-05:00")
+    b = run([record(seek, "d1"), record(hazard, "h2")])
+    rows = by_id(b)
+    assert rows["d1"]["text_withheld"] == "person_described"
+    assert rows["d1"]["withheld_patterns"] == ["person_described"]
+    assert rows["d1"]["about_missing_person"] is False
+    assert rows["d1"]["times_rounded"] is True
+    assert rows["d1"]["sent"] == "2024-05-01T10:00:00-05:00"
+    assert rows["d1"]["same_geocodes"] == ["048201"]
+    assert rows["h2"]["sent"] == "2024-05-01T10:47:12-05:00"
+    exact = {(x["message_id"], x["field"]) for x in b.people_times}
+    assert ("d1", "sent") in exact
+    text_ids = {
+        r["message_id"] for c in b.tables.values() for t in tables.TEXT_TABLES for r in c[t]
+    }
+    assert "d1" not in text_ids and "h2" in text_ids
+    assert b.summary["people_treatment"]["withheld_only_as_describing_a_person"] == 1
+
+
 def test_codes_rows_for_real_alerts_only_withheld_ones_too_and_without_text(corpus):
     rows = corpus.tables["alerts"]["codes"]
     assert corpus.tables["tests"]["codes"] == []
