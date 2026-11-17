@@ -264,3 +264,8 @@ All notable changes to this project are recorded here. The format follows
   by default, and `--seed`, both written into the result), each side's share of "yes", and the
   differences by direction. The screen shows counts only; the rows that differ are in the result
   file, so a coder who will recode some of the rows later does not see them.
+- `warntext.order_flag`: an experimental, mechanical flag "an order or ban is named" beside the
+  content codes. It reuses frozen version 3's own pattern for orders and bans by import and reads
+  the text as version 3's hazard rule does (organizations' names blanked first). It is not a
+  content code and has no release status; "hazard or order" is a reading for comparison with
+  published shares that counted orders as hazards, and the hazard code stays as frozen.
