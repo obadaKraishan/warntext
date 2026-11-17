@@ -216,4 +216,9 @@ All notable changes to this project are recorded here. The format follows
   change with its reason and the units it moves; the held change and nine open questions with
   invented examples, and which rules wait for them; the language check; development figures on
   both sheets. References are now section 10.
+- Method: section 19. The second blind pass over the second sheet and the coder's consistency with
+  himself, with its limits; where the differing answers went; the resolution and the consolidated
+  answers; versions 1 and 2 against them; the causes of the gap; version 3 with development
+  figures, the units it changes and the shares beside Olson et al.; the third sheet and its
+  recheck copy.
 

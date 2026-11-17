@@ -755,3 +755,145 @@ Kaggle mirror) it read the five from FEMA in one request and wrote six text rows
 hash to the pack's (leaving out the time read and the credit columns); the two withheld ones
 were not asked for.
 
+## 19. A second pass over the second sheet, the consolidated answers and version 3
+
+**Why.** Each sheet compares the rules with one pass by one person, so a difference can be a
+fault of the rules or a slip of the coder, and the scores alone cannot tell which. Nor can the
+rules agree with a person more than the person agrees with himself, and that had not been
+measured. So the coder went through the second sheet's differences again, as human coders do:
+code, compare, resolve, refine, then code new texts. The second sheet is now a development set,
+like the first.
+
+**The second pass** (`warntext sheet-repeat`, seed 20261117). The workbook held the 58 rows of
+the second sheet where at least one code differed from version 2, and 17 rows where all six
+agreed, drawn at random: 75 rows in a new order with new row numbers, the same workbook, the same
+definitions sheet and guide, and nothing about the first pass or the rules. The text not in
+English was left out. The coder coded all six columns again, blind, the day after the first pass
+(about 26 hours later). Every cell was filled.
+
+**His consistency with himself**, first pass against second pass over the 75 rows (`warntext
+sheet-repeat-check`; 95% interval from 2,000 bootstrap resamples of the rows):
+
+| code | agreement | alpha | 95% interval | both yes | both no | yes, then no | no, then yes |
+|---|---:|---:|---|---:|---:|---:|---:|
+| hazard | 0.93 | 0.81 | 0.64 to 0.96 | 55 | 15 | 4 | 1 |
+| hazard description | 0.85 | 0.69 | 0.50 to 0.85 | 22 | 42 | 8 | 3 |
+| source | 0.96 | 0.92 | 0.81 to 1.00 | 39 | 33 | 0 | 3 |
+| guidance | 0.99 | 0.94 | 0.79 to 1.00 | 64 | 10 | 0 | 1 |
+| time | 0.92 | 0.84 | 0.70 to 0.95 | 35 | 34 | 0 | 6 |
+| location | 1.00 | 1.00 | 1.00 to 1.00 | 59 | 16 | 0 | 0 |
+
+**A rough figure.** The two passes were a day apart, so the first may still have been in mind.
+The rows lean toward hard ones: 58 of the 75 had a difference with the rules. One person. A
+second pass at least a week after the first, on rows drawn at random, measures this properly; the
+third sheet's recheck copy does that (below).
+
+**Where the differing answers went.** Of the 81 answers where the first pass differed from
+version 2, the second pass kept 67 and turned 14 to the rules' answer. Of the 369 answers where
+the first pass had agreed with the rules, the second pass differed on 12. So 26 answers differ
+between the passes (in 23 texts): hazard 5, description 11, source 3, guidance 1, time 6, location
+0.
+
+**The resolution** (`warntext sheet-resolve`, seed 20261118). The 26 answers went into one small
+workbook: the text, the code, that code's definition and three choices, "yes", "no" and "the
+definition does not settle this". It showed neither pass's answer nor the rules'. The coder chose
+the second pass's answer 14 times and the first pass's 3 times, and marked 9 as not settled by the
+definition. His final answers, with the answers that never changed, are the sheet's
+**consolidated answers** (`warntext sheet-consolidate`). The 9 open ones are left out of the
+figures below and listed as questions in the codebook (section 9).
+
+**Versions 1 and 2 against the consolidated answers** (development figures, not a check; open
+answers and the text not in English left out):
+
+| code | version 2 as first scored | version 1 | version 2 | rows |
+|---|---:|---:|---:|---:|
+| hazard | 0.65 | 0.73 (0.58 to 0.87) | 0.67 (0.49 to 0.82) | 98 |
+| hazard description | 0.57 | 0.63 (0.43 to 0.79) | 0.75 (0.58 to 0.89) | 98 |
+| source | 0.64 | 0.63 (0.45 to 0.78) | 0.61 (0.43 to 0.77) | 97 |
+| guidance | 0.80 (0.7997) | 0.79 (0.62 to 0.92) | 0.79 (0.63 to 0.92) | 98 |
+| time | 0.82 | 0.89 (0.79 to 0.98) | 0.87 (0.77 to 0.96) | 95 |
+| location | 0.55 | 0.50 (0.27 to 0.70) | 0.55 (0.33 to 0.74) | 99 |
+
+**What the gap was made of.** The 81 answers sort into coding slips (the consolidated answer is
+the rules'), rule faults (the rules missed or over-read a clear case, read under the settled
+definitions) and cases the definitions leave open (the coder's 3 answers of "does not settle",
+and 6 more the reading found to be of the same kinds):
+
+| code | differing answers | coding slips | rules missed a clear case | rules over-read one | definition open |
+|---|---:|---:|---:|---:|---:|
+| hazard | 15 | 2 | 8 | 1 | 4 |
+| hazard description | 17 | 8 | 9 | 0 | 0 |
+| source | 17 | 0 | 14 | 3 | 0 |
+| guidance | 7 | 0 | 7 | 0 | 0 |
+| time | 9 | 1 | 4 | 1 | 3 |
+| location | 16 | 0 | 7 | 7 | 2 |
+| **all** | **81** | **11 (14%)** | **49 (60%)** | **12 (15%)** | **9 (11%)** |
+
+The misses run one way for most codes (the coder saw the content, the rules did not); location
+errs both ways. The second sheet's low scores were mostly the rules, not the coding: only 11 of
+the 81 differences were slips, 8 of them in the hazard description, where the coder's own
+consistency is lowest. Besides the 81, the resolution turned 3 answers that had agreed with the
+rules (two curfews as no hazard, a sign-off as the source) and marked 6 more as open.
+
+**Version 3** (codebook, section 9) changes the rules for the faults found on both sheets, as
+general patterns, and keeps version 2's reading wherever a definition is open. It is built
+separately (`warntext update --rebuild --codebook-version 3` into `data/interim/tables-v3`); the
+build's check passed. Its largest changes: a speaker's name never runs across a line break or a
+sentence end, and all-caps words, a fire's name or a hazard phrase in an opener are not initials or
+an agency, so fewer hazard and place words are blanked with the source; more forms of speaker
+(each line's opener, "issued by", a stamped opener, a bare place opener, an alert system's name);
+"traffic" alone is no hazard; closures caused by a hazard, extent and imminence are descriptions;
+road codes and intersections are places. A language check finds texts not in English in general.
+
+**Development figures, not a check** (both sheets were read to build version 3):
+
+| code | sheet 1, version 2 | sheet 1, version 3 | sheet 2 consolidated, version 2 | sheet 2 consolidated, version 3 |
+|---|---:|---:|---:|---:|
+| hazard | 0.95 | 0.95 | 0.67 | 0.90 |
+| hazard description | 0.93 | 0.93 | 0.75 | 0.95 |
+| source | 0.96 | 0.96 | 0.61 | 0.96 |
+| guidance | 0.93 | 0.93 | 0.79 | 1.00 |
+| time | 0.93 | 0.93 | 0.87 | 0.98 |
+| location | 0.97 | 0.97 | 0.55 | 0.86 |
+
+Version 2 scored 0.93 to 0.97 on the sheet it was built on and 0.55 to 0.82 on a fresh one; a
+development figure says little about new texts.
+
+**Units changed from version 2 to version 3** (real alerts' units coded by both; "+" to yes):
+hazard +697 / -549, hazard description +738 / -274, source +1,376 / -1,700, guidance +412 / -30,
+time +304 / -146, location +715 / -526. The language check takes 572 units out of the coded set
+(554 Spanish, 18 another language) and codes 2 more: 70,838 coded units instead of 71,408.
+
+**Against Olson et al. (2024), all versions** (shares at 90 / 360 characters; their filters):
+
+| | first rules | version 1 | version 2 | version 3 | Olson et al. |
+|---|---|---|---|---|---|
+| texts (90 + 360) | 7,195 | 6,755 | 6,719 | 6,549 | 6,080 |
+| hazard | 55.1 / 70.2 | 60.5 / 74.6 | 60.2 / 74.2 | 59.8 / 73.9 | 70.3 / 80.6 |
+| hazard description | 9.4 / 23.4 | 10.1 / 24.1 | 7.5 / 28.8 | 8.9 / 29.6 | 16.7 / 33.5 |
+| location | 61.3 / 79.6 | 70.9 / 88.4 | 70.0 / 86.2 | 71.2 / 85.6 | 81.2 / 91.5 |
+| time | 30.9 / 47.5 | 32.8 / 48.8 | 32.0 / 47.6 | 31.4 / 48.5 | 32.8 / 53.5 |
+| source | 17.0 / 35.6 | 21.0 / 42.3 | 26.8 / 43.2 | 25.0 / 42.3 | 26.6 / 52.1 |
+| guidance | 51.4 / 79.0 | 60.6 / 83.5 | 65.4 / 86.1 | 66.6 / 86.2 | 64.0 / 88.0 |
+| complete | 2.6 / 9.4 | 3.7 / 12.8 | 4.3 / 12.5 | 4.0 / 12.4 | 2.9 / 21.1 |
+| time to impact | 14.1 / 21.9 | 14.5 / 22.1 | 11.2 / 18.5 | 10.8 / 18.7 | 17.2 / 30.7 |
+| time to act | 13.4 / 24.3 | 14.8 / 25.6 | 16.0 / 27.8 | 15.7 / 28.8 | 11.2 / 19.2 |
+| expiry | 5.5 / 10.0 | 5.6 / 10.2 | 6.7 / 8.9 | 7.1 / 9.0 | 14.5 / 20.6 |
+| other or unknown category | 30.9 | 16.5 | 16.1 | 15.9 | 3.2 |
+| shares more than 5 points off | 37 | 27 | 30 | 27 | |
+
+The shares move little: version 3's changes go both ways and are spread over many forms. The
+published shares are not a check, since they come from other coders.
+
+**The third sheet** (`warntext sheet --name hand_sheet_3 --exclude-key ... --sheet-3-opening`,
+seed 20261119, from version 3's tables): 100 texts with the same eligibility and strata (35 phone
+texts of 90 characters, 31 of 360, 34 full texts; 40 sent before 2020; all eight categories;
+19,514 characters, median 133). It holds no text group and no text the first two sheets used
+(1,602 units left out for that). It is the same workbook with the same definitions; its guide now
+opens "This sheet is the only hand task of its day. About a minute per row, in two or three
+sittings." It is not read until it comes back filled, and it is the check of version 3.
+
+**A recheck copy** of 30 of its rows (`warntext sheet-repeat --fillers 30`, seed 20261120), in a
+new order with new row numbers and its own key, is to be coded at least 7 days after the third
+sheet. It measures the coder's consistency with himself on rows drawn at random, with time between
+the passes. Its file name says when to open it.
