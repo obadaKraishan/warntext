@@ -41,6 +41,10 @@ Every example is invented.
 **When unsure.** A text in Spanish should not be on the sheet; if one is, leave its row empty and
 say so in the Note.
 
+**From the third sheet on**, the guide opens with two lines instead of the first line above:
+"This sheet is the only hand task of its day. About a minute per row, in two or three sittings."
+and "Judge only the words in the text." The rest of the guide is the same.
+
 **When done.** Save the file under its own name and send it back as it is. `warntext sheet-check`
 compares your codes with the rules' (Krippendorff's alpha per column, against .80) and lists only
 row numbers.

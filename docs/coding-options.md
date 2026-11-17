@@ -97,3 +97,9 @@ Whether a pass is weighed for any of them is the maintainer's decision. Since th
 been scored, a model's prompt written after that score would need its own fresh blind sheet.
 
 Nothing is downloaded or run until the maintainer decides.
+
+**After a second pass over the second sheet** (method, section 19) the maintainer chose rules
+version 3 with a third blind sheet, and no model pass for now. Of the second sheet's 81
+differences, 61 were faults of the rules, 11 coding slips and 9 cases the definitions leave
+open; version 3 (codebook, section 9) changes the rules for the faults and waits for the third
+sheet.

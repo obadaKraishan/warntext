@@ -194,7 +194,7 @@ The field list is in `schema.md`, and how each field is derived in `method.md`.
 - Sender kinds rest on FEMA's list where an authority is on it, and on names and email domains
   where it is not; 32 real alerts have an unknown kind.
 - The content codes are rules (codebook version 1 in release 0.1.0; version 2 was checked on a
-  second blind sheet and is not released), compared with the published shares of Olson et al.
+  second blind sheet and is not released; a draft version 3 waits for a third blind sheet), compared with the published shares of Olson et al.
   (2024) and with two blind hand-coded sheets; codes under the bar are marked experimental and
   left out (`codebook.md`), and in 0.1.0 that is all six contents.
 - References often give a different sent time from the referenced message's; they are matched
