@@ -655,10 +655,10 @@ show how well the rules learned those texts, not how well they code new ones. Ve
 | time | 0.93 | 0.93 | 0.87 | 0.98 |
 | location | 0.97 | 0.97 | 0.55 | 0.86 |
 
-On the first sheet, version 3 codes every row as version 2 does. On the second, what still
-differs is mostly what waits for an answer: three orders and one vague label (hazard), a state in
-progress (time), and a place named after a fire and a district word (location). The rest are a
-few narrow forms the rules still miss: a sign-off joined to the text by a dash and a tribal
+On the first sheet, version 3 codes every row as version 2 does. On the second, 14 answers still
+differ. Seven wait for an answer: three orders and one vague label (hazard), a state in progress
+(time), and a place named after a fire and a district word (location). The other seven are narrow
+forms the rules still miss: a sign-off joined to the text by a dash and a tribal
 nation's name before an alert title (source); county initials as a place, a place before
 "Evacuation", and a capitalized word in a title-case headline read as a place (location); and a
 list of precipitation types, and a cause whose abbreviation ("T.S.") ends a clause (description).
