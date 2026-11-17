@@ -214,7 +214,7 @@ def test_personal_details_or_missing_person_words_in_released_text_fail(pack):
     tables_ = {c: {n: [] for n in release.RELEASED_TABLES} for c in tables.CONFIGS}
     tables_["alerts"]["messages"] = messages
     for field, value, hit in (
-        ("description", "Call 555-123-4567 for details.", "description:phone"),
+        ("description", "Call 555-555-0142 for details.", "description:phone"),
         ("audience", "Have you seen this man?", "audience:missing_person"),
         ("resource_descriptions", ["Last seen near the park"], "resource_descriptions:last_seen"),
     ):
