@@ -727,7 +727,8 @@ on any personal-detail pattern or missing-person wording in any released text fi
 re-reads the audience and the resource descriptions too, which the build's pattern scan does
 not read; no released text matches.
 
-**Counts (real alerts).** 16,921 carry text (federal 223, state 3,426, local 13,012, territorial
+**Counts (real alerts), as first built** (section 22 gives them after the rebuild with the
+widened rules). 16,921 carry text (federal 223, state 3,426, local 13,012, territorial
 219, tribal 25, unknown 16); 13,778 are withheld; 3,979 carry no words in the archive (each a
 cancellation with no information block). By year, the real alerts with text: 2011 5, 2012 6,
 2013 29, 2014 133, 2015 239, 2016 267, 2017 351, 2018 565, 2019 602, 2020 1,544, 2021 1,205,
