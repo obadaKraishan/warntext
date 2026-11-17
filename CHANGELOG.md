@@ -238,3 +238,10 @@ All notable changes to this project are recorded here. The format follows
   hazard's name, a landmark without its name and a district word alone are no place, and a
   district word with a name is. Dotted initials ("T.S.") no longer end a clause for the
   description.
+- The hand sheet guide and the workbook's Definitions worksheet, version 3: the definition of time
+  states its rule (a time expression for something still to come, to do or to last; verbs of state
+  and the time of an order's end or change are not time), hazard states the kind-word and the
+  order rules, source the organization written as the one speaking, location the proper name;
+  nine more edge cases, each with one invented text that is yes and one that is no. Version 2's
+  definitions and edge cases stay in the code as the earlier sheets carried them, and a test pins
+  every invented example of each version to its own rules.

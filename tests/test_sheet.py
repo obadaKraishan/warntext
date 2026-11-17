@@ -3,6 +3,7 @@
 import pytest
 
 from warntext import codes as cd
+from warntext import codes_v3 as v3
 from warntext import sheet as sh
 from warntext import xlsx
 
@@ -150,14 +151,21 @@ def test_the_workbook_carries_the_settled_definitions_and_a_plain_text_guide(tmp
     assert [h for h, *_ in sh.DEFINITIONS] == [h for h, _ in sh.CODES]
     assert all(d in cells for _, d, _, _ in sh.DEFINITIONS)
     examples = [text for _, _, ex in sh.EDGE_CASES for text, _ in ex]
-    assert len(sh.EDGE_CASES) == 6 and len(examples) == 10
+    assert len(sh.EDGE_CASES) == 15 and len(examples) == 28
+    # The nine answers each come with one invented yes and one invented no.
+    for _, _, ex in sh.EDGE_CASES[6:]:
+        assert sorted(a.split(":")[0] for _, a in ex) == ["no", "yes"]
     assert all(text in cells for text in examples)
     assert all(f"{shows}." in cells for _, shows, _ in sh.EDGE_CASES)
     guide = paths["guide"].read_text(encoding="utf-8")
     assert guide.splitlines()[0] == "Judge only the words in the text. About a minute per row."
     assert all(d in guide for _, d, _, _ in sh.DEFINITIONS)
-    # The settled definitions, word for word.
+    # The settled definitions, word for word: version 3 adds the nine answers to four of them.
     assert sh.DEFINITIONS[2][1].endswith('(an opener such as "City of X:", or "from X County").')
+    assert "not the source" in sh.DEFINITIONS[2][1] and "names no threat" in sh.DEFINITIONS[0][1]
+    assert '"until lifted"' in sh.DEFINITIONS[4][1] and '"Oak Fire areas"' in sh.DEFINITIONS[5][1]
+    assert sh.DEFINITIONS[1] == sh.DEFINITIONS_V2[1] and sh.DEFINITIONS[3] == sh.DEFINITIONS_V2[3]
+    assert sh.EDGE_CASES[:6] == sh.EDGE_CASES_V2
     assert sh.DEFINITIONS[3][1].startswith("Any instruction or prohibition to the public, in any")
     assert sh.DEFINITIONS[1][1].endswith("what it can cause. No named hazard, no description.")
     # sheet-check reads the first sheet, whatever follows it.
@@ -288,12 +296,12 @@ def test_the_guide_in_docs_says_what_the_workbook_says():
             assert f'"{text}" {answer}' in guide
 
 
-def test_every_invented_example_is_coded_by_version_2_as_the_guide_says():
+def test_every_invented_example_is_coded_by_version_2_as_version_2s_guide_says():
     field = dict(sh.CODES)
-    for heading, _, yes, no in sh.DEFINITIONS:
+    for heading, _, yes, no in sh.DEFINITIONS_V2:
         assert cd.code_text(yes)[field[heading]], yes
         assert not cd.code_text(no)[field[heading]], no
-    for column, _, examples in sh.EDGE_CASES:
+    for column, _, examples in sh.EDGE_CASES_V2:
         for text, answer in examples:
             assert cd.code_text(text)[field[column]] is answer.startswith("yes: "), text
     # What the answers say in passing about another column.
@@ -305,6 +313,28 @@ def test_every_invented_example_is_coded_by_version_2_as_the_guide_says():
     }
     for text, want in said.items():
         got = cd.code_text(text)
+        assert {k: got[k] for k in want} == want, text
+
+
+def test_every_invented_example_is_coded_by_version_3_as_the_guide_says():
+    field = dict(sh.CODES)
+    for heading, _, yes, no in sh.DEFINITIONS:
+        assert v3.code_text(yes)[field[heading]], yes
+        assert not v3.code_text(no)[field[heading]], no
+    for column, _, examples in sh.EDGE_CASES:
+        for text, answer in examples:
+            assert v3.code_text(text)[field[column]] is answer.startswith("yes: "), text
+    # What the answers say in passing about another column.
+    said = {
+        "Updates at sampletoncounty.gov.": {"guidance": True},
+        "No burning in Sampleton County until further notice.": {"time": True, "location": True},
+        "Oak Road closed at Elm St.": {"hazard": True},
+        "Sampleton County: boil water before use.": {"source_named": True},
+        "Gas will be shut off on Oak Road shortly; repairs will follow.": {"hazard": True},
+        "A curfew is in effect from 9 PM to 6 AM.": {"guidance": True},
+    }
+    for text, want in said.items():
+        got = v3.code_text(text)
         assert {k: got[k] for k in want} == want, text
 
 

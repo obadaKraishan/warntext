@@ -11,7 +11,7 @@
 
 The workbook's first sheet holds only the row number, the text and six empty cells with a yes or
 no list: hazard, hazard description, source, guidance, time, location. Its second sheet holds the
-settled definitions and six edge cases, and a plain-text copy of them sits next to it. No rule
+settled definitions and the edge cases, and a plain-text copy of them sits next to it. No rule
 output is on it. The key (row number to message, block and unit, with the stratum) is a separate
 file. A later sheet leaves out every text group and text an earlier sheet used (``used_by``,
 ``without_used``).
@@ -65,9 +65,9 @@ SHEET_3_FIRST_LINES = (
     "sittings.",
     "Judge only the words in the text.",
 )
-#: The settled definitions, in the sheet's column order: (column heading, definition, an
-#: invented text that is yes, an invented text that is no). Codebook, version 2.
-DEFINITIONS = (
+#: Version 2's settled definitions, as the first two sheets and the third sheet's draw carried
+#: them: (column heading, definition, an invented text that is yes, an invented text that is no).
+DEFINITIONS_V2 = (
     (
         "Hazard",
         'The threat or event is named. A generic label alone ("emergency", "alert") is not a '
@@ -116,9 +116,9 @@ DEFINITIONS = (
         "Police activity in your area. Stay inside.",
     ),
 )
-#: Six invented edge cases: (the column it is about, what it shows, and its invented texts, each
-#: with the answer and why). Every answer is what the codebook says, version 2.
-EDGE_CASES = (
+#: Version 2's six invented edge cases: (the column it is about, what it shows, and its invented
+#: texts, each with the answer and why). Every answer is what the codebook says, version 2.
+EDGE_CASES_V2 = (
     (
         "Source",
         "Initials as a source",
@@ -198,6 +198,191 @@ EDGE_CASES = (
             (
                 "Water main break on Oak Road. Repairs will last until 5 PM.",
                 "yes: it says until when it lasts.",
+            ),
+        ),
+    ),
+)
+
+
+#: The settled definitions, codebook version 3: version 2's, with the answers to the nine open
+#: definitions (time's rule in its definition; hazard, source and location as settled).
+DEFINITIONS = (
+    (
+        "Hazard",
+        "The threat or event is named. A generic event word counts only with a word that gives "
+        'its kind ("police activity", "traffic emergency", "medical emergency"); alone it is not '
+        'a hazard, whatever place is attached ("an incident on Route 9"). A word for the message '
+        'itself ("alert", "advisory", "notice", "warning") is never the hazard. An action alone is '
+        "not a hazard, and nor is an order or a ban that names no threat (a curfew, a burn ban, a "
+        "stay-at-home, evacuation or shelter-in-place order, a boil water notice): those are "
+        "guidance. A closure or an outage that is itself the event is a hazard.",
+        "Gas leak on Oak Road. Avoid the area.",
+        "Emergency alert: leave Zone B now.",
+    ),
+    DEFINITIONS_V2[1],
+    (
+        "Source",
+        "The organization that speaks is named, in words or by its usual initials (a police "
+        "department's or an emergency office's initials count): written as the sender, or as the "
+        "one saying, issuing, advising, asking, warning or reporting. An organization that only "
+        'acts ("Exville Police are at the scene") is not the source. A web address alone does not '
+        "name the source. A place name counts only when it is written as the speaker (an opener "
+        'such as "City of X:", or "from X County").',
+        "Sampleton County OEM: boil water before use.",
+        "Police activity near Oak Road. Avoid the area.",
+    ),
+    DEFINITIONS_V2[3],
+    (
+        "Time",
+        "When the danger comes, when to act, until when it lasts, or for how long. Time is yes "
+        "only when the text has a time expression for something still to come, to do or to last: "
+        'a clock time or date ahead, a duration, a time word for acting ("now", "immediately", '
+        '"tonight") or an explicit open end ("until further notice", "until lifted"). Verbs of '
+        'state alone ("is over", "remains", "continues", "in progress", "still") are not time, and '
+        "nor is the time at which something already happened, such as an order's end or change.",
+        "Oak Road is closed until further notice.",
+        "At 2 PM a brush fire started near Oak Road.",
+    ),
+    (
+        "Location",
+        "A named place at any level: a city, county, neighborhood, road, intersection, landmark, "
+        "zone. A location needs a proper name, a numbered or lettered zone, a road name or number, "
+        'or an address ("downtown Exville" counts). A generic word ("the area", "your area", '
+        '"downtown" alone) is not a location, and nor is an area named only after the hazard '
+        '("Oak Fire areas").',
+        "Crash on I-55 at exit 12. Use another route.",
+        "Police activity in your area. Stay inside.",
+    ),
+)
+#: The edge cases, codebook version 3: version 2's six, then the nine answers, each with one
+#: invented text that is yes and one that is no. Every answer is what the codebook says.
+EDGE_CASES = (
+    *EDGE_CASES_V2,
+    (
+        "Time",
+        "The hour at which an order ended or changed is not time",
+        (
+            (
+                "The evacuation order for Oak Hills was lowered to a warning at 3 PM.",
+                "no: the hour at which the order changed is something that already happened.",
+            ),
+            (
+                "The evacuation warning for Oak Hills ends at 6 PM tonight.",
+                "yes: 6 PM tonight is still to come; it says until when the warning lasts.",
+            ),
+        ),
+    ),
+    (
+        "Time",
+        "The end of a danger with no time expression is not time",
+        (
+            (
+                "The gas leak on Elm Street is over. You may go home.",
+                'no: "is over" says the danger ended; no time expression is given.',
+            ),
+            (
+                "The gas leak on Elm Street is over. Stay out of the building until 5 PM.",
+                'yes: "until 5 PM" is a time ahead for what to do.',
+            ),
+        ),
+    ),
+    (
+        "Time",
+        "A state that goes on with no time expression is not time",
+        (
+            (
+                "A smoke advisory remains in place for Exville.",
+                'no: "remains" is a verb of state; nothing says when it ends.',
+            ),
+            (
+                "A smoke advisory remains in place for Exville until further notice.",
+                'yes: "until further notice" is an explicit open end.',
+            ),
+        ),
+    ),
+    (
+        "Hazard",
+        "A generic event word counts only with its kind",
+        (
+            (
+                "The police event on Oak Road is over.",
+                'yes: "police" says what kind of event it is.',
+            ),
+            (
+                "An incident on Route 9 has been cleared.",
+                'no: "incident" alone names no kind of event, whatever place is attached. The same '
+                'holds for "Traffic alert" alone: a word for the message is never the hazard.',
+            ),
+        ),
+    ),
+    (
+        "Hazard description",
+        "What is being done about the hazard is not its description",
+        (
+            (
+                "Gas will be shut off on Oak Road shortly; repairs will follow.",
+                "no: the shut-off is the event (Hazard is yes); the repairs are what is done "
+                "about it, not a characteristic of it.",
+            ),
+            (
+                "Brush fire near Oak Road is spreading east. Crews are on scene.",
+                'yes: "spreading east" says what the fire is doing; the crews do not count.',
+            ),
+        ),
+    ),
+    (
+        "Source",
+        "An organization that acts but does not speak is not the source",
+        (
+            (
+                "Exville Police are at the scene on Oak Road.",
+                "no: the police act; nothing says they are the ones speaking.",
+            ),
+            (
+                "Exville Police ask residents to stay inside.",
+                "yes: the police are written as the ones asking.",
+            ),
+        ),
+    ),
+    (
+        "Guidance",
+        "A fact about what still works is not guidance",
+        (
+            (
+                "Landline 911 is down in Exville. Cell phones can still reach 911.",
+                "no: it says what still works, not what the reader should do.",
+            ),
+            (
+                "Landline 911 is down in Exville. Use a cell phone to call 911.",
+                "yes: it tells the reader what to do.",
+            ),
+        ),
+    ),
+    (
+        "Location",
+        "An area named only after the hazard, or a district word alone, is not a location",
+        (
+            (
+                "Some Oak Fire areas must leave now.",
+                'no: the areas are named only after the fire. The same holds for "downtown" alone.',
+            ),
+            (
+                "All residents must leave downtown Exville now.",
+                "yes: a district word with a place's name.",
+            ),
+        ),
+    ),
+    (
+        "Hazard",
+        "An order or a ban with no threat named is not a hazard",
+        (
+            (
+                "A curfew is in effect from 9 PM to 6 AM.",
+                "no: a curfew says what to do, not what the danger is (Guidance is yes).",
+            ),
+            (
+                "Burn ban because of extreme fire danger.",
+                "yes: the text also names the threat, the fire danger.",
             ),
         ),
     ),
@@ -405,8 +590,8 @@ def definitions_sheet(first_lines: Sequence[str] = (GUIDE_FIRST_LINE,)) -> xlsx.
     rows.append(
         [
             (
-                "Every example is invented. A text in Spanish should not be on the sheet; if "
-                "one is, leave its row empty and say so in the Note.",
+                "Every example is invented. A text not in English should not be on the sheet; "
+                "if one is, leave its row empty and say so in the Note.",
                 _TEXT,
             )
         ]
@@ -433,8 +618,9 @@ def guide_text(first_lines: Sequence[str] = (GUIDE_FIRST_LINE,)) -> str:
         lines += [f'  "{text}" {answer}' for text, answer in examples]
     lines += [
         "",
-        "A text in Spanish should not be on the sheet; if one is, leave its row empty and say so "
-        "in the Note. When done, save the workbook under its own name and send it back as it is.",
+        "A text not in English should not be on the sheet; if one is, leave its row empty and say "
+        "so in the Note. When done, save the workbook under its own name and send it back as it "
+        "is.",
     ]
     return "\n".join(lines) + "\n"
 
