@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import pytest
 
 from cap_samples import MALFORMED, UPDATE, WEA_TWO_LANGUAGES, WEATHER_SERVICE, alert
-from warntext import profile
+from warntext import patterns, profile
 
 
 @dataclass(frozen=True)
@@ -87,7 +87,9 @@ def test_people_codes_and_patterns_are_counts_only():
     assert p["codes"]["CAE"]["share_of_non_nws"] == 0.25
     found = p["patterns"]["people_codes"]
     assert found["sample_messages"] == 1
-    assert found["share_with_pattern"] == {
+    first = {k: found["share_with_pattern"][k] for k in patterns.FIRST_RELEASE}
+    assert set(found["share_with_pattern"]) == set(patterns.PATTERNS)
+    assert first == {
         "phone": 1.0,
         "plate": 1.0,
         "age": 1.0,
