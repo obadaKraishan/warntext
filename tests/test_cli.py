@@ -339,6 +339,7 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
     from cap_samples import invented
     from test_sheet import filled_sheet
     from test_tables import COUNTY, record, run
+    from warntext import sheet as sh
     from warntext import tables
 
     recs = [
@@ -390,6 +391,49 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
     printed = capsys.readouterr().out
     assert "hazard: 4 rows" in printed and "Brush fire" not in printed
     assert json.loads(res.read_text())["rows_in_key"] == 4
+
+    # A blind second pass: the rows that differed, fillers, a row left out; texts as before.
+    differed = tmp_path / "differed.json"
+    differed.write_text(json.dumps({"codes": {"hazard": {"rows_that_differ": [2]}}}))
+    repeat = [
+        "sheet-repeat",
+        "--key",
+        str(key),
+        "--tables",
+        str(tmp_path / "t"),
+        "--keep-from",
+        str(differed),
+        "--leave-out",
+        "4",
+        "--fillers",
+        "1",
+        "--seed",
+        "9",
+        "--check-against",
+        str(out / "hand_sheet.xlsx"),
+        "--out",
+        str(tmp_path / "pass2"),
+        "--name",
+        "second_pass",
+    ]
+    assert cli.main(repeat) == 0
+    printed = capsys.readouterr().out
+    assert "2 rows (1 kept, 1 fillers, 1 left out)" in printed and "Brush fire" not in printed
+    new_key = sh.read_key(tmp_path / "pass2" / "second_pass_key.csv")
+    earlier = sorted(int(k["earlier_row"]) for k in new_key.values())
+    assert 2 in earlier and 4 not in earlier and len(earlier) == 2
+    old_texts = sh.texts_of_workbook(out / "hand_sheet.xlsx")
+    new_texts = sh.texts_of_workbook(tmp_path / "pass2" / "second_pass.xlsx")
+    assert {new_texts[n] for n in new_key} == {old_texts[e] for e in earlier}
+    made = json.loads((tmp_path / "pass2" / "second_pass_strata.json").read_text())
+    assert made["texts_same_as_earlier_workbook"] == 2 and made["left_out"] == [4]
+    # A row both kept and left out, or a text that is not the earlier workbook's, stops it.
+    with pytest.raises(SystemExit, match="both kept and left out"):
+        cli.main([*repeat[:7], "--leave-out", "2", *repeat[9:]])
+    other = filled_sheet(tmp_path / "other.xlsx", {n: [""] * 6 for n in range(1, 5)})
+    with pytest.raises(SystemExit, match="differ from the earlier workbook"):
+        cli.main([*repeat[:-5], str(other), repeat[-4], str(tmp_path / "p3"), *repeat[-2:]])
+    assert not (tmp_path / "p3").exists()
 
 
 def test_update_command_starts_the_state_then_runs(tmp_path, monkeypatch, capsys):

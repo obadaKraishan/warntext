@@ -360,6 +360,56 @@ def cmd_sheet(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sheet_repeat(args: argparse.Namespace) -> int:
+    """A blind second pass over an earlier sheet's rows: the rows that differed from the rules
+    (from that sheet's check), plus fillers, in a new order with new row ids. Counts only."""
+    key = sh.read_key(args.key)
+    keep: set[int] = set()
+    if args.keep_from:
+        result = json.loads(Path(args.keep_from).read_text(encoding="utf-8"))
+        for r in result["codes"].values():
+            keep |= set(r["rows_that_differ"])
+    leave_out = set(args.leave_out or [])
+    if keep & leave_out:
+        raise SystemExit(f"Rows {sorted(keep & leave_out)} are both kept and left out.")
+    others = set(key) - keep - leave_out
+    order = sh.repeat_order(keep, others, args.fillers, args.seed)
+    tables = Path(args.tables) / "alerts"
+    texts = []
+    for name in ("text_federal", "text_other"):
+        texts += pq.read_table(tables / f"{name}.parquet").to_pylist()
+    items = sh.items_for_key({r: key[r] for r in order}, texts)
+    same = None
+    if args.check_against:
+        earlier = sh.texts_of_workbook(args.check_against)
+        same = sum(earlier.get(r) == items[r].text for r in order)
+        if same != len(order):
+            raise SystemExit(
+                f"{len(order) - same} texts differ from the earlier workbook's; nothing written."
+            )
+    chosen = [items[r] for r in order]
+    paths = sh.write(chosen, args.out, args.name, earlier_rows=order)
+    made = {
+        "seed": args.seed,
+        "earlier_key": Path(args.key).name,
+        "rows": len(order),
+        "kept_rows": len(keep),
+        "fillers": args.fillers,
+        "left_out": sorted(leave_out),
+        "texts_same_as_earlier_workbook": same,
+        **sh.strata(chosen),
+    }
+    (Path(args.out) / f"{args.name}_strata.json").write_text(
+        json.dumps(made, indent=1) + "\n", encoding="utf-8"
+    )
+    print(
+        f"{len(order)} rows ({len(keep)} kept, {args.fillers} fillers, {len(leave_out)} left "
+        f"out); texts the same as the earlier workbook's: {same}; by unit {made['by_unit']}; "
+        f"workbook {paths['workbook']}, key {paths['key']}."
+    )
+    return 0
+
+
 def cmd_sheet_check(args: argparse.Namespace) -> int:
     """Compare a filled hand sheet with the rules: alpha per code and the rows that differ."""
     filled = sh.read_filled(args.sheet)
@@ -648,6 +698,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="an earlier sheet's key: its text groups and texts are left out (repeatable)",
     )
     p.set_defaults(func=cmd_sheet)
+
+    p = sub.add_parser(
+        "sheet-repeat", help="a blind second pass over an earlier sheet's rows (local files)"
+    )
+    p.add_argument("--key", required=True, help="the earlier sheet's key")
+    p.add_argument("--tables", required=True, help="the tables the earlier sheet was drawn from")
+    p.add_argument("--keep-from", help="the earlier sheet's check: every row that differed is kept")
+    p.add_argument("--leave-out", type=int, action="append", help="an earlier row to leave out")
+    p.add_argument("--fillers", type=int, required=True, help="other rows drawn at random")
+    p.add_argument("--seed", type=int, required=True)
+    p.add_argument("--check-against", help="the earlier workbook: its texts must be the same")
+    p.add_argument("--out", required=True, help="a folder under data/interim (never tracked)")
+    p.add_argument("--name", required=True, help="file names: NAME.xlsx, NAME_key.csv ...")
+    p.set_defaults(func=cmd_sheet_repeat)
 
     p = sub.add_parser("sheet-check", help="alpha per code between a filled sheet and the rules")
     p.add_argument("--sheet", required=True, help="the filled hand_sheet.xlsx")

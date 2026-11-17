@@ -84,6 +84,11 @@ All notable changes to this project are recorded here. The format follows
   text row carries its credit: the alerting authority's FEMA ID and released organization name
   (the ID only where the name is blank) and a credit line naming FEMA's dataset. A withheld
   message has no text whatever the kinds.
+- `warntext sheet-repeat`: a blind second pass over an earlier hand sheet's rows. It keeps every
+  row that differed from the rules in that sheet's check, adds fillers drawn at random with a
+  seed, and puts them in a new order with new row ids. The texts are read again from the text
+  layer and must match the earlier workbook's. The earlier row numbers go into the key only. The
+  same command makes a recheck copy of a sheet (no kept rows, a seeded subset).
 
 ### Changed
 - Messages with a people code carry their times rounded down to the hour in the record layer

@@ -462,9 +462,20 @@ def without_used(
     ]
 
 
-def write(chosen: Sequence[Item], out_dir: Path | str, name: str = "hand_sheet") -> dict[str, Path]:
+def write(
+    chosen: Sequence[Item],
+    out_dir: Path | str,
+    name: str = "hand_sheet",
+    earlier_rows: Sequence[int] | None = None,
+) -> dict[str, Path]:
     """Write the blind workbook (the sheet, then the definitions), its key and the plain-text
-    guide, side by side: ``<name>.xlsx``, ``<name>_key.csv`` and ``<name>_guide.txt``."""
+    guide, side by side: ``<name>.xlsx``, ``<name>_key.csv`` and ``<name>_guide.txt``.
+
+    For a repeat of an earlier sheet's rows, ``earlier_rows`` gives each row's number on the
+    earlier sheet; it goes into the key only (column ``earlier_row``), never into the workbook.
+    """
+    if earlier_rows is not None and len(earlier_rows) != len(chosen):
+        raise ValueError("earlier_rows must give one earlier row number per chosen text.")
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     book = xlsx.write_workbook(
@@ -475,12 +486,72 @@ def write(chosen: Sequence[Item], out_dir: Path | str, name: str = "hand_sheet")
     key = out_dir / f"{name}_key.csv"
     with key.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(KEY_COLUMNS)
+        w.writerow(KEY_COLUMNS + (["earlier_row"] if earlier_rows is not None else []))
         for n, it in enumerate(chosen, start=1):
-            w.writerow(
-                [n, it.message_id, it.info_index, it.unit, it.record_id, it.category, it.period]
-            )
+            row = [n, it.message_id, it.info_index, it.unit, it.record_id, it.category, it.period]
+            if earlier_rows is not None:
+                row.append(earlier_rows[n - 1])
+            w.writerow(row)
     return {"workbook": book, "key": key, "guide": guide}
+
+
+# --- a repeat of an earlier sheet's rows (a second, blind pass) ----------------------------
+
+
+def repeat_order(keep: Iterable[int], others: Iterable[int], fillers: int, seed: int) -> list[int]:
+    """A blind repeat of an earlier sheet's rows: every row in ``keep``, plus ``fillers`` rows
+    drawn at random from ``others``, all in a new random order.
+
+    Returns the earlier sheet's row numbers in their new order: the n-th is the repeat's row n.
+    """
+    kept = sorted(set(keep))
+    pool = sorted(set(others) - set(kept))
+    if fillers < 0 or fillers > len(pool):
+        raise ValueError(f"{fillers} fillers asked for, but only {len(pool)} other rows exist.")
+    rng = random.Random(seed)
+    rows = kept + rng.sample(pool, fillers)
+    rng.shuffle(rows)
+    return rows
+
+
+def items_for_key(
+    key: Mapping[int, Mapping[str, str]], texts: Iterable[Mapping[str, Any]]
+) -> dict[int, Item]:
+    """An earlier sheet's items by its row numbers, with the texts read again from the text
+    layer exactly as the sheet built them."""
+    want: dict[tuple[str, int], list[int]] = defaultdict(list)
+    for row, k in key.items():
+        want[(k["message_id"], int(k["info_index"]))].append(row)
+    out: dict[int, Item] = {}
+    for t in texts:
+        for row in want.get((t["message_id"], t["info_index"]), ()):
+            k = key[row]
+            out[row] = Item(
+                message_id=k["message_id"],
+                info_index=int(k["info_index"]),
+                unit=k["unit"],
+                record_id=k["record_id"],
+                category=k["category"],
+                period=k["period"],
+                text=unit_text(k["unit"], t).strip(),
+            )
+    missing = sorted(set(key) - set(out))
+    if missing:
+        raise SystemExit(f"Rows {missing} of the key have no text in the text layer given.")
+    return out
+
+
+def texts_of_workbook(path: Path | str) -> dict[int, str]:
+    """The Text column of a sheet's first worksheet, by row number (for comparing a repeat's
+    texts with the earlier sheet's; never printed)."""
+    rows = next(s for s in xlsx.read_workbook(path) if not s.hidden).rows
+    header = [c.strip().lower() for c in rows[0][1]]
+    r, t = header.index("row"), header.index("text")
+    return {
+        int(cells[r]): cells[t]
+        for _, cells in rows[1:]
+        if len(cells) > t and cells[r].strip().isdigit()
+    }
 
 
 def strata(chosen: Sequence[Item]) -> dict[str, Any]:

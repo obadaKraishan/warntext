@@ -283,3 +283,38 @@ def test_the_two_known_misses_of_version_2_stay_as_frozen():
     assert cd.code_text("Water main break on Oak Road. Next update at 5 PM.")["time"]
     assert not cd.code_text("Water main break on Oak Road. An update will follow.")["time"]
     assert not cd.code_text("Sampleton County: boil water before use.")["location"]
+
+
+def test_a_repeat_keeps_every_differing_row_adds_fillers_and_reorders():
+    order = sh.repeat_order(keep=[3, 7, 9], others=range(1, 21), fillers=5, seed=11)
+    assert len(order) == 8 and len(set(order)) == 8
+    assert {3, 7, 9} <= set(order)
+    assert order == sh.repeat_order([9, 3, 7], range(1, 21), 5, 11)  # seeded
+    assert order != sorted(order)
+    assert sh.repeat_order([3, 7, 9], range(1, 21), 5, 12) != order
+    # A recheck copy is a repeat with no kept rows: a seeded subset in a new order.
+    assert len(set(sh.repeat_order([], range(1, 101), 30, 4))) == 30
+    with pytest.raises(ValueError, match="only 2 other rows"):
+        sh.repeat_order([1], [1, 2, 3], fillers=3, seed=1)
+
+
+def test_a_repeat_reads_the_same_texts_and_keeps_the_earlier_rows_out_of_the_workbook(tmp_path):
+    messages, codes, texts = corpus(24)
+    chosen = sh.draw(sh.candidates(messages, codes, texts), seed=3, total=6)
+    first = sh.write(chosen, tmp_path / "first", "hand_sheet_2")
+    key = sh.read_key(first["key"])
+    items = sh.items_for_key(key, texts)
+    assert [items[n] for n in sorted(items)] == chosen
+    assert sh.texts_of_workbook(first["workbook"]) == {n: i.text for n, i in items.items()}
+    order = sh.repeat_order([2, 5], set(key) - {2, 5, 6}, fillers=2, seed=8)
+    second = sh.write([items[r] for r in order], tmp_path / "second", "pass", earlier_rows=order)
+    new_key = sh.read_key(second["key"])
+    assert [int(new_key[n]["earlier_row"]) for n in sorted(new_key)] == order
+    visible = next(s for s in xlsx.read_workbook(second["workbook"]) if not s.hidden)
+    assert [r[0] for _, r in visible.rows[1:]] == [str(n) for n in range(1, 5)]
+    assert all(cell == "" for _, r in visible.rows[1:] for cell in r[2:])
+    assert "earlier_row" not in {c for _, row in visible.rows for c in row}
+    with pytest.raises(ValueError, match="one earlier row number per chosen text"):
+        sh.write(chosen, tmp_path / "x", earlier_rows=[1])
+    with pytest.raises(SystemExit, match=r"Rows \[1, 2, 3, 4, 5, 6\] of the key have no text"):
+        sh.items_for_key(key, [])
