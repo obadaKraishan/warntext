@@ -162,8 +162,9 @@ a count, a kind or a category; no code holds words.
 **No validated content code is in this version.** The six contents from the warning literature
 (hazard, hazard description, source, guidance, time, location) were checked against one coder,
 who coded texts blind to the rules, with Krippendorff's alpha against the bar of .80 that Olson
-et al. (2024) report. The hazard is the base of the others, and it does not clear the bar on
-both checks:
+et al. (2024) report. Each code is judged on its own: a code is released as validated only when it
+clears the bar, and then the card gives its alpha with the interval and the coder's consistency
+with himself. The hazard does not clear the bar on both checks:
 
 | check | texts | hazard alpha | 95% interval |
 |---|---:|---:|---|
