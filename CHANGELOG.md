@@ -222,3 +222,8 @@ All notable changes to this project are recorded here. The format follows
   figures, the units it changes and the shares beside Olson et al.; the third sheet and its
   recheck copy.
 
+- `warntext sheet-check` (and the consolidated and repeat checks) leaves a unit the rules do not
+  code, such as a text that is not English, out of every score and counts it, instead of scoring
+  it as the rules' "no". The check lists such rows and their reasons, and each code counts the
+  answers it left out. On the first sheet this takes out its one Spanish row, which every code had
+  counted as a difference.

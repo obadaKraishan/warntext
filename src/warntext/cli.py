@@ -507,6 +507,12 @@ def cmd_sheet_check(args: argparse.Namespace) -> int:
     result = sh.check(filled, key, codes)
     if args.out:
         Path(args.out).write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
+    left_out = result["not_coded"]
+    if left_out["rows"]:
+        print(
+            f"Left out of every score, as the rules do not code them: rows {left_out['rows']} "
+            f"({', '.join(f'{k} {v}' for k, v in sorted(left_out['reasons'].items()))})."
+        )
     for field, r in result["codes"].items():
         a = "n/a" if r["alpha"] is None else f"{r['alpha']:.2f}"
         mark = "meets" if r["passes"] else "below"

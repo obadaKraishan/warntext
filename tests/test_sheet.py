@@ -220,6 +220,40 @@ def test_the_check_reports_alpha_and_row_numbers_only(tmp_path):
         sh.check(filled, {**key, 4: {"message_id": "z", "info_index": "0", "unit": "x"}}, codes)
 
 
+def test_a_unit_the_rules_do_not_code_is_left_out_of_every_score_and_counted(tmp_path):
+    key = {n: {"message_id": f"m{n}", "info_index": "0", "unit": "wea90"} for n in range(1, 5)}
+    codes = [code(f"m{n}", "wea90", hazard=n <= 2) for n in range(1, 4)]
+    codes.append(
+        code(
+            "m4",
+            "wea90",
+            coded=False,
+            not_coded_reason="spanish_text",
+            **{f: None for f in CODE_FIELDS},
+        )
+    )
+    path = filled_sheet(
+        tmp_path / "f.xlsx",
+        {1: ["yes"] + ["no"] * 5, 2: ["yes"] + ["no"] * 5, 3: ["no"] * 6, 4: ["no"] * 6},
+    )
+    r = sh.check(sh.read_filled(path), key, codes)
+    assert r["not_coded"] == {"rows": [4], "reasons": {"spanish_text": 1}}
+    h = r["codes"]["hazard"]
+    # Row 4 is neither a "no" of the rules (which would count as agreement) nor a difference.
+    assert h["rows_coded"] == 3 and h["rows_not_coded"] == 1 and h["alpha"] == 1.0
+    assert 4 not in h["rows_that_differ"] and sum(h["table"].values()) == 3
+    rules = sh.rules_by_row(key, codes)
+    assert rules[4] == dict.fromkeys(CODE_FIELDS) and rules[1]["hazard"] is True
+    merged = {n: {**dict.fromkeys(CODE_FIELDS, False), "hazard": n <= 2} for n in range(1, 5)}
+    merged[4]["hazard"] = True
+    out = sh.check_consolidated(merged, key, codes)
+    assert out["codes"]["hazard"]["rows_coded"] == 3 and out["codes"]["hazard"]["alpha"] == 1.0
+    second_key = {n: {"earlier_row": str(n)} for n in range(1, 5)}
+    rep = sh.repeat_check(merged, merged, second_key, rules)
+    assert rep["codes"]["hazard"]["rows"] == 4 and rep["codes"]["hazard"]["rules_not_coded"] == 1
+    assert rep["codes"]["hazard"]["first_agreed_with_rules"] == 3
+
+
 def test_a_filled_sheet_with_a_wrong_value_or_column_is_refused(tmp_path):
     bad = filled_sheet(tmp_path / "b.xlsx", {1: ["maybe"] + ["no"] * 5})
     with pytest.raises(SystemExit, match="other than yes or no"):

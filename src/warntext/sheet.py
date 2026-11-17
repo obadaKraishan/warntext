@@ -18,7 +18,9 @@ file. A later sheet leaves out every text group and text an earlier sheet used (
 
 ``check`` reads the filled workbook and the key, and compares the person's codes with the rules'
 for each of the six, with Krippendorff's alpha (nominal, two coders) against the published bar
-of .80 (Olson et al. 2024). It reports counts and row numbers only.
+of .80 (Olson et al. 2024). It reports counts and row numbers only. A unit the rules do not code
+(a text that is not English) has no rule answer: it is left out of every score and counted, never
+scored as the rules' "no".
 """
 
 from __future__ import annotations
@@ -636,13 +638,23 @@ def read_key(path: Path | str) -> dict[int, dict[str, str]]:
         return {int(r["row"]): r for r in csv.DictReader(f)}
 
 
+def _coded(c: Mapping[str, Any]) -> bool:
+    """Whether the rules coded a unit (a codes-table row without ``coded`` counts as coded)."""
+    return c.get("coded", True) is not False
+
+
 def check(
     filled: Mapping[int, Mapping[str, bool | None]],
     key: Mapping[int, Mapping[str, str]],
     codes: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Per code: rows coded, agreement, alpha, the bar, the 2-by-2 table, and the rows that
-    differ (row numbers only)."""
+    differ (row numbers only).
+
+    A row whose unit the rules do not code (``coded`` false: a text that is not English) has no
+    rule answer, so it is left out of every code's score and counted: ``not_coded`` lists its
+    row number and reason, and each code's ``rows_not_coded`` counts the person's answers left
+    out for it."""
     by_unit = {(c["message_id"], int(c["info_index"]), c["unit"]): c for c in codes}
     rules: dict[int, Mapping[str, Any]] = {}
     for row, k in key.items():
@@ -652,14 +664,27 @@ def check(
                 f"Row {row} of the key has no codes in the codes table; rebuild first."
             )
         rules[row] = c
-    out: dict[str, Any] = {"rows_in_key": len(key), "codes": {}}
+    not_coded = {
+        row: rules[row].get("not_coded_reason") or "not_coded"
+        for row in sorted(key)
+        if not _coded(rules[row])
+    }
+    out: dict[str, Any] = {
+        "rows_in_key": len(key),
+        "not_coded": {"rows": list(not_coded), "reasons": dict(Counter(not_coded.values()))},
+        "codes": {},
+    }
     for _, field in CODES:
         pairs = []
         differ = []
         table = Counter()
+        left_out = 0
         for row in sorted(key):
             person = filled.get(row, {}).get(field)
             if person is None:
+                continue
+            if row in not_coded:
+                left_out += 1
                 continue
             rule = bool(rules[row][field])
             pairs.append((person, rule))
@@ -669,6 +694,7 @@ def check(
         a = alpha_nominal(pairs)
         out["codes"][field] = {
             "rows_coded": len(pairs),
+            "rows_not_coded": left_out,
             "agreement": round(sum(p == r for p, r in pairs) / len(pairs), 4) if pairs else None,
             "alpha": a,
             "bar": BAR,
@@ -713,8 +739,9 @@ def bootstrap_alpha(
 
 def rules_by_row(
     key: Mapping[int, Mapping[str, str]], codes: Iterable[Mapping[str, Any]]
-) -> dict[int, dict[str, bool]]:
-    """The rules' six codes for each row of a key."""
+) -> dict[int, dict[str, bool | None]]:
+    """The rules' six codes for each row of a key; None for each where the rules do not code
+    the unit (a text that is not English)."""
     by_unit = {(c["message_id"], int(c["info_index"]), c["unit"]): c for c in codes}
     out = {}
     for row, k in key.items():
@@ -723,7 +750,7 @@ def rules_by_row(
             raise SystemExit(
                 f"Row {row} of the key has no codes in the codes table; rebuild first."
             )
-        out[row] = {field: bool(c[field]) for _, field in CODES}
+        out[row] = {field: bool(c[field]) if _coded(c) else None for _, field in CODES}
     return out
 
 
@@ -742,11 +769,13 @@ def repeat_check(
     for the first pass's answers that differed from the rules, how many the second pass kept and
     how many it turned to the rules' answer; for those that agreed with the rules, how many the
     second pass now differs on (new differences); and the repeat's rows where the passes differ.
+    A row the rules do not code counts between the passes but not against the rules
+    (``rules_not_coded``).
     """
     out: dict[str, Any] = {"rows": len(second_key), "codes": {}}
     for _, field in CODES:
         pairs, table = [], Counter()
-        stood = turned = agreed = new = 0
+        stood = turned = agreed = new = no_rule = 0
         passes_differ = []
         for row in sorted(second_key):
             earlier = int(second_key[row]["earlier_row"])
@@ -761,7 +790,9 @@ def repeat_check(
             if a != b:
                 passes_differ.append(row)
             rule = rules[earlier][field]
-            if a != rule:
+            if rule is None:
+                no_rule += 1
+            elif a != rule:
                 stood += b == a
                 turned += b == rule
             else:
@@ -779,6 +810,7 @@ def repeat_check(
             "second_sided_with_rules": turned,
             "first_agreed_with_rules": agreed,
             "new_differences": new,
+            "rules_not_coded": no_rule,
             "passes_differ_rows": passes_differ,
         }
     return out
@@ -929,9 +961,9 @@ def check_consolidated(
     codes: Iterable[Mapping[str, Any]],
     seed: int = 20261115,
 ) -> dict[str, Any]:
-    """``check`` against consolidated answers: open answers and empty cells are left out (and
-    counted), and each code gets a bootstrap interval. A sheet that has been read gives a
-    development figure here, never a check."""
+    """``check`` against consolidated answers: open answers, empty cells and units the rules do
+    not code are left out (and counted), and each code gets a bootstrap interval. A sheet that has
+    been read gives a development figure here, never a check."""
     scored = {
         row: {f: (None if v == OPEN else v) for f, v in values.items()}
         for row, values in consolidated.items()
@@ -942,7 +974,7 @@ def check_consolidated(
         pairs = [
             (scored[row][field], rules[row][field])
             for row in sorted(key)
-            if scored.get(row, {}).get(field) is not None
+            if scored.get(row, {}).get(field) is not None and rules[row][field] is not None
         ]
         out["codes"][field]["interval"] = bootstrap_alpha(pairs, seed=seed)
         out["codes"][field]["open"] = sum(
