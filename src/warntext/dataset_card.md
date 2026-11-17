@@ -71,10 +71,12 @@ it asked for, the updates and cancellations that followed it, and measures of it
 
 **The message text is included** for the alerts that are not about people: {{text_alerts}} real
 alerts and {{text_tests}} tests carry their words, each text row crediting FEMA's dataset and
-the alerting authority that wrote it. **The text of alerts about people is withheld**
-({{withheld}} real alerts): their rows stay, but their words do not, because they name and
-describe missing children, missing adults and people sought by police, and a published corpus
-would keep those names long after the alert had ended. {{no_text_sentence}}
+the alerting authority that wrote it. **What is withheld:** the text of {{withheld}} real
+alerts, namely alerts about people by their event codes, texts about a missing person or that
+describe a person, and texts with a phone number or an email address in any written form; their
+rows stay, but their words do not. Such texts name and describe missing children, missing adults
+and people sought by police, and a published corpus would keep those details long after the
+alert had ended. {{no_text_sentence}}
 {{tests_text_sentence}}
 
 ## What it is not
@@ -129,17 +131,24 @@ In all {{total_rows}} rows, {{total_mb}} MB as Parquet. The field list is in the
 Some alerts are about people: abducted children, missing and endangered adults, wanted
 suspects. WarnText keeps their rows and withholds their text, by rule and with no hand review:
 - always for the four people codes (CAE, MEP, BLU, LEW), for any message about a missing person
-  whatever its code, and for any message in which a personal-detail pattern (a phone number, an
-  email address, a plate, an age, a height or weight, "last seen", words about a person) appears;
+  whatever its code, and for any message in which a personal-detail pattern appears: a phone
+  number or an email address in any written form (ten digits together or with any separators,
+  seven digits with a dash, letters for digits, another country code, an address written out), a
+  plate, an age or a height or weight in any form, "last seen", words about a person;
+- for any message whose text describes a person, with or without those words: two or more of an
+  age, a person with a physical description, clothing, height, weight, hair or eyes, a name beside
+  "missing", "wanted" or the like, a medical condition, a vehicle or plate being looked for;
 - a withheld message has no text and no area shapes;
-- a message with a people code or about a missing person keeps **only the hour** of each time
-  (sent, effective, onset, expiry, and the times of its references, threads and EAS header) and
-  **only the county** of each area code (the part-of-county digit is set to 0).
+- a message with a people code, about a missing person or describing a person keeps **only the
+  hour** of each time (sent, effective, onset, expiry, and the times of its references, threads
+  and EAS header) and **only the county** of each area code (the part-of-county digit is set to
+  0).
 
 In this version {{withheld}} of the {{real_alerts}} real alerts have their text withheld:
 {{withheld_people_code}} by a people code, {{withheld_personal_pattern}} by a personal-detail
-pattern and {{withheld_missing_person}} as about a missing person alone; {{rounded}} keep only the
-hour and the county. The rule withholds more than it must (a hazard alert that gives a phone
+pattern, {{withheld_missing_person}} as about a missing person alone and
+{{withheld_person_described}} as describing a person alone; {{rounded}} keep only the hour and the
+county. The rule withholds more than it must (a hazard alert that gives a phone
 number loses its text too): that is accepted, because a text once published cannot be taken
 back. Do not try to identify anyone named or described in a message, and do not join this data
 to other sources to do so.
@@ -187,9 +196,11 @@ theirs.
   413,153; 2018 474,885; 2019 537,743; 2020 455,608; 2021 477,287; 2022 497,060; 2023 261,518;
   2024 6,366; 2025 5,864; 2026 5,864. WarnText leaves them out, so the change does not touch these
   tables, but anyone joining the two should know it.
+- **The withholding is done by rules, and rules miss cases.** No one reads each text before it
+  is released. {{privacy_reading}}
 - **Withheld text is not random:** most of it is about people, but the pattern rule also takes
-  some hazard alerts that give a phone number; counts of text by kind of event are counts of
-  released text.
+  the hazard alerts that give a phone number or an email address; counts of text by kind of
+  event are counts of released text.
 
 ## Removal
 FEMA, an alerting authority, or a person named in a message can ask for a message's text to be

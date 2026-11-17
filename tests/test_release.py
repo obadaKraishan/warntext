@@ -499,3 +499,18 @@ def test_codes_from_another_build_of_the_same_units(pack, tmp_path):
             cd.CODEBOOK_VERSION,
             codes_from=tmp_path / "none",
         )
+
+
+def test_the_card_says_what_is_withheld_and_the_reading_of_what_is_left(pack):
+    text = (pack["dir"] / "README.md").read_text(encoding="utf-8")
+    assert "**What is withheld:**" in text
+    assert "a phone number or an email address in any written form" in text
+    assert "rules miss cases" in text
+    assert "{{" not in text
+    assert release.privacy_reading_sentence({}).startswith("No reading")
+    reading = {"alerts": 300, "tests": 100, "contact": 0, "described": 0, "named": 2, "rounds": 2}
+    sentence = release.privacy_reading_sentence(reading)
+    assert "300 released alert texts and 100 released test texts" in sentence
+    assert "after 1 round(s) in which the patterns were widened" in sentence
+    assert "0 held a phone number or an email address, 0 described a person" in sentence
+    assert "and 2 named a private individual" in sentence

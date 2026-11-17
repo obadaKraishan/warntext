@@ -363,6 +363,33 @@ def pack_facts(
     }
 
 
+#: The reading of what is left after a pack was built: a seeded random sample of released texts
+#: read for a phone number or an email address, a description of a person, and a private
+#: individual named without being described. Counts only; measured once per version.
+PRIVACY_READING: dict[str, Any] = {}
+
+
+def privacy_reading_sentence(reading: Mapping[str, Any] = PRIVACY_READING) -> str:
+    """The card's sentence on the reading of released text, or a plain note that none was made."""
+    if not reading:
+        return "No reading of a sample of the released text has been made for this version."
+    rounds = reading["rounds"]
+    after = (
+        "after the first reading"
+        if rounds == 1
+        else f"after {rounds - 1} round(s) in which the patterns were widened and the pack rebuilt"
+    )
+    return (
+        f"After this version was built, a random sample of {reading['alerts']:,} released "
+        f"alert texts and {reading['tests']:,} released test texts was read, {after}: "
+        f"{reading['contact']} held a phone number or an email address, {reading['described']} "
+        f"described a person, and {reading['named']} named a private individual without "
+        "describing them (officials who sign or speak are not counted). A sample this size can "
+        "miss a rare form, so the rules can still let one through; the removal route below is "
+        "there for that."
+    )
+
+
 def card(manifest: Mapping[str, Any]) -> str:
     """The dataset card: the tracked template with the pack's measured sizes filled in."""
     template = resources.files("warntext").joinpath(CARD_TEMPLATE).read_text(encoding="utf-8")
@@ -381,6 +408,7 @@ def card(manifest: Mapping[str, Any]) -> str:
     values.update(text_sections(manifest))
     values["size_category"] = size_category(manifest["rows"])
     values.update(text_sentences(manifest.get("facts", {})))
+    values["privacy_reading"] = privacy_reading_sentence()
     for path, f in by.items():
         key = path.replace("/", "_").replace(".parquet", "")
         values[f"{key}_rows"] = f"{f['rows']:,}"
