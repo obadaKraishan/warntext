@@ -55,7 +55,7 @@ release figures carry the publication date, 2026-11-23 (their records were retri
 | The archive's headline count | about 4.9 million records, 98% of them National Weather Service products | README.md, What it holds (release 0.1.0); docs/data-card.md, The honest size | 2026-11-23 |
 | National Weather Service records in 2023, January to July | 32,289 to 43,186 a month (July 33,731) | docs/method.md section 1 | 2026-11-15 |
 | National Weather Service records, August 2023 | 769 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
-| National Weather Service records a month after August 2023 | 50 to 309 | docs/method.md section 1 | 2026-11-15 |
+| National Weather Service records a month after August 2023 | 50 to 309 (to be rechecked: see the note under the yearly counts) | docs/method.md section 1 | 2026-11-15 |
 | Superseded: the first build's bound | records sent before 2026-11-14T00:00:00Z | docs/method.md sections 1 and 10 | 2026-11-15 |
 | Years with records, first build | 16 (2011 to 2026); the server's count per year matched before and after the backfill in all 16 | docs/method.md section 10 | 2026-11-15 |
 | Real alerts per year, first build | from 244 (2013) to 6,872 (2026, to mid-November) | docs/method.md section 10; docs/data-card.md, Known limits | 2026-11-15 |
@@ -79,13 +79,18 @@ Server counts; 2012 from June, 2026 to 14 November.
 | 2021 | 477,287 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
 | 2022 | 497,060 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
 | 2023 | 261,518 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
-| 2024 | 6,366 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
-| 2025 | 5,864 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
-| 2026 | 5,864 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
+| 2024 | 6,366 (to be rechecked) | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
+| 2025 | 5,864 (to be rechecked) | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
+| 2026 | 5,864 (to be rechecked) | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
 
-The same figure for 2025 and for 2026 is not a copy slip: the server answered 5,864 for each year,
-and a recount of both years the same day gave 5,864 again (the saved server counts, 2026-11-15;
-checked 2026-11-23).
+**To be rechecked: the counts for 2024 to 2026 and the monthly range after August 2023.** The
+figures above are as the server answered on 2026-11-15 (5,864 for 2025 and for 2026, the same in a
+recount of both years that day; checked against the saved server counts on 2026-11-23), but they do
+not fit together: 50 to 309 records a month allows at most 3,708 a year, yet the yearly counts give
+6,366 for 2024 and 5,864 for 2025 and for 2026, and a full year (2025) with the same count as a
+partial one (2026, to 14 November) needs an independent check. They are to be recounted month by
+month from August 2023 to November 2026, with the exact filters given; if the recount differs, the
+card's Limits, `docs/method.md` and this sheet are corrected together.
 
 ## 3. Sizes
 

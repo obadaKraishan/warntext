@@ -1,6 +1,6 @@
-# WarnText data card (DRAFT)
+# WarnText data card
 
-**DRAFT for review.** Release 0.1.0 was published on 2026-11-23: the dataset on Hugging Face
+Release 0.1.0 was published on 2026-11-23: the dataset on Hugging Face
 (https://huggingface.co/datasets/obadakr/warntext, tag `v0.1.0`), a mirror of the record layer
 on Kaggle (https://www.kaggle.com/datasets/obadakraishan/warntext), and the code and documents
 on Zenodo (https://doi.org/10.5281/zenodo.24475949). The published dataset card on Hugging Face
