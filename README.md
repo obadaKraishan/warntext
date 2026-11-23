@@ -1,19 +1,25 @@
 # WarnText
 
 WarnText is a research corpus of the public emergency alert messages sent in the United States
-through the Integrated Public Alert and Warning System (IPAWS) since June 2012: Wireless
-Emergency Alerts on phones, Emergency Alert System messages on radio and television, and the
-other channels the system serves. It is built for communication, journalism and risk and crisis
-communication research that treats official warnings as text to be read, counted and coded.
+through the Integrated Public Alert and Warning System (IPAWS): Wireless Emergency Alerts on
+phones, Emergency Alert System messages on radio and television, and the other channels the
+system serves. It is built for communication, journalism and risk and crisis communication
+research that treats official warnings as text to be read, counted and coded.
 
-**Status: in development. Nothing has been released yet.** The plan, the source terms and the
-drafts are in [`docs/`](docs/).
+**Status: release 0.1.0 is published** (23 November 2026):
+- the dataset on Hugging Face, with the message text of the alerts that are not about people:
+  <https://huggingface.co/datasets/obadakr/warntext> (tag `v0.1.0`);
+- a mirror of the record layer and the released codes on Kaggle, without text:
+  <https://www.kaggle.com/datasets/obadakraishan/warntext>.
 
-## What it holds (first build, not yet released)
-- **About 34,700 real alerts from about 1,260 alerting authorities, plus about 49,200 tests and
-  demonstrations**, from 2011 to November 2026: every message in FEMA's public archive from
-  senders other than the National Weather Service. The archive's headline count of about 4.9
-  million records is 98% weather service products, which this first release leaves out.
+The method, the schema, the codebook and the source terms are in [`docs/`](docs/).
+
+## What it holds (release 0.1.0)
+- **34,678 real alerts from 1,260 alerting authorities, and 49,186 tests and demonstrations**:
+  every message in FEMA's public archive from senders other than the National Weather Service,
+  sent before 2026-11-14. The earliest message is dated 30 September 2011; five alerts carry
+  2011 dates, and every other message is dated June 2012 or later. The archive's headline count
+  of about 4.9 million records is 98% weather service products, which this release leaves out.
 - One row per message, with its alerting authority (FEMA's identifier for it and the
   organization's name, never a person), the kind of sender (federal, state, local, tribal,
   territorial, other), its time, status and type, event codes, places (area codes, states,
@@ -71,10 +77,37 @@ use and the citation they ask for.
 
 > This product uses the Federal Emergency Management Agency’s OpenFEMA API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for the data or analyses derived from these data after the data have been retrieved from the Agency's website(s).
 
+## How to cite
+Cite the dataset with its version:
+
+> Kraishan, O. (2026). *WarnText: A research corpus of the public emergency alert messages sent
+> in the United States* (Version 0.1.0) [Data set]. Hugging Face.
+> https://huggingface.co/datasets/obadakr/warntext
+
+and the source, with the endpoint and the time it was read, as FEMA asks (the dataset card's
+"How to cite" gives the full form; each row's `retrieved_at` gives the time its message was
+read):
+
+> Federal Emergency Management Agency (FEMA), OpenFEMA Dataset: IPAWS Archived Alerts - v1.
+> Retrieved from https://www.fema.gov/api/open/v1/IpawsArchivedAlerts on 2026-11-15 (UTC).
+
+`CITATION.cff` gives the same citation for GitHub's "Cite this repository".
+
 ## License
 The software in this repository is licensed under the Apache License, Version 2.0 (see
-[`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). The terms for the corpus itself will be stated
-with its first release.
+[`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)).
+
+The corpus is under OpenFEMA's terms (https://www.fema.gov/about/openfema/terms-conditions),
+which apply to anyone who uses it; the dataset card gives them in FEMA's words under
+[Terms that users must follow](https://huggingface.co/datasets/obadakr/warntext#terms-that-users-must-follow).
+In short: the data may be used only for statistical research or as a reporting record; no one
+may reidentify, or try to reidentify, the people the data are about, or publish facts that may
+identify them; the data may not be used to make determinations about an individual's rights or
+eligibility for benefits; content may not be changed and still credited to FEMA; FEMA's and
+DHS's logos and seals may not be used without their written permission; and FEMA may ask a user to stop using the data and destroy
+any copy. Credit FEMA's dataset and the alerting authority that wrote each message (every text
+row names it). OpenFEMA confirmed by email on 16 November 2026 that the message text may be
+shared on research repositories with that credit.
 
 ## Rebuilding the text on your own machine
 Given the record layer, `warntext text` reads each message again from FEMA's API by its record
