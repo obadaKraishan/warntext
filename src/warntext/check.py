@@ -104,10 +104,13 @@ def check(
     sender_values: Iterable[str],
     server_counts: Mapping[int, int] | None,
     identifiers: Iterable[str] = (),
+    removals: Iterable[str] | None = None,
 ) -> list[str]:
     """Run every rule; return the failures (empty when the tables pass).
 
     ``identifiers`` are the raw CAP identifiers from the private file; none may appear.
+    ``removals`` are the record ids on the removal list (by default the tracked list): each such
+    message must be withheld, so tables or a pack built before an entry was added fail.
     """
     fail: list[str] = []
     messages = [r for c in CONFIGS for r in tables[c]["messages"]]
@@ -124,6 +127,20 @@ def check(
                     f"counts: {year} has {local.get(year, 0):,} records in the tables and "
                     f"{server_counts.get(year, 0):,} on the server."
                 )
+
+    # The removal list: every listed message is withheld (and so, below, has no text).
+    removal_ids = privacy.load_removals() if removals is None else frozenset(removals)
+    if removal_ids:
+        stale = sum(
+            1
+            for r in messages
+            if not r["text_withheld"] and privacy.on_removal_list(r, removal_ids)
+        )
+        if stale:
+            fail.append(
+                f"messages: {stale} message(s) on the removal list are not withheld; they were "
+                "built before the list named them. Rebuild the tables (and the pack)."
+            )
 
     # Withheld messages have no text and no shapes.
     withheld = {r["message_id"] for r in messages if r["text_withheld"]}

@@ -775,10 +775,14 @@ def build(
     fema: Mapping[int, au.Authority] | None = None,
     name_review: Mapping[tuple[int | None, str], str] | None = None,
     codebook_version: str = cd.CODEBOOK_VERSION,
+    removals: Iterable[str] | None = None,
 ) -> Build:
     """Apply every rule to the parsed records and return the rows of every table.
 
     ``codebook_version`` chooses the content codes' rules (``CODEBOOK_VERSIONS``).
+    ``removals`` are the record ids whose text leaves on request (by default the tracked
+    removal list, :func:`warntext.privacy.load_removals`): such a message keeps its record row
+    and loses its text and shapes, like any withheld message.
 
     ``overrides`` are the hand overrides by alerting authority, and ``fema`` is FEMA's list of
     alerting authorities; by default both are the tracked files shipped with the package
@@ -948,6 +952,25 @@ def build(
             # description only adds a reason where no earlier rule gave one.
             if u.about_missing and u.withheld in (None, "person_described"):
                 u.withheld = "missing_person"
+
+    # The removal list: a listed message's text leaves; its record row stays. An earlier
+    # reason is kept where one applies (the text is withheld either way).
+    removal_ids = privacy.load_removals() if removals is None else frozenset(removals)
+    found: set[str] = set()
+    on_list = 0
+    for u in units:
+        hit = removal_ids.intersection(u.record_ids)
+        if hit:
+            found |= hit
+            on_list += 1
+            if u.withheld is None:
+                u.withheld = privacy.REMOVED
+    summary["removal_list"] = {
+        "entries": len(removal_ids),
+        "messages_listed": on_list,
+        "withheld_only_by_the_list": sum(1 for u in units if u.withheld == privacy.REMOVED),
+        "entries_not_in_the_records": len(removal_ids - found),
+    }
 
     # Re-sends: the same text from the same sender under another identifier.
     groups: dict[tuple[str, str], list[Unit]] = defaultdict(list)

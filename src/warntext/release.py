@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -64,18 +64,36 @@ TEXT_FIELDS = (
     "resource_uris",
 )
 CODE_STATUS_FILE = "code_status.csv"
-#: The codebook version the statuses (and their hand-sheet alphas) were measured on. A pack is
-#: built only from codes of that version, so new rules never reach a release unchecked.
+#: The codebook version a pack is built with by default: the version whose statuses (and hand-
+#: sheet alphas) release 0.1.0 carries. A pack is built only from codes of the version whose
+#: statuses it uses, so new rules never reach a release unchecked.
 CODE_STATUS_VERSION = "1"
+#: The six content codes from the warning literature, checked against a coder's hand sheets.
+CONTENT_CODES = ("hazard", "hazard_description", "source_named", "guidance", "time", "location")
 
 
-def code_status() -> dict[str, dict[str, str]]:
-    """Each content code's trust level, hand-sheet alpha and release status (tracked file)."""
+def _status_rows() -> list[dict[str, str]]:
     import csv
     import io
 
     text = resources.files("warntext").joinpath(CODE_STATUS_FILE).read_text(encoding="utf-8")
-    rows = {r["code"]: r for r in csv.DictReader(io.StringIO(text))}
+    return list(csv.DictReader(io.StringIO(text)))
+
+
+def status_versions() -> tuple[str, ...]:
+    """The codebook versions that ``code_status.csv`` holds statuses for."""
+    return tuple(dict.fromkeys(r["codebook_version"] for r in _status_rows()))
+
+
+def code_status(version: str = CODE_STATUS_VERSION) -> dict[str, dict[str, str]]:
+    """Each code's trust level, hand-sheet figures and release status for one codebook version
+    (tracked file, one row per version and code)."""
+    if version not in status_versions():
+        raise SystemExit(
+            f"{CODE_STATUS_FILE} holds no statuses for codebook version {version!r} (it holds "
+            f"{', '.join(status_versions())}); score that version and add its rows first."
+        )
+    rows = {r["code"]: r for r in _status_rows() if r["codebook_version"] == version}
     from warntext.codes import CODE_FIELDS
 
     missing = sorted(set(CODE_FIELDS) - set(rows))
@@ -83,14 +101,24 @@ def code_status() -> dict[str, dict[str, str]]:
     bad = sorted(c for c, r in rows.items() if r["status"] not in ("released", "experimental"))
     if missing or unknown or bad:
         raise ValueError(
-            f"{CODE_STATUS_FILE}: give every code one row with status released or experimental "
-            f"(missing {missing}, unknown {unknown}, bad status {bad})."
+            f"{CODE_STATUS_FILE}, version {version}: give every code one row with status released "
+            f"or experimental (missing {missing}, unknown {unknown}, bad status {bad})."
         )
     return rows
 
 
-#: Codes marked experimental (trust C, or under .80 on the hand sheet): left out of the release.
-EXPERIMENTAL_CODES = tuple(c for c, r in code_status().items() if r["status"] == "experimental")
+def experimental_codes(version: str = CODE_STATUS_VERSION) -> tuple[str, ...]:
+    """The codes a pack of this codebook version leaves out (trust C, or not validated)."""
+    return tuple(c for c, r in code_status(version).items() if r["status"] == "experimental")
+
+
+def manifest_version(manifest: Mapping[str, Any]) -> str:
+    """The codebook version a pack's statuses are of (release 0.1.0's manifest names none: 1)."""
+    return str(manifest.get("codebook_version", "1"))
+
+
+#: Version 1's experimental codes (release 0.1.0): left out of its release.
+EXPERIMENTAL_CODES = experimental_codes(CODE_STATUS_VERSION)
 ALLOWED_FILES = {"README.md", "manifest.json"}
 TERMS_URL = "https://www.fema.gov/about/openfema/terms-conditions"
 CARD_TEMPLATE = "dataset_card.md"
@@ -140,11 +168,13 @@ def pack_tables(kinds: tuple[str, ...] | list[str]) -> list[str]:
     return [*RECORD_TABLES, *text_tables_for(kinds)]
 
 
-def expected_schema(name: str) -> pa.Schema:
-    """The schema a released table must have (codes without the experimental columns)."""
+def expected_schema(name: str, version: str = CODE_STATUS_VERSION) -> pa.Schema:
+    """The schema a released table must have (codes without the version's experimental
+    columns)."""
     base = SCHEMAS[name]
     if name == "codes":
-        return pa.schema([f for f in base if f.name not in EXPERIMENTAL_CODES])
+        left_out = experimental_codes(version)
+        return pa.schema([f for f in base if f.name not in left_out])
     if name in TEXT_TABLES:
         fields = list(base)
         at = base.get_field_index("sender_kind") + 1
@@ -211,6 +241,8 @@ def build_pack(
     text_tables = text_tables_for(text_kinds)
     if out_dir.exists() and any(out_dir.iterdir()):
         raise SystemExit(f"{out_dir} is not empty; a pack is built once into a new folder.")
+    left_out = experimental_codes(codebook_version)  # stops if the version has no statuses
+    stale_on_removal_list(tables_dir)
     codes_dir = Path(codes_from) if codes_from is not None else tables_dir
     if codes_from is not None:
         same_units(tables_dir, codes_dir)
@@ -237,7 +269,7 @@ def build_pack(
             if name == "codes":
                 if table.num_rows == 0:
                     continue  # tests carry no codes
-                keep = [c for c in table.column_names if c not in EXPERIMENTAL_CODES]
+                keep = [c for c in table.column_names if c not in left_out]
                 table = table.select(keep)
             if name in TEXT_TABLES:
                 table = release_view(table, messages, text_kinds)
@@ -262,7 +294,8 @@ def build_pack(
         "retrieved": retrieved,
         "text_tables": text_tables,
         "text_kinds": list(text_kinds),
-        "experimental_codes_left_out": list(EXPERIMENTAL_CODES),
+        "codebook_version": codebook_version,
+        "experimental_codes_left_out": list(left_out),
         "files": files,
         "rows": sum(f["rows"] for f in files),
         "bytes": sum(f["bytes"] for f in files),
@@ -270,6 +303,29 @@ def build_pack(
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n", "utf-8")
     (out_dir / "README.md").write_text(card(manifest), encoding="utf-8")
     return manifest
+
+
+def stale_on_removal_list(tables_dir: Path | str, removals: Iterable[str] | None = None) -> None:
+    """Stop unless every message the removal list names is withheld in the tables (tables
+    built before an entry was added must be rebuilt before a pack is made from them)."""
+    removal_ids = privacy.load_removals() if removals is None else frozenset(removals)
+    if not removal_ids:
+        return
+    for config in CONFIGS:
+        path = Path(tables_dir) / config / "messages.parquet"
+        if not path.exists():
+            continue
+        rows = pq.read_table(path, columns=["message_id", "record_ids", "text_withheld"])
+        stale = sum(
+            1
+            for m in rows.to_pylist()
+            if not m["text_withheld"] and privacy.on_removal_list(m, removal_ids)
+        )
+        if stale:
+            raise SystemExit(
+                f"{path}: {stale} message(s) on the removal list are not withheld; rebuild the "
+                "tables (`warntext update --rebuild`) before the pack."
+            )
 
 
 #: The columns that key a coded unit.
@@ -349,6 +405,8 @@ def pack_facts(
         "withheld_person_described": sum(
             1 for r in alerts if r["text_withheld"] == "person_described"
         ),
+        "withheld_removed": sum(1 for r in alerts if r["text_withheld"] == privacy.REMOVED),
+        "tests_removed": sum(1 for r in tests if r["text_withheld"] == privacy.REMOVED),
         "rounded": sum(1 for r in alerts if r["times_rounded"]),
         "federal_text_alerts": len(with_text("alerts", ["text_federal"])),
         "text_alerts": len(alert_text),
@@ -406,7 +464,7 @@ def card(manifest: Mapping[str, Any]) -> str:
     by = {f["path"]: f for f in manifest["files"]}
     values = {
         "version": manifest["version"],
-        "until": manifest["records_sent_before"][:10],
+        "until": citation.bound_words(manifest["records_sent_before"]),
         "retrieved": manifest["retrieved"],
         "total_rows": f"{manifest['rows']:,}",
         "total_mb": _mb(manifest["bytes"]),
@@ -417,7 +475,10 @@ def card(manifest: Mapping[str, Any]) -> str:
     }
     for key, n in manifest.get("facts", {}).items():
         values[key] = f"{n:,}"
-    values.update(code_tables())
+    version = manifest_version(manifest)
+    values.update(code_tables(version))
+    values["codes_section"] = codes_section(version, values)
+    values["language_limit"] = LANGUAGE_LIMIT[version]
     values.update(text_sections(manifest))
     values["size_category"] = size_category(manifest["rows"])
     values.update(text_sentences(manifest.get("facts", {})))
@@ -484,26 +545,84 @@ def text_sentences(facts: Mapping[str, int]) -> dict[str, str]:
         )
     else:
         tests += "."
-    return {"no_text_sentence": alerts, "tests_text_sentence": tests}
+    removed, removed_tests = facts.get("withheld_removed", 0), facts.get("tests_removed", 0)
+    removal = ""
+    if removed or removed_tests:
+        removal = (
+            f" In this version {removed:,} real alert(s) and {removed_tests:,} test(s) have their "
+            "text withheld only because a removal was asked for."
+        )
+    return {
+        "no_text_sentence": alerts,
+        "tests_text_sentence": tests,
+        "removed_sentence": removal,
+    }
 
 
-def code_tables() -> dict[str, str]:
-    """The card's code sections, from the tracked status file."""
-    status = code_status()
-    sheet = [
-        f"| `{c}` | {r['hand_sheet_alpha']} | {r['hand_sheet_agreement']} | {r['status']} |"
-        for c, r in status.items()
-        if r["hand_sheet_alpha"]
-    ]
+def code_tables(version: str = CODE_STATUS_VERSION) -> dict[str, str]:
+    """The card's code tables and lists for one codebook version, from the tracked status file.
+
+    Version 1's table gives the first hand sheet's alpha and agreement. From version 3 on, each
+    content code has both figures of the rule for release, each with its 95% interval: alpha
+    against the rules on the version's blind sheet, and the coder's consistency with himself on
+    the recheck copy; ``validated`` marks the content codes released."""
+    status = code_status(version)
+    if version == "1":
+        sheet = [
+            f"| `{c}` | {r['hand_sheet_alpha']} | {r['hand_sheet_agreement']} | {r['status']} |"
+            for c, r in status.items()
+            if r["hand_sheet_alpha"]
+        ]
+        table = ["| code | alpha | agreement | in this release |", "|---|---:|---:|---|", *sheet]
+    else:
+        table = [
+            "| code | alpha on the sheet | 95% interval | the coder's consistency | 95% interval "
+            "| in this release |",
+            "|---|---:|---|---:|---|---|",
+        ]
+        for c in CONTENT_CODES:
+            r = status[c]
+            word = "validated" if r["status"] == "released" else "experimental"
+            table.append(
+                f"| `{c}` | {r['hand_sheet_alpha']} | {r['alpha_low']} to {r['alpha_high']} "
+                f"| {r['recheck_alpha']} | {r['recheck_low']} to {r['recheck_high']} | {word} |"
+            )
     released = [f"`{c}`" for c, r in status.items() if r["status"] == "released"]
     left = [f"`{c}`" for c, r in status.items() if r["status"] == "experimental"]
+    validated = [f"`{c}`" for c in CONTENT_CODES if status[c]["status"] == "released"]
+    mechanical = [f"`{c}`" for c, r in status.items() if r["status"] == "released"]
+    mechanical = [c for c in mechanical if c not in validated]
     return {
-        "code_alpha_table": "\n".join(
-            ["| code | alpha | agreement | in this release |", "|---|---:|---:|---|", *sheet]
-        ),
+        "code_alpha_table": "\n".join(table),
         "codes_released": ", ".join(released),
         "codes_left_out": ", ".join(left),
+        "codes_validated": ", ".join(validated) or "none",
+        "codes_mechanical": ", ".join(mechanical),
     }
+
+
+#: The card's "Codes" section for each codebook version, a template of its own.
+CODES_SECTION_FILE = "card_codes_v{version}.md"
+#: The card's Limits bullet on the rules' language check, by codebook version.
+LANGUAGE_LIMIT = {
+    "1": "- **The language check finds Spanish only.** A text in another language under an "
+    "English label\n  is coded as English.",
+    "3": "- **The language check is by rule.** A text written mostly in another script, or with "
+    "enough common\n  words of Spanish or of another language often sent beside English, is not "
+    "coded; a short\n  text in another language can still be coded as English.",
+}
+
+
+def codes_section(version: str, values: Mapping[str, str]) -> str:
+    """The card's "Codes" section for a codebook version, with its placeholders filled."""
+    name = CODES_SECTION_FILE.format(version=version)
+    path = resources.files("warntext").joinpath(name)
+    if not path.is_file():
+        raise SystemExit(
+            f"{name} is missing: write the card's Codes section for version {version}."
+        )
+    text = path.read_text(encoding="utf-8").rstrip("\n")
+    return re.sub(r"\{\{(\w+)\}\}", lambda m: values.get(m.group(1), m.group(0)), text)
 
 
 def card_metadata_problems(
@@ -571,8 +690,12 @@ def check_pack(
     sender_values: list[str],
     identifiers: list[str],
     server_counts: Mapping[int, int] | None,
+    removals: Iterable[str] | None = None,
 ) -> list[str]:
-    """Every rule the pack must pass; returns the failures (empty when it passes)."""
+    """Every rule the pack must pass; returns the failures (empty when it passes).
+
+    ``removals`` (by default the tracked removal list) are read now, so a pack built before an
+    entry was added fails."""
     pack_dir = Path(pack_dir)
     fail: list[str] = []
     manifest_path = pack_dir / "manifest.json"
@@ -581,6 +704,7 @@ def check_pack(
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     text_tables = list(manifest.get("text_tables", ["text_federal"]))
     kinds = list(manifest.get("text_kinds", FEDERAL_ONLY))
+    version = manifest_version(manifest)
     if text_tables != text_tables_for(kinds):
         fail.append(f"manifest.json: text tables {text_tables} do not match the kinds {kinds}.")
     tables = [*RECORD_TABLES, *text_tables]
@@ -607,7 +731,9 @@ def check_pack(
                 fail.append(f"{rel}: does not match its SHA-256 in the manifest.")
             if pq.read_metadata(path).num_rows != listed[rel]["rows"]:
                 fail.append(f"{rel}: its row count differs from the manifest's.")
-            if not pq.read_schema(path).equals(expected_schema(name), check_metadata=False):
+            if not pq.read_schema(path).equals(
+                expected_schema(name, version), check_metadata=False
+            ):
                 fail.append(f"{rel}: its columns are not those of a released {name} table.")
             else:
                 readable.add(rel)
@@ -616,7 +742,7 @@ def check_pack(
             fail.append(f"{rel}: in the manifest but missing.")
     codes = pack_dir / "alerts" / "codes.parquet"
     if codes.exists():
-        left = sorted(set(pq.read_schema(codes).names) & set(EXPERIMENTAL_CODES))
+        left = sorted(set(pq.read_schema(codes).names) & set(experimental_codes(version)))
         if left:
             fail.append(f"alerts/codes.parquet: experimental codes are in it: {left}.")
     readme = pack_dir / "README.md"
@@ -633,8 +759,8 @@ def check_pack(
             rel = f"{config}/{name}.parquet"
             path = pack_dir / rel
             loaded[config][name] = pq.read_table(path).to_pylist() if rel in readable else []
-    fail += ck.check(loaded, sender_values, server_counts, identifiers)
-    fail += text_problems(loaded, kinds)
+    fail += ck.check(loaded, sender_values, server_counts, identifiers, removals)
+    fail += text_problems(loaded, kinds, removals)
     return fail
 
 
@@ -649,12 +775,15 @@ WITHHOLDING_RULES = {
 
 
 def text_problems(
-    tables: Mapping[str, Mapping[str, list[dict[str, Any]]]], kinds: list[str] | tuple[str, ...]
+    tables: Mapping[str, Mapping[str, list[dict[str, Any]]]],
+    kinds: list[str] | tuple[str, ...],
+    removals: Iterable[str] | None = None,
 ) -> list[str]:
     """The text layer's own rules, in both splits; counts and rule names only, never text.
 
     - no text row for a message that any privacy rule withholds (a people code, the
-      missing-person rule, the pattern rule), and every such message is marked withheld;
+      missing-person rule, the pattern rule) or that the removal list names (``removals``, by
+      default the tracked list), and every such message is marked withheld;
     - every text row of a released kind, with its credit: the message's alerting authority
       (FEMA's identifier and the released organization name) and the credit line;
     - no personal-detail pattern (a phone number or an email address in any form, the rest)
@@ -662,12 +791,17 @@ def text_problems(
       text fields, read together, describe a person.
     """
     fail: list[str] = []
+    removal_ids = privacy.load_removals() if removals is None else frozenset(removals)
+    rules = {
+        **WITHHOLDING_RULES,
+        "the removal list": lambda m: privacy.on_removal_list(m, removal_ids),
+    }
     for config in CONFIGS:
         messages = {m["message_id"]: m for m in tables[config].get("messages", [])}
         unmarked = sum(
             1
             for m in messages.values()
-            if not m.get("text_withheld") and any(rule(m) for rule in WITHHOLDING_RULES.values())
+            if not m.get("text_withheld") and any(rule(m) for rule in rules.values())
         )
         if unmarked:
             fail.append(
@@ -678,7 +812,7 @@ def text_problems(
             rows = tables[config].get(name, [])
             if not rows:
                 continue
-            for label, rule in WITHHOLDING_RULES.items():
+            for label, rule in rules.items():
                 n = sum(1 for r in rows if rule(messages.get(r["message_id"], {})))
                 if n:
                     fail.append(

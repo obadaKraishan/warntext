@@ -19,9 +19,10 @@ The method, the schema, the codebook and the source terms are in [`docs/`](docs/
 ## What it holds (release 0.1.0)
 - **34,678 real alerts from 1,260 alerting authorities, and 49,186 tests and demonstrations**:
   every message in FEMA's public archive from senders other than the National Weather Service,
-  sent before 2026-11-14. The earliest message is dated 30 September 2011; five alerts carry
-  2011 dates, and every other message is dated June 2012 or later. The archive's headline count
-  of about 4.9 million records is 98% weather service products, which this release leaves out.
+  sent before 17:00 UTC on 14 November 2026. The earliest message is dated 30 September 2011;
+  five alerts carry 2011 dates, and every other message is dated June 2012 or later. The
+  archive's headline count of about 4.9 million records is 98% weather service products, which
+  this release leaves out.
 - One row per message, with its alerting authority (FEMA's identifier for it and the
   organization's name, never a person), the kind of sender (federal, state, local, tribal,
   territorial, other), its time, status and type, event codes, places (area codes, states,

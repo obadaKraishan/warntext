@@ -79,7 +79,7 @@ archive's order: `sent`, then `id`); `record_ids` lists every copy. Other tables
 | `thread_position` | int | *derived*: 0 for the earliest |
 | `text_group` | string | *derived*: `message_id` of the first message with the same text from the same sender |
 | `text_group_size` | int | *derived* |
-| `text_withheld` | string | *derived*: null, or why the text is withheld: `people_code`, `personal_pattern`, `missing_person`, `unparsed` |
+| `text_withheld` | string | *derived*: null, or why the text is withheld: `people_code`, `personal_pattern`, `missing_person`, `person_described`, `unparsed`, or `removed_on_request` (on the removal list, where no earlier rule applies; from the version after 0.1.0) |
 | `withheld_patterns` | list of string | *derived*: names of the personal-detail patterns found (never the match) |
 | `shapes_withheld` | bool | *derived*: polygons or circles left out because the text is withheld |
 | `has_text` | bool | *derived*: any text field is non-empty |
@@ -134,7 +134,7 @@ configurations; it is listed under its first message's).
 
 ## `codes` (record layer; one row per message, language block and unit; real alerts only)
 The content codes of `codebook.md` (the version is in `codebook_version`: 1 in release 0.1.0,
-2 in later builds), computed by rule for every real alert, including
+2 or the frozen 3 in later builds), computed by rule for every real alert, including
 the messages whose text is withheld. A unit is `wea90` (the 90-character phone text), `wea360`
 (the 360-character one) or `full` (headline, description and instruction); a block that lacks a
 unit has no row for it. No cell holds text: only yes or no, counts, kinds and categories.
@@ -142,8 +142,8 @@ unit has no row for it. No cell holds text: only yes or no, counts, kinds and ca
 | Field | Meaning |
 |---|---|
 | `message_id`, `info_index`, `unit`, `record_id`, `source` | the unit |
-| `codebook_version` | `1` |
-| `language`, `coded`, `not_coded_reason` | the block's language; whether the unit is coded; `spanish_block` or `spanish_text` when not |
+| `codebook_version` | `1` in release 0.1.0 (`2` or `3` in later builds) |
+| `language`, `coded`, `not_coded_reason` | the block's language; whether the unit is coded; `spanish_block` or `spanish_text` when not (version 3 also `other_language`) |
 | `length` | characters in the unit |
 | `same_as_wea90` | a `wea360` unit whose text is its `wea90` text (null for other units) |
 | `hazard`, `hazard_description`, `hazard_characteristics`, `hazard_impacts` | the hazard named, and described |

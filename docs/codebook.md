@@ -900,6 +900,50 @@ rules without their orders change give nearly the same shares (60.0 / 74.0): the
 the reading the answer on orders took out. About 10 points at 90 characters and 6.5 at 360 remain,
 so orders explain part of the distance from the published share, not all of it.
 
+### The recheck copy, scored once: the rule's second half
+
+Thirty of the third sheet's texts (drawn blind with seed 20261120 and put in a new order) were
+coded again by the maintainer on 2026-11-23, the workbook saved at 20:03 UTC: 6 days and 8 hours
+after he saved the third sheet, without looking at the third sheet or its check. All 180 answer
+cells were filled, and each of the 30 texts is the third sheet's text of its row. The two passes
+were scored against each other once (`warntext sheet-repeat-check`, 2,000 bootstrap resamples of
+the rows, seed 20261115).
+
+| code | agreement | alpha between the passes (95% interval) | "yes", first / second pass | both yes | both no | yes, then no | no, then yes |
+|---|---:|---|---:|---:|---:|---:|---:|
+| hazard | 0.90 | 0.76 (0.45 to 1.00) | 0.73 / 0.70 | 20 | 7 | 2 | 1 |
+| hazard description | 0.93 | 0.83 (0.52 to 1.00) | 0.30 / 0.23 | 7 | 21 | 2 | 0 |
+| source | 0.97 | 0.93 (0.74 to 1.00) | 0.33 / 0.37 | 10 | 19 | 0 | 1 |
+| guidance | 1.00 | 1.00 (1.00 to 1.00) | 0.83 / 0.83 | 25 | 5 | 0 | 0 |
+| time | 1.00 | 1.00 (1.00 to 1.00) | 0.40 / 0.40 | 12 | 18 | 0 | 0 |
+| location | 1.00 | 1.00 (1.00 to 1.00) | 0.80 / 0.80 | 24 | 6 | 0 | 0 |
+
+Thirty texts give wide intervals. Where no answer changed, the bootstrap gives 1.00 to 1.00, which
+shows no uncertainty where there is some: with no change in 30 texts, as many as about one text in
+ten could still be answered differently (a 95% bound). Of the 18 answers on these 30 texts that
+differed from the rules, the second pass kept 15 and turned 3 to the rules' answer (hazard 3 of 3
+kept, description 3 of 5, source 4 of 5, guidance 2 of 2, location 3 of 3; time had none), and it
+gave 3 new differences, all on hazard: the coder's differences from the rules are mostly not
+slips.
+
+**The rule's second half.** Time (alpha 0.91 on the third sheet, 95% interval 0.82 to 0.98;
+consistency 1.00) and location (0.8003, 0.64 to 0.92; consistency 1.00) reach .80 on both and are
+**validated for version 3**, by the point estimates as the rule says, with the intervals beside
+them (location's on the sheet reaches below .80). Hazard (consistency 0.76), hazard description
+(0.83), source (0.93) and guidance (1.00) **stay experimental for version 3**, as the first half
+decided; their consistency is given all the same.
+
+**Version 3's statuses** (`src/warntext/code_status.csv`, the rows of version 3): `time` and
+`location` released as validated; the mechanical codes released as in version 1
+(`hazard_category`, `hazard_category_source`, `link`, `link_kinds`, `abbreviations`,
+`n_abbreviations`, `all_caps`, the evacuation wordings, `about_missing_person`, `about_test`); the
+other four content codes and every part of a content code experimental: the three kinds of time
+(trust C), the kinds of location (`loc_road`, `loc_landmark`, `loc_zone` are trust C;
+`loc_boundary` and `loc_vague_or_none`, trust B, are not on the sheets and are left out until it is
+decided), the parts of hazard description and guidance, and `complete`. Release 0.1.0 keeps
+version 1's codes and statuses unchanged; a later version built with version 3's codes releases
+time and location as validated, with both figures and their intervals in its card.
+
 ## 10. References
 
 - Kuligowski, E. D., Waugh, N. A., Sutton, J., & Cova, T. J. (2023). Ember alerts: Assessing

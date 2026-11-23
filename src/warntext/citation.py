@@ -7,6 +7,8 @@ documents on Zenodo is added beside it once the archive exists.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 AUTHOR_APA = "Kraishan, O."
 FAMILY, GIVEN = "Kraishan", "Obada"
 ORCID = "https://orcid.org/0009-0007-7180-8620"
@@ -17,6 +19,28 @@ PUBLISHER = "Hugging Face"
 URL = "https://huggingface.co/datasets/obadakr/warntext"
 #: The year of release 0.1.0.
 YEAR = 2026
+
+_MONTHS = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
+
+def bound_words(until: str) -> str:
+    """A release's exclusive end in words, as the card, Kaggle, the README and the citation file
+    write it: ``2026-11-14T17:00:00.000Z`` is "17:00 UTC on 14 November 2026"."""
+    t = datetime.fromisoformat(until.replace("Z", "+00:00")).astimezone(timezone.utc)
+    return f"{t:%H:%M} UTC on {t.day} {_MONTHS[t.month - 1]} {t.year}"
 
 
 def apa(version: str, year: int = YEAR, markdown: bool = True) -> str:

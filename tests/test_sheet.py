@@ -444,8 +444,26 @@ def test_the_repeat_check_counts_where_the_second_pass_took_each_answer():
         "first_no_second_no": 1,
     }
     assert out["codes"]["time"]["agreement"] == 1 and out["codes"]["time"]["alpha"] is None
-    with pytest.raises(SystemExit, match="Row 1 of the repeat"):
-        sh.repeat_check(first, {1: {**no, "hazard": None}}, {1: second_key[1]}, rules)
+    assert (h["share_yes_first"], h["share_yes_second"]) == (0.5, 0.5)
+    assert out["bootstrap"] == {"resamples": 2000, "seed": 20261115}
+    assert h["interval"]["resamples"] == 2000 and h["bar"] == 0.8 and h["passes"] is False
+
+
+def test_the_repeat_check_leaves_a_blank_out_of_that_code_and_counts_it():
+    no = dict.fromkeys(CODE_FIELDS, False)
+    rules = {r: dict(no) for r in range(1, 4)}
+    first = {1: {**no, "time": True}, 2: {**no, "time": None}, 3: dict(no)}
+    second_key = {n: {"earlier_row": str(n)} for n in range(1, 4)}
+    second = {1: {**no, "time": True}, 2: {**no, "time": True}, 3: {**no, "time": None}}
+    out = sh.repeat_check(first, second, second_key, rules, seed=7, resamples=50)
+    t = out["codes"]["time"]
+    assert (t["rows"], t["rows_blank_first"], t["rows_blank_second"]) == (1, 1, 1)
+    assert t["table"] == {"first_yes_second_yes": 1} and t["agreement"] == 1.0
+    assert out["codes"]["hazard"]["rows"] == 3 and out["codes"]["hazard"]["rows_blank_first"] == 0
+    assert out["bootstrap"] == {"resamples": 50, "seed": 7}
+    empty = sh.repeat_check({}, {}, {1: {"earlier_row": "1"}}, {1: dict(no)})
+    assert empty["codes"]["hazard"]["agreement"] is None
+    assert empty["codes"]["hazard"]["share_yes_first"] is None
 
 
 def test_rules_by_row_reads_the_six_codes_for_each_key_row():

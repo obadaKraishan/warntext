@@ -16,7 +16,11 @@ review. Numbers are from the build of the 2026-11-15 snapshot (section 10).
   from June, 2026 to 14 November): 2012 79,406; 2013 362,313; 2014 415,315; 2015 405,190; 2016
   406,255; 2017 413,153; 2018 474,885; 2019 537,743; 2020 455,608; 2021 477,287; 2022 497,060;
   2023 261,518; 2024 6,366; 2025 5,864; 2026 5,864. By month in 2023: 32,289 to 43,186 a month
-  from January to July (July 33,731), then 769 in August and 50 to 309 a month after.
+  from January to July (July 33,731), then 769 in August and 50 to 309 a month from September to
+  December. From 2024 they run from 57 to 1,325 a month, highest from March to September. The months
+  from July 2023 to the release's bound were counted again one by one on 2026-11-23 (section 23):
+  each year's months add up to the yearly counts above, and 2026's count to 17:00 UTC on 14
+  November is the same 5,864.
 - **Time:** every record sent before the snapshot bound (`2026-11-14T00:00:00Z` for the first
   build); the weekly update reads what comes after.
 - **How:** the API, year by year, ordered by `sent` and `id`, in pages of 500. Each page starts
@@ -1168,3 +1172,54 @@ rows (1,228 of them in `text_other`) and 8 test rows, and "the N block of" in 13
 them for shelters, distribution points, siren sites and incidents. Tokens of letters and digits
 that could be plates, with no plate word, are in about 800 alert rows and 505 test rows, nearly
 all of them codes and identifiers.
+
+## 23. The recheck, the rule's second half, the weather service's months, the removal list
+
+**The recheck copy.** Thirty of the third sheet's texts, drawn blind (seed 20261120) and in a new
+order, were coded again by the maintainer 6 days and 8 hours after the third sheet (the workbook
+saved 2026-11-23 at 20:03 UTC; the third sheet 2026-11-17 at 11:57 UTC). Both workbooks' hashes
+and saved times were recorded before and after; neither was written to. Every one of the 180
+answer cells was filled, and each text was checked to be the third sheet's text of its row (a
+count; no text printed). `warntext sheet-repeat-check` scored the two passes against each other
+once, with 2,000 bootstrap resamples of the rows and the seed 20261115, both written into the
+result; a blank would have been left out of that code's score and counted. His consistency
+(alpha between the passes, 95% interval): hazard 0.76 (0.45 to 1.00), hazard description 0.83
+(0.52 to 1.00), source 0.93 (0.74 to 1.00), guidance, time and location 1.00. Thirty texts give
+wide intervals; where no answer changed, the bootstrap gives 1.00 to 1.00, although as many as
+about one text in ten could still be answered differently (a 95% bound for no change in 30). The
+two-by-two tables are in `docs/codebook.md`, section 9.
+
+**The rule's second half.** A content code of version 3 is validated when its alpha against the
+frozen rules on the third sheet and the coder's consistency on the recheck are both at least .80,
+by the point estimates. Time (0.91 and 1.00) and location (0.8003 and 1.00) are validated;
+hazard, hazard description, source and guidance stay experimental for version 3 (their first
+half failed). The statuses are in `src/warntext/code_status.csv`, now one row per codebook
+version and code; version 1's rows, which release 0.1.0 carries, are unchanged. A pack records its
+codebook version in its manifest, and the card's Codes section follows it. Release 0.1.0 does not
+change its codes.
+
+**The weather service's months.** `warntext nws-counts` counted the weather service's records
+(`sender eq 'w-nws.webmaster@noaa.gov'`) for each calendar month from July 2023 to the release's
+bound, the last month cut at 17:00 UTC on 14 November 2026, and for the years 2024, 2025 and 2026
+(to the bound): 44 count calls through the project's client, one at a time, logged. Each filter
+is `(sent ge 'START' and sent lt 'END') and (sender eq 'w-nws.webmaster@noaa.gov')`, with START
+and END the month's (or year's) first instant and the next one's, in UTC. July to December 2023
+match the counts of 2026-11-15 month by month, and each year's months add up to its yearly count:
+2024 6,366, 2025 5,864, 2026 5,864, as the card says. That 2025 and 2026 (to the bound) have the
+same count is so: the months of each year add up to it on their own. From 2024 the months run
+from 57 (January 2025) to 1,325 (May 2024), highest from March to September.
+
+**The removal list.** `src/warntext/removals.csv` lists FEMA record ids whose text is to leave the
+corpus at the request of FEMA, an alerting authority or a person named in a message (with the
+date added and the request's number, never a person's name or address). It is tracked and empty.
+Every build reads it: a listed message (by any of its archive copies' record ids) loses its text
+rows and its area shapes, like any withheld message, and keeps its record row; where no earlier
+rule withholds it, its reason is `removed_on_request`. The release check of the tables and of a
+pack reads the list at the time of the check, so a pack built before an entry was added fails;
+`release build` refuses tables built before an entry; `warntext text` never reads a listed message
+again from FEMA.
+
+**The bound in words.** Release 0.1.0's records were sent before `2026-11-14T17:00:00.000Z`; the
+card, the Kaggle page, the README, `CITATION.cff` and `.zenodo.json` now say "sent before 17:00
+UTC on 14 November 2026" (the data hold messages from the 14th up to that hour), from one
+definition (`warntext.citation.bound_words`).

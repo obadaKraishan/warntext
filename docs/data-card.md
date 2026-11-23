@@ -160,7 +160,8 @@ was read, as FEMA asks:
 Each row's `retrieved_at` gives the exact time its message was read.
 
 ## The first release (0.1.0, published 2026-11-23)
-Version 0.1.0 covers records sent before 2026-11-14T17:00Z: 34,678 real alerts from 1,260
+Version 0.1.0 covers records sent before 17:00 UTC on 14 November 2026 (`2026-11-14T17:00Z`):
+34,678 real alerts from 1,260
 authorities and 49,186 tests. It holds the record layer of both configurations, the released
 codes and both text tables: 15 Parquet files, 500,009 rows, 34.7 MB. Of the real alerts, 16,814
 carry their text, 13,885 have it withheld (8,860 by a people code, 4,999 by a personal-detail
@@ -187,7 +188,9 @@ national authority's. The pack was rebuilt once with the widened rules (method, 
   and the codes only, no text; it points to Hugging Face.
 - **Removal:** FEMA, an alerting authority or a person named in a message can ask for a text to
   be taken out (a GitHub issue form, or the dataset's Community tab); each request is answered
-  within 14 days, the text row leaves the next version and the record row stays.
+  within 14 days, the text row leaves the next version and the record row stays. The record ids go
+  into the tracked removal list (`src/warntext/removals.csv`, empty so far), which every build reads
+  and whose entries fail the check of any pack built before them (method, section 23).
 - **Zenodo:** the code and the documents, through the GitHub route; **no data table**. OpenFEMA's
   terms let FEMA ask a user to destroy any copy, and a Zenodo record cannot be withdrawn by its
   depositor, so no copy of the data is kept there, not even the record layer. DOIs:
@@ -209,14 +212,17 @@ The field list is in `schema.md`, and how each field is derived in `method.md`.
 - The rules' language check finds Spanish only; a text in another language under an English
   label is coded as English.
 - The National Weather Service's records in the archive fall from 33,731 in July 2023 to 769 in
-  August 2023; OpenFEMA confirmed that the weather service changed its messaging policy then
-  (method, section 1). WarnText leaves those records out.
+  August 2023 and run from 57 to 1,325 a month from 2024 (recounted month by month on
+  2026-11-23); OpenFEMA confirmed that the weather service changed its messaging policy then
+  (method, sections 1 and 23). WarnText leaves those records out.
 - Sender kinds rest on FEMA's list where an authority is on it, and on names and email domains
   where it is not; 32 real alerts have an unknown kind.
 - The content codes are rules (codebook version 1 in release 0.1.0; version 2 was checked on a
   second blind sheet and is not released; version 3 is frozen and was scored once on a third blind
-  sheet, where time and location reach .80 and wait for the coder's recheck and hazard, hazard
-  description, source and guidance stay experimental),
+  sheet, where time and location reach .80 and hazard, hazard description, source and guidance stay
+  experimental; on the coder's recheck six days later his consistency was 1.00 for time and for
+  location, so both are validated for version 3 and would be released as such in a version built
+  with it; method, section 23),
   compared with the published shares of Olson et al. (2024) and with two blind hand-coded sheets;
   codes under the bar are marked experimental and left out (`codebook.md`), and in 0.1.0 that is
   all six contents. A code of version 3 is released as validated only if it reaches .80 on the

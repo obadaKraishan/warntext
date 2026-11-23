@@ -122,3 +122,25 @@ def test_run_counts_stops_on_a_block_or_a_cap():
         probe.run_counts(Raises(SourceBlocked(403, "blocked")), [("a", None)])
     with pytest.raises(CapReached):
         probe.run_counts(Raises(CapReached("cap")), [("a", None)])
+
+
+def test_month_plan_runs_month_by_month_and_cuts_the_last_at_the_bound():
+    plan = probe.month_plan("2023-11", "2024-02-14T17:00:00.000Z", extra="x eq 1", prefix="m")
+    assert [name for name, _ in plan] == ["m:2023-11", "m:2023-12", "m:2024-01", "m:2024-02"]
+    assert plan[1][1] == (
+        "(sent ge '2023-12-01T00:00:00.000Z' and sent lt '2024-01-01T00:00:00.000Z') and (x eq 1)"
+    )
+    assert plan[-1][1].startswith(
+        "(sent ge '2024-02-01T00:00:00.000Z' and sent lt '2024-02-14T17:00:00.000Z')"
+    )
+    assert probe.month_plan("2024-03", "2024-03-01T00:00:00.000Z") == []
+    assert len(probe.month_plan("2023-08", "2026-11-14T17:00:00.000Z")) == 40
+
+
+def test_bounded_year_plan_cuts_the_bounds_year_and_skips_later_ones():
+    plan = probe.bounded_year_plan([2025, 2026, 2027], "2026-11-14T17:00:00.000Z")
+    assert [name for name, _ in plan] == ["year:2025", "year:2026"]
+    assert plan[0][1] == (
+        "(sent ge '2025-01-01T00:00:00.000Z' and sent lt '2026-01-01T00:00:00.000Z')"
+    )
+    assert plan[1][1].endswith("sent lt '2026-11-14T17:00:00.000Z')")

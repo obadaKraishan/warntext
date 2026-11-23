@@ -96,6 +96,27 @@ def test_counts_saves_and_reports_unanswered(tmp_path, monkeypatch, capsys):
     assert "Not answered: nws_year:2020" in capsys.readouterr().out
 
 
+def test_nws_counts_prints_each_count_beside_its_exact_filter(tmp_path, monkeypatch, capsys):
+    answers = [Resp({"metadata": {"count": n}}) for n in (769, 309, 12)] + [Resp({}, status=503)]
+    monkeypatch.setattr(cli, "_client", lambda args: FakeClient(answers))
+    out = tmp_path / "nws.json"
+    until = "2023-10-02T17:00:00.000Z"
+    argv = ["nws-counts", "--first-month", "2023-08", "--until", until, "--years", "2023"]
+    assert cli.main([*argv, "--out", str(out), "--since", "x"]) == 1  # one count not answered
+    printed = capsys.readouterr().out
+    assert "nws_month:2023-08\t769\t$filter=(sent ge '2023-08-01T00:00:00.000Z' and sent lt " in (
+        printed
+    )
+    assert "(sent ge '2023-10-01T00:00:00.000Z' and sent lt '2023-10-02T17:00:00.000Z')" in printed
+    assert "(sender eq 'w-nws.webmaster@noaa.gov')" in printed
+    assert "nws_year:2023\tnot answered" in printed
+    saved = json.loads(out.read_text())
+    assert [c["count"] for c in saved["counts"]] == [769, 309, 12, None]
+    assert saved["facts"]["until"] == until
+    with pytest.raises(SystemExit, match="more than --max-calls 2"):
+        cli.main([*argv, "--out", str(out), "--since", "x", "--max-calls", "2"])
+
+
 def test_sample_then_profile(tmp_path, monkeypatch, capsys):
     plan = {
         "strata": [
@@ -462,10 +483,23 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
         "--out",
         str(both),
     ]
-    assert cli.main(check2) == 0
+    assert cli.main([*check2, "--check-texts", "--resamples", "40", "--seed", "4"]) == 0
     printed = capsys.readouterr().out
-    assert "hazard: 2 rows, the two passes agree 0.0" in printed and "Brush fire" not in printed
-    assert json.loads(both.read_text())["codes"]["hazard"]["passes_differ_rows"] == [1, 2]
+    head = "hazard: 2 rows (0 blank in the first pass, 0 in the second), the two passes agree 0.0"
+    assert head in printed and "Brush fire" not in printed
+    assert "Texts the same as the earlier workbook's rows: 2 of 2." in printed
+    assert "[" not in printed  # no row list on screen
+    scored = json.loads(both.read_text())
+    assert scored["codes"]["hazard"]["passes_differ_rows"] == [1, 2]
+    assert scored["bootstrap"] == {"resamples": 40, "seed": 4}
+    assert scored["texts_same_as_earlier_workbook"] == 2
+    # A repeat whose texts are not the earlier rows' is not scored.
+    wrong = [*check2[:6], str(tmp_path / "pass2" / "second_pass.xlsx"), *check2[7:-1]]
+    with pytest.raises(SystemExit, match="texts differ from the earlier workbook's rows"):
+        cli.main([*wrong, str(tmp_path / "never.json"), "--check-texts"])
+    assert not (tmp_path / "never.json").exists()
+    assert cli.main(check2) == 0
+    capsys.readouterr()
     resolve = [
         "sheet-resolve",
         "--repeat-check",
