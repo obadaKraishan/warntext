@@ -161,7 +161,7 @@ def description(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...])
     files = kaggle_files(manifest, tables)
     rows = sum(f["rows"] for f in files)
     size = sum(f["bytes"] for f in files)
-    before = str(manifest["records_sent_before"])[:10]
+    before = citation.bound_words(str(manifest["records_sent_before"]))
     lines = [
         f"# WarnText {manifest['version']}: the record layer",
         "",
@@ -234,8 +234,8 @@ def sources(manifest: Mapping[str, Any]) -> str:
     return (
         "- **The alert messages:** FEMA OpenFEMA Dataset: IPAWS Archived Alerts - v1 "
         f"({SOURCE_ENDPOINT}), retrieved {manifest['retrieved']} (UTC); records sent before "
-        f"{manifest['records_sent_before']}. This product uses the Federal Emergency Management "
-        "Agency's OpenFEMA API, but is not endorsed by FEMA.\n"
+        f"{citation.bound_words(str(manifest['records_sent_before']))}. This product uses the "
+        "Federal Emergency Management Agency's OpenFEMA API, but is not endorsed by FEMA.\n"
         "- **The kinds of sender:** FEMA's list of IPAWS alerting authorities "
         f"({authorities.PAGE_URL}), as its page stood on {authorities.SNAPSHOT_PAGE_UPDATED}, "
         f"read {authorities.SNAPSHOT_RETRIEVED}."

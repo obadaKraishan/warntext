@@ -464,7 +464,7 @@ def card(manifest: Mapping[str, Any]) -> str:
     by = {f["path"]: f for f in manifest["files"]}
     values = {
         "version": manifest["version"],
-        "until": manifest["records_sent_before"][:10],
+        "until": citation.bound_words(manifest["records_sent_before"]),
         "retrieved": manifest["retrieved"],
         "total_rows": f"{manifest['rows']:,}",
         "total_mb": _mb(manifest["bytes"]),

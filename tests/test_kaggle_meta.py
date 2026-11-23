@@ -288,3 +288,14 @@ def test_the_codes_file_names_the_validated_codes_from_version_3_on():
     assert kaggle_meta.file_description("tests-messages.parquet", "3") == (
         kaggle_meta.file_description("tests-messages.parquet")
     )
+
+
+def test_the_bound_is_written_in_words_on_the_card_and_on_kaggle(pack):
+    assert citation.bound_words("2026-11-14T17:00:00.000Z") == "17:00 UTC on 14 November 2026"
+    assert citation.bound_words("2027-01-05T00:00:00Z") == "00:00 UTC on 5 January 2027"
+    words = "sent before 17:00 UTC on 14 November 2026"
+    card = (pack["dir"] / "README.md").read_text()
+    assert words in card and "sent before 2026-11-14" not in card
+    meta = kaggle_meta.metadata(pack["manifest"], card, release.KAGGLE_TABLES)
+    assert words in meta["description"]
+    assert "records sent before 17:00 UTC on 14 November 2026." in meta["userSpecifiedSources"]
