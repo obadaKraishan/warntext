@@ -59,6 +59,29 @@ def cmd_counts(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def cmd_nws_counts(args: argparse.Namespace) -> int:
+    """The weather service's records per month (and per year), up to ``--until``, each count
+    printed beside its exact filter."""
+    plan = pr.month_plan(args.first_month, args.until, extra=NWS_FILTER, prefix="nws_month")
+    if args.years:
+        years = [int(y) for y in args.years.split(",")]
+        plan += pr.bounded_year_plan(years, args.until, extra=NWS_FILTER, prefix="nws_year")
+    if len(plan) > args.max_calls:
+        raise SystemExit(
+            f"{len(plan)} counts are planned, more than --max-calls {args.max_calls}; ask fewer."
+        )
+    c = _client(args)
+    counts = pr.run_counts(
+        c, plan, save_to=args.out, run_at=cl.now_utc(), until=args.until, sender=sm.NWS_SENDER
+    )
+    for x in counts:
+        shown = f"{x.count:,}" if x.count is not None else f"not answered ({x.error})"
+        print(f"{x.name}\t{shown}\t$filter={x.filter}")
+    failed = [x.name for x in counts if x.count is None]
+    print(f"{len(counts) - len(failed)} counts saved to {args.out}; {c.budget.calls} calls so far.")
+    return 1 if failed else 0
+
+
 def strata_from_counts(path: Path | str) -> list[sm.Stratum]:
     """Strata (year by kind of sender) from a ``counts`` file."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))["counts"]
@@ -790,6 +813,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True)
     _client_options(p)
     p.set_defaults(func=cmd_counts)
+
+    p = sub.add_parser(
+        "nws-counts", help="the weather service's records per month and year, up to --until"
+    )
+    p.add_argument("--first-month", required=True, help="the first month counted (YYYY-MM)")
+    p.add_argument("--until", required=True, help="exclusive UTC bound (ISO time)")
+    p.add_argument("--years", help="also these years, comma-separated (the last cut at --until)")
+    p.add_argument("--out", required=True)
+    _client_options(p, max_calls=60)
+    p.set_defaults(func=cmd_nws_counts)
 
     p = sub.add_parser("plan", help="draw a seeded sample plan from a counts file")
     p.add_argument("--counts", required=True)

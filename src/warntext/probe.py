@@ -113,6 +113,49 @@ def year_plan(
     return [(f"{prefix}:{y}", both(year_filter(y), extra)) for y in range(first, last + 1)]
 
 
+def window_filter(start: str, end: str) -> str:
+    """Records sent in ``[start, end)`` (UTC, ISO times as the API writes them)."""
+    return f"sent ge '{start}' and sent lt '{end}'"
+
+
+def _month_start(year: int, month: int) -> str:
+    return f"{year:04d}-{month:02d}-01T00:00:00.000Z"
+
+
+def month_plan(
+    first: str, until: str, extra: str | None = None, prefix: str = "month"
+) -> list[tuple[str, str | None]]:
+    """One count per calendar month (UTC) from ``first`` (``YYYY-MM``) up to the exclusive
+    bound ``until`` (an ISO time); the last month is cut at ``until``."""
+    year, month = (int(x) for x in first.split("-"))
+    out = []
+    while _month_start(year, month) < until:
+        nxt = (year + month // 12, month % 12 + 1)
+        end = min(_month_start(*nxt), until)
+        out.append(
+            (
+                f"{prefix}:{year:04d}-{month:02d}",
+                both(window_filter(_month_start(year, month), end), extra),
+            )
+        )
+        year, month = nxt
+    return out
+
+
+def bounded_year_plan(
+    years: Iterable[int], until: str, extra: str | None = None, prefix: str = "year"
+) -> list[tuple[str, str | None]]:
+    """One count per calendar year (UTC), the year of ``until`` cut at ``until``."""
+    out = []
+    for y in years:
+        start = _month_start(y, 1)
+        if start >= until:
+            continue
+        end = min(_month_start(y + 1, 1), until)
+        out.append((f"{prefix}:{y}", both(window_filter(start, end), extra)))
+    return out
+
+
 def save(path: Path | str, counts: list[Count], **facts: Any) -> None:
     """Write the counts (aggregates only) as JSON."""
     path = Path(path)

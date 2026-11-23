@@ -96,6 +96,27 @@ def test_counts_saves_and_reports_unanswered(tmp_path, monkeypatch, capsys):
     assert "Not answered: nws_year:2020" in capsys.readouterr().out
 
 
+def test_nws_counts_prints_each_count_beside_its_exact_filter(tmp_path, monkeypatch, capsys):
+    answers = [Resp({"metadata": {"count": n}}) for n in (769, 309, 12)] + [Resp({}, status=503)]
+    monkeypatch.setattr(cli, "_client", lambda args: FakeClient(answers))
+    out = tmp_path / "nws.json"
+    until = "2023-10-02T17:00:00.000Z"
+    argv = ["nws-counts", "--first-month", "2023-08", "--until", until, "--years", "2023"]
+    assert cli.main([*argv, "--out", str(out), "--since", "x"]) == 1  # one count not answered
+    printed = capsys.readouterr().out
+    assert "nws_month:2023-08\t769\t$filter=(sent ge '2023-08-01T00:00:00.000Z' and sent lt " in (
+        printed
+    )
+    assert "(sent ge '2023-10-01T00:00:00.000Z' and sent lt '2023-10-02T17:00:00.000Z')" in printed
+    assert "(sender eq 'w-nws.webmaster@noaa.gov')" in printed
+    assert "nws_year:2023\tnot answered" in printed
+    saved = json.loads(out.read_text())
+    assert [c["count"] for c in saved["counts"]] == [769, 309, 12, None]
+    assert saved["facts"]["until"] == until
+    with pytest.raises(SystemExit, match="more than --max-calls 2"):
+        cli.main([*argv, "--out", str(out), "--since", "x", "--max-calls", "2"])
+
+
 def test_sample_then_profile(tmp_path, monkeypatch, capsys):
     plan = {
         "strata": [
