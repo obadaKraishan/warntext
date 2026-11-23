@@ -1,8 +1,12 @@
 # WarnText data card (DRAFT)
 
-**DRAFT for review. Nothing has been released.** This card describes the corpus as built from
-the archive snapshot of 2026-11-15; the numbers are from that build and will change with each
-weekly update.
+**DRAFT for review.** Release 0.1.0 was published on 2026-11-23: the dataset on Hugging Face
+(https://huggingface.co/datasets/obadakr/warntext, tag `v0.1.0`), a mirror of the record layer
+on Kaggle (https://www.kaggle.com/datasets/obadakraishan/warntext), and the code and documents
+on Zenodo (https://doi.org/10.5281/zenodo.24475949). The published dataset card on Hugging Face
+is the authoritative description of that release. This document describes the corpus as built
+from the archive snapshot of 2026-11-15; the numbers are from that build and will change with
+each weekly update.
 
 ## What WarnText is
 A research corpus of the public alert messages that US federal, state, local, tribal and
@@ -138,8 +142,14 @@ sources to do so.
 > This product uses the Federal Emergency Management Agency’s OpenFEMA API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for the data or analyses derived from these data after the data have been retrieved from the Agency's website(s).
 
 ## How to cite
-Cite WarnText (its version and DOI, when released) and the source, with the endpoint and the
-time it was read, as FEMA asks:
+Kraishan, O. (2026). *WarnText: A research corpus of the public emergency alert messages sent in
+the United States* (Version 0.1.0) [Data set]. Hugging Face.
+https://huggingface.co/datasets/obadakr/warntext
+
+The code and documents that build the corpus (no data table) are archived on Zenodo:
+https://doi.org/10.5281/zenodo.24475949 (all versions; release 0.1.0's:
+https://doi.org/10.5281/zenodo.24475950). Cite the source too, with the endpoint and the time it
+was read, as FEMA asks:
 
 > Federal Emergency Management Agency (FEMA), OpenFEMA Dataset: IPAWS Archived Alerts - v1.
 > Retrieved from https://www.fema.gov/api/open/v1/IpawsArchivedAlerts on 2026-11-15 (UTC).
@@ -149,7 +159,7 @@ time it was read, as FEMA asks:
 
 Each row's `retrieved_at` gives the exact time its message was read.
 
-## The first release (uploaded privately, not public)
+## The first release (0.1.0, published 2026-11-23)
 Version 0.1.0 covers records sent before 2026-11-14T17:00Z: 34,678 real alerts from 1,260
 authorities and 49,186 tests. It holds the record layer of both configurations, the released
 codes and both text tables: 15 Parquet files, 500,009 rows, 34.7 MB. Of the real alerts, 16,814
@@ -170,29 +180,32 @@ national authority's. The pack was rebuilt once with the widened rules (method, 
   where the maintainer read and accepted them (13 names), blank otherwise (3 names, 8 real alerts
   and 3,698 tests, `organization_source` `sender_name_unreviewed`); the AMBER clearinghouse's
   older identifiers carry the name FEMA lists for its current one.
-- **Hugging Face** (`obadakr/warntext`): one configuration per table, with the splits `alerts`
-  and `tests`; the card's license is `other`, under OpenFEMA's terms.
-- **Kaggle mirror:** the record layer and the codes only, no text; it points to Hugging Face.
+- **Hugging Face** (https://huggingface.co/datasets/obadakr/warntext, tag `v0.1.0`): one
+  configuration per table, with the splits `alerts` and `tests`; the card's license is `other`,
+  under OpenFEMA's terms.
+- **Kaggle mirror** (https://www.kaggle.com/datasets/obadakraishan/warntext): the record layer
+  and the codes only, no text; it points to Hugging Face.
 - **Removal:** FEMA, an alerting authority or a person named in a message can ask for a text to
   be taken out (a GitHub issue form, or the dataset's Community tab); each request is answered
   within 14 days, the text row leaves the next version and the record row stays.
 - **Zenodo:** the code and the documents, through the GitHub route; **no data table**. OpenFEMA's
   terms let FEMA ask a user to destroy any copy, and a Zenodo record cannot be withdrawn by its
-  depositor, so no copy of the data is kept there, not even the record layer.
+  depositor, so no copy of the data is kept there, not even the record layer. DOIs:
+  10.5281/zenodo.24475949 (all versions) and 10.5281/zenodo.24475950 (0.1.0).
 
 ## Configurations and tables
 | Configuration | Messages | Record layer | Text layer |
 |---|---:|---|---|
-| `alerts` (real alerts) | 34,678 | messages, infos, areas, references, threads, codes | text_federal (223 messages), text_other (16,698) |
-| `tests` (tests and demonstrations) | 49,186 | the same, without codes | text_federal (3,869), text_other (44,265) |
+| `alerts` (real alerts) | 34,678 | messages, infos, areas, references, threads, codes | text_federal (219 messages), text_other (16,595) |
+| `tests` (tests and demonstrations) | 49,186 | the same, without codes | text_federal (3,869), text_other (44,256) |
 
 The field list is in `schema.md`, and how each field is derived in `method.md`.
 
 ## Known limits
 - Years before 2016 are thin (244 real alerts in 2013, 6,872 in 2026 to mid-November); most
   authorities joined IPAWS later.
-- Only 223 real alerts with text come from federal senders, 168 of them earthquake warnings;
-  most released text is state and local (13,012 local and 3,426 state real alerts).
+- Only 219 real alerts with text come from federal senders, most of them earthquake warnings;
+  most released text is state and local (12,917 local and 3,419 state real alerts).
 - The rules' language check finds Spanish only; a text in another language under an English
   label is coded as English.
 - The National Weather Service's records in the archive fall from 33,731 in July 2023 to 769 in

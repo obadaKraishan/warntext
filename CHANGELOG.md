@@ -7,6 +7,10 @@ All notable changes to this project are recorded here. The format follows
 ## [Unreleased]
 
 ### Added
+- `docs/paper-facts.md`: every figure the dataset card and the method give (sizes, text and
+  withheld counts by rule, the hand checks with their intervals, the comparison with Olson et
+  al., the privacy reading, the limits, the coverage), each with the file it comes from and its
+  date. Figures only.
 - The Zenodo DOIs of the code and documents: 10.5281/zenodo.24475949 (all versions) and
   10.5281/zenodo.24475950 (0.1.0), in the README (a badge and "How to cite") and in
   `CITATION.cff`.
@@ -16,6 +20,9 @@ All notable changes to this project are recorded here. The format follows
   address.
 
 ### Changed
+- `docs/data-card.md` (draft): release 0.1.0 published, with its addresses, DOIs and
+  citation; the text tables' message counts and the federal, local and state counts as the
+  release was rebuilt (219 and 16,595 real alerts; 3,869 and 44,256 tests).
 - The card check counts `{{name}}` as a leftover placeholder, so a BibTeX title such as
   `{{WarnText}: ...}` is not one.
 
