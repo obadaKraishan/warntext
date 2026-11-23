@@ -6,6 +6,13 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-23
+
+Release 0.1.0 is published: the dataset on Hugging Face
+(https://huggingface.co/datasets/obadakr/warntext, tag `v0.1.0`), with the message text of the
+alerts that are not about people, and a mirror of the record layer and the released codes on
+Kaggle (https://www.kaggle.com/datasets/obadakraishan/warntext), without text.
+
 ### Added
 - The repository is public. Changes reach `main` through pull requests that pass the four
   checks (ruff and pytest on Python 3.10, 3.11, 3.12 and 3.13).
@@ -328,3 +335,6 @@ All notable changes to this project are recorded here. The format follows
   hour and the county; the card says what is withheld in two plain sentences and gives the
   reading of a sample of what is left as a limit. Each content code is judged on its own for
   release.
+
+[Unreleased]: https://github.com/obadaKraishan/warntext/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/obadaKraishan/warntext/releases/tag/v0.1.0
