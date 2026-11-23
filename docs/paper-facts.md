@@ -44,7 +44,8 @@ release figures carry the publication date, 2026-11-23 (their records were retri
 | fact | figure | source | date |
 |---|---|---|---|
 | Records sent before | 2026-11-14T17:00:00.000Z | manifest.json (release 0.1.0), `records_sent_before`; docs/method.md section 11 (2026-11-14T17:00Z) | 2026-11-23 |
-| The same bound as the card words it | sent before 2026-11-14 | card (release 0.1.0), opening (WarnText); README.md, What it holds (release 0.1.0) | 2026-11-23 |
+| The same bound as the card words it | sent before 17:00 UTC on 14 November 2026 | card (release 0.1.0), opening (WarnText), after its card-only change of 2026-11-23; README.md, What it holds (release 0.1.0); CITATION.cff; .zenodo.json; docs/method.md section 23 | 2026-11-23 |
+| Superseded: the bound as the card first worded it | sent before 2026-11-14 | card (release 0.1.0) as published at 15:54 UTC on 2026-11-23 | 2026-11-23 |
 | Records retrieved | 2026-11-15 (UTC) | manifest.json (release 0.1.0), `retrieved`; card (release 0.1.0), How to cite | 2026-11-23 |
 | Earliest message | dated 30 September 2011 | measured from the release's messages tables, 2026-11-23; README.md, What it holds (release 0.1.0) | 2026-11-23 |
 | Real alerts with 2011 dates | five | measured from the release's messages tables, 2026-11-23; README.md, What it holds (release 0.1.0) | 2026-11-23 |
@@ -55,7 +56,8 @@ release figures carry the publication date, 2026-11-23 (their records were retri
 | The archive's headline count | about 4.9 million records, 98% of them National Weather Service products | README.md, What it holds (release 0.1.0); docs/data-card.md, The honest size | 2026-11-23 |
 | National Weather Service records in 2023, January to July | 32,289 to 43,186 a month (July 33,731) | docs/method.md section 1 | 2026-11-15 |
 | National Weather Service records, August 2023 | 769 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
-| National Weather Service records a month after August 2023 | 50 to 309 (to be rechecked: see the note under the yearly counts) | docs/method.md section 1 | 2026-11-15 |
+| National Weather Service records a month, September to December 2023 | 50 to 309 | docs/method.md section 1 | 2026-11-15 |
+| National Weather Service records a month, January 2024 to the release's bound | 57 to 1,325, highest from March to September | docs/method.md sections 1 and 23 | 2026-11-23 |
 | Superseded: the first build's bound | records sent before 2026-11-14T00:00:00Z | docs/method.md sections 1 and 10 | 2026-11-15 |
 | Years with records, first build | 16 (2011 to 2026); the server's count per year matched before and after the backfill in all 16 | docs/method.md section 10 | 2026-11-15 |
 | Real alerts per year, first build | from 244 (2013) to 6,872 (2026, to mid-November) | docs/method.md section 10; docs/data-card.md, Known limits | 2026-11-15 |
@@ -79,18 +81,66 @@ Server counts; 2012 from June, 2026 to 14 November.
 | 2021 | 477,287 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
 | 2022 | 497,060 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
 | 2023 | 261,518 | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
-| 2024 | 6,366 (to be rechecked) | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
-| 2025 | 5,864 (to be rechecked) | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
-| 2026 | 5,864 (to be rechecked) | card (release 0.1.0), Limits; docs/method.md section 1 | 2026-11-15 |
+| 2024 | 6,366 (the sum of its months in the recount of 2026-11-23) | card (release 0.1.0), Limits; docs/method.md sections 1 and 23 | 2026-11-15; rechecked 2026-11-23 |
+| 2025 | 5,864 (the sum of its months in the recount of 2026-11-23) | card (release 0.1.0), Limits; docs/method.md sections 1 and 23 | 2026-11-15; rechecked 2026-11-23 |
+| 2026 | 5,864 (the sum of its months in the recount of 2026-11-23, to the bound) | card (release 0.1.0), Limits; docs/method.md sections 1 and 23 | 2026-11-15; rechecked 2026-11-23 |
 
-**To be rechecked: the counts for 2024 to 2026 and the monthly range after August 2023.** The
-figures above are as the server answered on 2026-11-15 (5,864 for 2025 and for 2026, the same in a
-recount of both years that day; checked against the saved server counts on 2026-11-23), but they do
-not fit together: 50 to 309 records a month allows at most 3,708 a year, yet the yearly counts give
-6,366 for 2024 and 5,864 for 2025 and for 2026, and a full year (2025) with the same count as a
-partial one (2026, to 14 November) needs an independent check. They are to be recounted month by
-month from August 2023 to November 2026, with the exact filters given; if the recount differs, the
-card's Limits, `docs/method.md` and this sheet are corrected together.
+**Rechecked on 2026-11-23: the yearly counts stand.** The weather service's records were counted
+again for each month from July 2023 to the release's bound (`warntext nws-counts`, 44 count calls:
+41 months and the years 2024, 2025 and 2026 to the bound). Each filter is `(sent ge 'START' and
+sent lt 'END') and (sender eq 'w-nws.webmaster@noaa.gov')`, with START and END the first instant of
+the month (or year) and of the next, in UTC, the last cut at `2026-11-14T17:00:00.000Z`. July to
+December 2023 match the counts of 2026-11-15 month by month; 2024's months add up to 6,366, 2025's
+to 5,864 and 2026's (to the bound) to 5,864, each equal to its yearly count. What did not hold was
+this sheet's reading of the method's "50 to 309 a month after" August 2023 as every later month:
+the method gives that range for September to December 2023 only. From 2024 the months run from 57
+to 1,325. That 2025 and 2026 have the same count is so: each year's months add up to it.
+
+### National Weather Service records per month, July 2023 to the release's bound (left out of WarnText)
+
+| month | records | source | date |
+|---|---:|---|---|
+| 2023-07 | 33,731 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2023-08 | 769 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2023-09 | 309 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2023-10 | 123 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2023-11 | 50 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2023-12 | 99 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-01 | 256 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-02 | 126 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-03 | 215 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-04 | 718 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-05 | 1,325 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-06 | 625 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-07 | 914 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-08 | 792 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-09 | 770 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-10 | 256 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-11 | 192 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2024-12 | 177 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-01 | 57 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-02 | 208 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-03 | 748 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-04 | 1,184 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-05 | 956 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-06 | 860 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-07 | 805 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-08 | 372 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-09 | 345 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-10 | 162 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-11 | 73 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2025-12 | 94 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-01 | 86 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-02 | 106 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-03 | 423 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-04 | 799 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-05 | 429 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-06 | 1,177 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-07 | 1,101 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-08 | 798 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-09 | 504 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-10 | 329 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
+| 2026-11 (to 17:00 UTC on the 14th) | 112 | `warntext nws-counts`, data/usage_log.csv | 2026-11-23 |
 
 ## 3. Sizes
 
@@ -334,6 +384,24 @@ person.
 | The 59 differing answers by kind | 40 rule misses, 10 rule over-reads, 1 coding slip, 8 not settled by the definitions | docs/method.md section 21 | by 2026-11-17 |
 | Misses and over-reads by origin | 22 from the reach of the word lists for hazards and their descriptions; 11 from the rules for the speaker | docs/method.md section 21 | by 2026-11-17 |
 
+### The recheck copy and the rule's second half
+
+| fact | figure | source | date |
+|---|---|---|---|
+| Recheck copy coded | 30 of the third sheet's texts (seed 20261120, a new order), saved 2026-11-23 at 20:03 UTC | docs/method.md section 23; docs/codebook.md section 9 | 2026-11-23 |
+| Gap since the third sheet | 6 days and 8 hours (third sheet saved 2026-11-17 at 11:57 UTC) | docs/method.md section 23 | 2026-11-23 |
+| Answer cells filled | all 180; each text the third sheet's text of its row | docs/method.md section 23 | 2026-11-23 |
+| Scoring | once, 2,000 bootstrap resamples of the rows, seed 20261115 | docs/method.md section 23 | 2026-11-23 |
+| Hazard: agreement; alpha between the passes (95% interval); "yes" first / second; both yes, both no, yes then no, no then yes | 0.90; 0.76 (0.45 to 1.00); 0.73 / 0.70; 20, 7, 2, 1 | docs/codebook.md section 9 | 2026-11-23 |
+| Hazard description | 0.93; 0.83 (0.52 to 1.00); 0.30 / 0.23; 7, 21, 2, 0 | docs/codebook.md section 9 | 2026-11-23 |
+| Source | 0.97; 0.93 (0.74 to 1.00); 0.33 / 0.37; 10, 19, 0, 1 | docs/codebook.md section 9 | 2026-11-23 |
+| Guidance | 1.00; 1.00 (1.00 to 1.00); 0.83 / 0.83; 25, 5, 0, 0 | docs/codebook.md section 9 | 2026-11-23 |
+| Time | 1.00; 1.00 (1.00 to 1.00); 0.40 / 0.40; 12, 18, 0, 0 | docs/codebook.md section 9 | 2026-11-23 |
+| Location | 1.00; 1.00 (1.00 to 1.00); 0.80 / 0.80; 24, 6, 0, 0 | docs/codebook.md section 9 | 2026-11-23 |
+| The bound behind a perfect 30 of 30 | as many as about one text in ten could still be answered differently (95%) | docs/codebook.md section 9; docs/method.md section 23 | 2026-11-23 |
+| Answers on the 30 texts that differed from the rules: kept by the second pass / turned / new differences | 15 / 3 / 3 (the 3 new ones all hazard) | docs/codebook.md section 9 | 2026-11-23 |
+| The rule's second half | time (0.91 on the sheet, consistency 1.00) and location (0.8003, 1.00) validated for version 3; the other four experimental for version 3 | docs/codebook.md section 9; docs/method.md section 23 | 2026-11-23 |
+
 ### Release statuses
 
 | fact | figure | source | date |
@@ -342,6 +410,7 @@ person.
 | Experimental codes, in the codebook and not in the tables | `hazard`, `hazard_description`, `hazard_characteristics`, `hazard_impacts`, `source_named`, `guidance`, `n_actions`, `guidance_protective`, `guidance_information`, `time`, `time_impact`, `time_action`, `time_expiry`, `location`, `loc_boundary`, `loc_road`, `loc_landmark`, `loc_zone`, `loc_vague_or_none`, `complete` | card (release 0.1.0), Codes; manifest.json (release 0.1.0), `experimental_codes_left_out` | 2026-11-23 |
 | Version 2 | only `time` reached .80; no code of version 2 released | docs/method.md section 17 | by 2026-11-17 |
 | Version 3 after the first half of its rule | time and location reach .80 and wait for the recheck; hazard, hazard description, source and guidance stay experimental, final for version 3; no status changed | docs/method.md section 21; docs/data-card.md, Known limits | by 2026-11-17 |
+| Version 3 after the second half | `time` and `location` validated; the mechanical codes as in version 1; every other code experimental (`loc_boundary` and `loc_vague_or_none` left out until it is decided); release 0.1.0 unchanged (version 1) | src/warntext/code_status.csv (version 3's rows); docs/codebook.md section 9 | 2026-11-23 |
 
 ## 6. Comparison with Olson et al. (2024)
 
@@ -586,6 +655,7 @@ Each a seeded sample of 60 newly withheld texts; counts only.
 | References resolved by sender and identifier (another sent time), first build | 967 of 8,295 resolved | docs/method.md section 10 | 2026-11-15 |
 | Coders per sheet | one | card (release 0.1.0), Codes; docs/method.md section 17 | 2026-11-23 |
 | The coder's consistency is rough: passes apart / rows with a difference with the rules | about 26 hours / 58 of the 75 | docs/method.md section 19 | by 2026-11-17 |
+| The recheck of the third sheet: passes apart / texts | 6 days and 8 hours / 30 (wide intervals) | docs/method.md section 23 | 2026-11-23 |
 | Removal requests answered within | 14 days | card (release 0.1.0), Removal | 2026-11-23 |
 
 ## 9. The first build of 2026-11-15
