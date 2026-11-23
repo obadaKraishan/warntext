@@ -1,13 +1,15 @@
 {
   "upload_type": "software",
   "title": "WarnText: software and documentation for a research corpus of US public alert messages",
+  "version": "0.1.0",
   "creators": [
     {
       "name": "Kraishan, Obada",
-      "affiliation": "College of Media and Communication, Texas Tech University"
+      "affiliation": "College of Media and Communication, Texas Tech University",
+      "orcid": "0009-0007-7180-8620"
     }
   ],
-  "description": "<p>WarnText builds and checks a research corpus of the public alert messages sent in the United States through the Integrated Public Alert and Warning System, read from FEMA's OpenFEMA dataset IPAWS Archived Alerts (version 1): one row per message with its alerting authority, time, place, channels, the updates and cancellations that follow it, and rule-based content codes from the warning literature. It is a research record, not an alerting service.</p><p>This archive holds the code and the documents only (method, schema, codebook, data card). It holds no data: the data are released on Hugging Face under OpenFEMA's terms (https://www.fema.gov/about/openfema/terms-conditions), which let FEMA ask users to destroy any copy, so no copy is kept in an archive that cannot be withdrawn.</p><p>This product uses the Federal Emergency Management Agency's OpenFEMA API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for the data or analyses derived from these data after the data have been retrieved from the Agency's website(s).</p>",
+  "description": "<p>WarnText builds and checks a research corpus of the public alert messages that US federal, state, local, tribal and territorial alerting authorities sent through the Integrated Public Alert and Warning System (IPAWS), read from FEMA's OpenFEMA dataset IPAWS Archived Alerts (version 1). Release 0.1.0 holds every message in that archive from senders other than the National Weather Service, sent before 2026-11-14: 34,678 real alerts from 1,260 alerting authorities and 49,186 tests and demonstrations, one row per message with its alerting authority, time, places, channels and the updates and cancellations that follow it. The message text is included for the alerts that are not about people; the text of 13,885 real alerts is withheld by rule, and their rows stay. Codes by rule: release 0.1.0 releases the mechanical codes (hazard category, links, abbreviations, all caps, the evacuation wordings and two flags) and no validated content code; the six contents from the warning literature (hazard, hazard description, source, guidance, time, location) are experimental and left out. It is a research record, not an alerting service.</p><p>This archive holds the code and the documents only (method, schema, codebook, data card). It holds no data: the data are released on Hugging Face (https://huggingface.co/datasets/obadakr/warntext), with a mirror of the record layer on Kaggle, under OpenFEMA's terms (https://www.fema.gov/about/openfema/terms-conditions), which let FEMA ask users to destroy any copy, so no copy is kept in an archive that cannot be withdrawn.</p><p>This product uses the Federal Emergency Management Agency's OpenFEMA API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for the data or analyses derived from these data after the data have been retrieved from the Agency's website(s).</p>",
   "license": "Apache-2.0",
   "access_right": "open",
   "keywords": [
@@ -21,6 +23,11 @@
   "related_identifiers": [
     {
       "identifier": "https://huggingface.co/datasets/obadakr/warntext",
+      "relation": "isSupplementTo",
+      "resource_type": "dataset"
+    },
+    {
+      "identifier": "https://www.kaggle.com/datasets/obadakraishan/warntext",
       "relation": "isSupplementTo",
       "resource_type": "dataset"
     }
