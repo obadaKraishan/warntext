@@ -54,6 +54,15 @@ See [`docs/data-card.md`](docs/data-card.md) (draft), [`docs/schema.md`](docs/sc
   checked by the Federal Emergency Management Agency (FEMA), the Department of Homeland Security
   or any alerting authority.
 
+## Removing a message's text
+FEMA, an alerting authority, or a person named in a message can ask for a message's text to be
+taken out of the dataset: open an issue with the
+[Remove a message's text](https://github.com/obadaKraishan/warntext/issues/new/choose) form, or
+write on the dataset's Community tab on Hugging Face. Give the record id (`message_id`), never
+the text or anyone's personal details: the issue is public. Each request is answered within 14
+days. The text row leaves the next version; the message's record row, which holds no text,
+stays, as it does in FEMA's own archive.
+
 ## Source
 The messages come from the "IPAWS Archived Alerts" dataset that FEMA publishes through its
 OpenFEMA program. The messages themselves were written by the federal, state, local, tribal and
