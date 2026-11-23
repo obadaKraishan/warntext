@@ -84,6 +84,12 @@ _TABLES = {
     "and the full text): the codes this version releases. The six content codes are "
     "experimental in this version and left out.",
 }
+#: The codes file's description from codebook version 3 on: which content codes are validated.
+_CODES_V3 = (
+    "One row per text unit of a real alert (the 90- and 360-character phone texts and the full "
+    "text): the codes this version releases, among them the content codes validated against a "
+    "coder's blind sheet ({validated}); the other content codes are experimental and left out."
+)
 _SPLITS = {
     "alerts": "Real alerts",
     "tests": "Tests and demonstrations",
@@ -96,10 +102,18 @@ def flat_name(path: str) -> str:
     return f"{config}-{name}.parquet"
 
 
-def file_description(flat: str) -> str:
-    """One description per Kaggle file, from its split and table (no text in any file)."""
+def file_description(flat: str, version: str = "1") -> str:
+    """One description per Kaggle file, from its split and table (no text in any file); the
+    codes file's names the content codes validated in its codebook ``version``."""
     split, _, table = flat.removesuffix(".parquet").partition("-")
-    return f"{_SPLITS[split]}. {_TABLES[table]} No message text."
+    words = _TABLES[table]
+    if table == "codes" and version != "1":
+        from warntext import release
+
+        status = release.code_status(version)
+        validated = [c for c in release.CONTENT_CODES if status[c]["status"] == "released"]
+        words = _CODES_V3.format(validated=", ".join(f"`{c}`" for c in validated) or "none")
+    return f"{_SPLITS[split]}. {words} No message text."
 
 
 def card_section(card: str, heading: str) -> str:
@@ -143,6 +157,7 @@ def kaggle_files(manifest: Mapping[str, Any], tables: tuple[str, ...]) -> list[d
 def description(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...]) -> str:
     """The Kaggle description in Markdown, with the headings of ``HEADINGS``."""
     facts = manifest["facts"]
+    version = str(manifest.get("codebook_version", "1"))
     files = kaggle_files(manifest, tables)
     rows = sum(f["rows"] for f in files)
     size = sum(f["bytes"] for f in files)
@@ -173,7 +188,10 @@ def description(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...])
         "## What is inside",
         "| file | rows | what it holds |",
         "|---|---:|---|",
-        *(f"| `{f['flat']}` | {f['rows']:,} | {file_description(f['flat'])} |" for f in files),
+        *(
+            f"| `{f['flat']}` | {f['rows']:,} | {file_description(f['flat'], version)} |"
+            for f in files
+        ),
         "",
         f"In all {rows:,} rows, {size / 1_000_000:.1f} MB as Parquet. Every table carries FEMA's "
         "record id (`record_id`); messages, language blocks, areas, references and codes join "
@@ -226,6 +244,7 @@ def sources(manifest: Mapping[str, Any]) -> str:
 
 def metadata(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...]) -> dict[str, Any]:
     """The mirror's ``dataset-metadata.json``."""
+    version = str(manifest.get("codebook_version", "1"))
     return {
         "title": TITLE,
         "id": KAGGLE_ID,
@@ -237,7 +256,7 @@ def metadata(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...]) ->
         "expectedUpdateFrequency": UPDATE_FREQUENCY,
         "userSpecifiedSources": sources(manifest),
         "resources": [
-            {"path": f["flat"], "description": file_description(f["flat"])}
+            {"path": f["flat"], "description": file_description(f["flat"], version)}
             for f in kaggle_files(manifest, tables)
         ],
     }

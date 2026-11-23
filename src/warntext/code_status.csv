@@ -1,36 +1,71 @@
-code,trust,hand_sheet_alpha,hand_sheet_agreement,status,reason
-hazard,B,0.86,0.94,experimental,alpha .86 on the first hand sheet but 0.56 to 0.72 for version 1 on the second; under .80
-hazard_category,B,,,released,not on the hand sheet; trust B
-hazard_category_source,B,,,released,goes with hazard_category
-hazard_description,C,0.52,0.80,experimental,trust C; alpha under .80 on the hand sheet
-hazard_characteristics,C,,,experimental,trust C; a part of hazard_description
-hazard_impacts,C,,,experimental,trust C; a part of hazard_description
-source_named,B,0.41,0.74,experimental,alpha under .80 on the hand sheet
-guidance,A,0.63,0.83,experimental,alpha under .80 on the hand sheet
-n_actions,B,,,experimental,counts what guidance finds; guidance is under .80
-guidance_protective,B,,,experimental,a part of guidance; guidance is under .80
-guidance_information,B,,,experimental,a part of guidance; guidance is under .80
-time,A,0.72,0.88,experimental,alpha under .80 on the hand sheet
-time_impact,C,,,experimental,trust C; a kind of time
-time_action,C,,,experimental,trust C; a kind of time
-time_expiry,C,,,experimental,trust C; a kind of time
-location,B,0.73,0.90,experimental,alpha under .80 on the hand sheet
-loc_boundary,B,,,experimental,a kind of location; location is under .80
-loc_road,C,,,experimental,trust C; a kind of location
-loc_landmark,C,,,experimental,trust C; a kind of location
-loc_zone,C,,,experimental,trust C; a kind of location
-loc_vague_or_none,B,,,experimental,the opposite of location; location is under .80
-link,A,,,released,not on the hand sheet; trust A
-link_kinds,A,,,released,not on the hand sheet; trust A
-abbreviations,B,,,released,not on the hand sheet; trust B
-n_abbreviations,B,,,released,not on the hand sheet; trust B
-all_caps,A,,,released,not on the hand sheet; trust A
-evac_terms,A,,,released,not on the hand sheet; trust A
-evac_warning_order,A,,,released,not on the hand sheet; trust A
-evac_levels,A,,,released,not on the hand sheet; trust A
-evac_ready_set_go,A,,,released,not on the hand sheet; trust A
-evac_voluntary_mandatory,A,,,released,not on the hand sheet; trust A
-evac_pre_evacuation,A,,,released,not on the hand sheet; trust A
-complete,B,,,experimental,follows its five parts; none of them is released
-about_missing_person,B,,,released,not on the hand sheet; trust B
-about_test,B,,,released,not on the hand sheet; trust B
+codebook_version,code,trust,hand_sheet_alpha,hand_sheet_agreement,status,reason,alpha_low,alpha_high,recheck_alpha,recheck_agreement,recheck_low,recheck_high
+1,hazard,B,0.86,0.94,experimental,alpha .86 on the first hand sheet but 0.56 to 0.72 for version 1 on the second; under .80,,,,,,
+1,hazard_category,B,,,released,not on the hand sheet; trust B,,,,,,
+1,hazard_category_source,B,,,released,goes with hazard_category,,,,,,
+1,hazard_description,C,0.52,0.80,experimental,trust C; alpha under .80 on the hand sheet,,,,,,
+1,hazard_characteristics,C,,,experimental,trust C; a part of hazard_description,,,,,,
+1,hazard_impacts,C,,,experimental,trust C; a part of hazard_description,,,,,,
+1,source_named,B,0.41,0.74,experimental,alpha under .80 on the hand sheet,,,,,,
+1,guidance,A,0.63,0.83,experimental,alpha under .80 on the hand sheet,,,,,,
+1,n_actions,B,,,experimental,counts what guidance finds; guidance is under .80,,,,,,
+1,guidance_protective,B,,,experimental,a part of guidance; guidance is under .80,,,,,,
+1,guidance_information,B,,,experimental,a part of guidance; guidance is under .80,,,,,,
+1,time,A,0.72,0.88,experimental,alpha under .80 on the hand sheet,,,,,,
+1,time_impact,C,,,experimental,trust C; a kind of time,,,,,,
+1,time_action,C,,,experimental,trust C; a kind of time,,,,,,
+1,time_expiry,C,,,experimental,trust C; a kind of time,,,,,,
+1,location,B,0.73,0.90,experimental,alpha under .80 on the hand sheet,,,,,,
+1,loc_boundary,B,,,experimental,a kind of location; location is under .80,,,,,,
+1,loc_road,C,,,experimental,trust C; a kind of location,,,,,,
+1,loc_landmark,C,,,experimental,trust C; a kind of location,,,,,,
+1,loc_zone,C,,,experimental,trust C; a kind of location,,,,,,
+1,loc_vague_or_none,B,,,experimental,the opposite of location; location is under .80,,,,,,
+1,link,A,,,released,not on the hand sheet; trust A,,,,,,
+1,link_kinds,A,,,released,not on the hand sheet; trust A,,,,,,
+1,abbreviations,B,,,released,not on the hand sheet; trust B,,,,,,
+1,n_abbreviations,B,,,released,not on the hand sheet; trust B,,,,,,
+1,all_caps,A,,,released,not on the hand sheet; trust A,,,,,,
+1,evac_terms,A,,,released,not on the hand sheet; trust A,,,,,,
+1,evac_warning_order,A,,,released,not on the hand sheet; trust A,,,,,,
+1,evac_levels,A,,,released,not on the hand sheet; trust A,,,,,,
+1,evac_ready_set_go,A,,,released,not on the hand sheet; trust A,,,,,,
+1,evac_voluntary_mandatory,A,,,released,not on the hand sheet; trust A,,,,,,
+1,evac_pre_evacuation,A,,,released,not on the hand sheet; trust A,,,,,,
+1,complete,B,,,experimental,follows its five parts; none of them is released,,,,,,
+1,about_missing_person,B,,,released,not on the hand sheet; trust B,,,,,,
+1,about_test,B,,,released,not on the hand sheet; trust B,,,,,,
+3,hazard,B,0.73,0.88,experimental,alpha under .80 on sheet 3 against version 3,0.5813,0.8688,0.7579,0.90,0.4503,1.00
+3,hazard_category,B,,,released,not on the hand sheet; trust B,,,,,,
+3,hazard_category_source,B,,,released,goes with hazard_category,,,,,,
+3,hazard_description,C,0.5558,0.82,experimental,trust C; alpha under .80 on sheet 3 against version 3,0.3653,0.7255,0.8324,0.9333,0.5229,1.00
+3,hazard_characteristics,C,,,experimental,trust C; a part of hazard_description,,,,,,
+3,hazard_impacts,C,,,experimental,trust C; a part of hazard_description,,,,,,
+3,source_named,B,0.7959,0.91,experimental,alpha under .80 on sheet 3 against version 3,0.6585,0.9085,0.9280,0.9667,0.7378,1.00
+3,guidance,A,0.7253,0.91,experimental,alpha under .80 on sheet 3 against version 3,0.5421,0.88,1.00,1.00,1.00,1.00
+3,n_actions,B,,,experimental,counts what guidance finds; guidance is under .80 on sheet 3,,,,,,
+3,guidance_protective,B,,,experimental,a part of guidance; guidance is under .80 on sheet 3,,,,,,
+3,guidance_information,B,,,experimental,a part of guidance; guidance is under .80 on sheet 3,,,,,,
+3,time,A,0.9146,0.96,released,validated: alpha at least .80 on sheet 3 against version 3 and the coder's consistency at least .80 on the recheck copy,0.82,0.9796,1.00,1.00,1.00,1.00
+3,time_impact,C,,,experimental,trust C; a kind of time,,,,,,
+3,time_action,C,,,experimental,trust C; a kind of time,,,,,,
+3,time_expiry,C,,,experimental,trust C; a kind of time,,,,,,
+3,location,B,0.8003,0.93,released,validated: alpha at least .80 on sheet 3 against version 3 and the coder's consistency at least .80 on the recheck copy,0.6388,0.9234,1.00,1.00,1.00,1.00
+3,loc_boundary,B,,,experimental,"a kind of location, not on the sheets; left out until it is decided",,,,,,
+3,loc_road,C,,,experimental,trust C; a kind of location,,,,,,
+3,loc_landmark,C,,,experimental,trust C; a kind of location,,,,,,
+3,loc_zone,C,,,experimental,trust C; a kind of location,,,,,,
+3,loc_vague_or_none,B,,,experimental,"the opposite of location, not on the sheets; left out until it is decided",,,,,,
+3,link,A,,,released,not on the hand sheet; trust A,,,,,,
+3,link_kinds,A,,,released,not on the hand sheet; trust A,,,,,,
+3,abbreviations,B,,,released,not on the hand sheet; trust B,,,,,,
+3,n_abbreviations,B,,,released,not on the hand sheet; trust B,,,,,,
+3,all_caps,A,,,released,not on the hand sheet; trust A,,,,,,
+3,evac_terms,A,,,released,not on the hand sheet; trust A,,,,,,
+3,evac_warning_order,A,,,released,not on the hand sheet; trust A,,,,,,
+3,evac_levels,A,,,released,not on the hand sheet; trust A,,,,,,
+3,evac_ready_set_go,A,,,released,not on the hand sheet; trust A,,,,,,
+3,evac_voluntary_mandatory,A,,,released,not on the hand sheet; trust A,,,,,,
+3,evac_pre_evacuation,A,,,released,not on the hand sheet; trust A,,,,,,
+3,complete,B,,,experimental,"follows its five parts; hazard, its description, source and guidance are not released",,,,,,
+3,about_missing_person,B,,,released,not on the hand sheet; trust B,,,,,,
+3,about_test,B,,,released,not on the hand sheet; trust B,,,,,,

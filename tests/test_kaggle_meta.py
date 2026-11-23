@@ -277,3 +277,14 @@ def test_the_settings_command_writes_the_update_or_nothing(pack, tmp_path, capsy
     other = tmp_path / "other"
     assert cli.main([*args, "--visibility", "public", "--out", str(other)]) == 1
     assert not other.exists() and "NOTHING WRITTEN" in capsys.readouterr().out
+
+
+def test_the_codes_file_names_the_validated_codes_from_version_3_on():
+    v1 = kaggle_meta.file_description("alerts-codes.parquet")
+    assert "The six content codes are experimental in this version" in v1
+    v3 = kaggle_meta.file_description("alerts-codes.parquet", "3")
+    assert "validated against a coder's blind sheet (`time`, `location`)" in v3
+    assert v3.startswith("Real alerts.") and v3.endswith("No message text.")
+    assert kaggle_meta.file_description("tests-messages.parquet", "3") == (
+        kaggle_meta.file_description("tests-messages.parquet")
+    )

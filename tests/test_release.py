@@ -11,7 +11,19 @@ import pytest
 from cap_samples import invented
 from test_tables import BASE, COUNTY, record, run
 from warntext import cli, release, tables
-from warntext import codes as cd
+
+#: The codebook version whose statuses release 0.1.0 carries. The invented records are coded by
+#: the current rules and labeled version 1 here: these tests are about the pack, not the codes.
+V1 = "1"
+
+
+def as_version(tables_dir, version):
+    """Label a test build's codes as ``version`` (the label the release statuses go by)."""
+    path = tables_dir / "alerts" / "codes.parquet"
+    t = pq.read_table(path)
+    i = t.schema.get_field_index("codebook_version")
+    column = pa.array([version] * t.num_rows, t.schema.field(i).type)
+    pq.write_table(t.set_column(i, t.schema.field(i), column), path)
 
 
 def _build(tmp_path, kinds=release.TEXT_KINDS, extra=()):
@@ -28,6 +40,7 @@ def _build(tmp_path, kinds=release.TEXT_KINDS, extra=()):
     ]
     b = run(recs)
     tables.write(b, tmp_path / "t", tmp_path / "p")
+    as_version(tmp_path / "t", V1)
     out = tmp_path / "pack"
     m = release.build_pack(
         tmp_path / "t",
@@ -35,7 +48,7 @@ def _build(tmp_path, kinds=release.TEXT_KINDS, extra=()):
         "0.1.0",
         "2026-11-14T17:00:00.000Z",
         "2026-11-15",
-        cd.CODEBOOK_VERSION,
+        V1,
         text_kinds=kinds,
     )
     senders = [x["sender"] for x in b.raw_senders]
@@ -257,7 +270,7 @@ def test_release_commands(pack, tmp_path, capsys):
             [
                 *build,
                 *("--out", str(out), "--version", "0.1.0", "--retrieved", "2026-11-15"),
-                *("--codebook-version", cd.CODEBOOK_VERSION),
+                *("--codebook-version", V1),
             ]
         )
         == 0
@@ -273,7 +286,7 @@ def test_release_commands(pack, tmp_path, capsys):
             [
                 *build,
                 *("--out", str(old), "--version", "0.1.0", "--retrieved", "2026-11-15"),
-                *("--codebook-version", cd.CODEBOOK_VERSION, "--text-kinds", "federal"),
+                *("--codebook-version", V1, "--text-kinds", "federal"),
             ]
         )
         == 0
@@ -314,9 +327,85 @@ def test_code_status_covers_every_code_and_fills_the_card():
     assert "`hazard_category`" in tables["codes_released"]
 
 
+def test_version_3s_statuses_release_time_and_location_with_both_figures():
+    from warntext.codes import CODE_FIELDS
+
+    assert release.status_versions() == ("1", "3")
+    v1, v3 = release.code_status("1"), release.code_status("3")
+    assert set(v3) == set(CODE_FIELDS) and v1 == release.code_status()
+    # The second half of the rule: only time and location pass both figures.
+    assert {c for c in release.CONTENT_CODES if v3[c]["status"] == "released"} == {
+        "time",
+        "location",
+    }
+    for c in release.CONTENT_CODES:
+        r = v3[c]
+        assert all(r[k] for k in ("hand_sheet_alpha", "alpha_low", "alpha_high", "recheck_alpha"))
+        passes = float(r["hand_sheet_alpha"]) >= 0.8 and float(r["recheck_alpha"]) >= 0.8
+        assert passes == (r["status"] == "released")
+        assert not v1[c]["recheck_alpha"]  # version 1 never had a recheck
+    # Parts of a code are not on the sheets: they stay experimental, as do trust C codes.
+    for c in ("loc_boundary", "loc_vague_or_none", "time_expiry", "loc_road", "complete"):
+        assert v3[c]["status"] == "experimental"
+    mechanical = [c for c, r in v1.items() if r["status"] == "released"]
+    assert all(v3[c]["status"] == "released" for c in mechanical)
+    assert set(release.experimental_codes("3")) == set(release.EXPERIMENTAL_CODES) - {
+        "time",
+        "location",
+    }
+    tables = release.code_tables("3")
+    assert (
+        "| `time` | 0.9146 | 0.82 to 0.9796 | 1.00 | 1.00 to 1.00 | validated |"
+        in (tables["code_alpha_table"])
+    )
+    assert (
+        "| `hazard` | 0.73 | 0.5813 to 0.8688 | 0.7579 | 0.4503 to 1.00 | experimental |"
+        in (tables["code_alpha_table"])
+    )
+    assert tables["codes_validated"] == "`time`, `location`"
+    assert "`time`" not in tables["codes_mechanical"] and "`link`" in tables["codes_mechanical"]
+    with pytest.raises(SystemExit, match="no statuses for codebook version '2'"):
+        release.code_status("2")
+
+
+def test_a_version_3_pack_carries_time_and_location_and_its_own_card(pack, tmp_path):
+    as_version(pack["tmp"] / "t", "3")
+    out = tmp_path / "pack-v3"
+    m = release.build_pack(
+        pack["tmp"] / "t", out, "0.2.0", "2026-11-21T17:00:00.000Z", "2026-11-22", "3"
+    )
+    assert m["codebook_version"] == "3" and "time" not in m["experimental_codes_left_out"]
+    names = pq.read_schema(out / "alerts" / "codes.parquet").names
+    assert "time" in names and "location" in names and "hazard" not in names
+    card = (out / "README.md").read_text()
+    assert (
+        "codebook version 3" in card and "**Validated content codes in this version: `time`" in card
+    )
+    assert "| `location` | 0.8003 | 0.6388 to 0.9234 | 1.00 | 1.00 to 1.00 | validated |" in card
+    assert "about one text in ten" in card and "No validated content code" not in card
+    assert "The language check is by rule." in card and "finds Spanish only" not in card
+    assert release.check_pack(out, pack["senders"], pack["ids"], {2024: 4}) == []
+    # Version 1's pack: its own section, and a manifest without the version reads as version 1.
+    v1_card = (pack["dir"] / "README.md").read_text()
+    assert "**No validated content code is in this version.**" in v1_card
+    assert "finds Spanish only" in v1_card and "codebook version 3" not in v1_card
+    old = {k: v for k, v in pack["manifest"].items() if k != "codebook_version"}
+    assert release.card(old) == release.card(pack["manifest"])
+    # A version 1 pack's columns fail a check that reads its manifest as version 3.
+    manifest = json.loads((pack["dir"] / "manifest.json").read_text())
+    (pack["dir"] / "manifest.json").write_text(json.dumps({**manifest, "codebook_version": "3"}))
+    assert any(
+        "columns are not those" in f
+        for f in release.check_pack(pack["dir"], pack["senders"], pack["ids"], {2024: 4})
+    )
+
+
 def test_a_pack_is_refused_from_codes_of_another_version(pack, tmp_path):
-    with pytest.raises(SystemExit, match="measured on version 0"):
+    with pytest.raises(SystemExit, match="no statuses for codebook version '0'"):
         release.build_pack(pack["tmp"] / "t", tmp_path / "other", "0.1.0", "x", "y", "0")
+    # Version 3 has statuses, but these tables' codes are labeled version 1.
+    with pytest.raises(SystemExit, match="measured on version 3"):
+        release.build_pack(pack["tmp"] / "t", tmp_path / "other", "0.1.0", "x", "y", "3")
 
 
 def test_a_raw_tag_in_the_card_fails_the_check(pack):
@@ -472,7 +561,7 @@ def test_codes_from_another_build_of_the_same_units(pack, tmp_path):
         "0.1.0",
         "2026-11-14T17:00:00.000Z",
         "2026-11-15",
-        cd.CODEBOOK_VERSION,
+        V1,
         codes_from=other,
     )
     assert {f["path"]: f["sha256"] for f in m["files"]} == {
@@ -487,7 +576,7 @@ def test_codes_from_another_build_of_the_same_units(pack, tmp_path):
             "0.1.0",
             "x",
             "y",
-            cd.CODEBOOK_VERSION,
+            V1,
             codes_from=other,
         )
     with pytest.raises(SystemExit, match="is missing"):
@@ -497,7 +586,7 @@ def test_codes_from_another_build_of_the_same_units(pack, tmp_path):
             "0.1.0",
             "x",
             "y",
-            cd.CODEBOOK_VERSION,
+            V1,
             codes_from=tmp_path / "none",
         )
 
