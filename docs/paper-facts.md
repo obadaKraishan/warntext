@@ -23,7 +23,8 @@ release figures carry the publication date, 2026-11-23 (their records were retri
 | Built with | warntext 0.1.0.dev0 | manifest.json (release 0.1.0), `built_with` | 2026-11-23 |
 | Hugging Face dataset | https://huggingface.co/datasets/obadakr/warntext | release records, 2026-11-23; card (release 0.1.0), How to cite; README.md, opening | 2026-11-23 |
 | Hugging Face tag | v0.1.0, on data commit 7e57d3e1 | release records, 2026-11-23 | 2026-11-23 |
-| Hugging Face card-only commit | b136b4cf, on 2026-11-23 | release records, 2026-11-23 | 2026-11-23 |
+| Hugging Face card-only commits | b136b4cf (the citation and DOI) and f2d4f51c (the bound in words, 23:24 UTC), both on 2026-11-23; the data files unchanged | release records, 2026-11-23 | 2026-11-23 |
+| Kaggle metadata update with the bound in words | 23:25 UTC on 2026-11-23 (description and sources; read back identical, public; the files unchanged) | release records, 2026-11-23 | 2026-11-23 |
 | Kaggle mirror | https://www.kaggle.com/datasets/obadakraishan/warntext | release records, 2026-11-23; card (release 0.1.0), Two layers, and why | 2026-11-23 |
 | Kaggle mirror contents | record layer and codes only, no text; 11 files; version 1 | release records, 2026-11-23 | 2026-11-23 |
 | GitHub release | v0.1.0, at https://github.com/obadaKraishan/warntext | release records, 2026-11-23; CHANGELOG.md, [0.1.0] link | 2026-11-23 |
@@ -44,7 +45,7 @@ release figures carry the publication date, 2026-11-23 (their records were retri
 | fact | figure | source | date |
 |---|---|---|---|
 | Records sent before | 2026-11-14T17:00:00.000Z | manifest.json (release 0.1.0), `records_sent_before`; docs/method.md section 11 (2026-11-14T17:00Z) | 2026-11-23 |
-| The same bound as the card words it | sent before 17:00 UTC on 14 November 2026 | card (release 0.1.0), opening (WarnText), after its card-only change of 2026-11-23; README.md, What it holds (release 0.1.0); CITATION.cff; .zenodo.json; docs/method.md section 23 | 2026-11-23 |
+| The same bound as the card words it | sent before 17:00 UTC on 14 November 2026 | card (release 0.1.0), opening (WarnText), from its card-only commit f2d4f51c; README.md, What it holds (release 0.1.0); CITATION.cff; .zenodo.json; docs/method.md section 23 | 2026-11-23 |
 | Superseded: the bound as the card first worded it | sent before 2026-11-14 | card (release 0.1.0) as published at 15:54 UTC on 2026-11-23 | 2026-11-23 |
 | Records retrieved | 2026-11-15 (UTC) | manifest.json (release 0.1.0), `retrieved`; card (release 0.1.0), How to cite | 2026-11-23 |
 | Earliest message | dated 30 September 2011 | measured from the release's messages tables, 2026-11-23; README.md, What it holds (release 0.1.0) | 2026-11-23 |

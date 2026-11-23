@@ -48,7 +48,8 @@ All notable changes to this project are recorded here. The format follows
 - The release's bound in words, one definition (`warntext.citation.bound_words`) for the card,
   the Kaggle description and sources, the README, `CITATION.cff` and `.zenodo.json`: "sent before
   17:00 UTC on 14 November 2026" (the data hold messages from the 14th up to that hour; it was
-  "sent before 2026-11-14").
+  "sent before 2026-11-14"). Release 0.1.0's card took it in a card-only commit (`f2d4f51c`,
+  the data files unchanged) and its Kaggle page in one metadata update.
 - The weather service's records recounted month by month from July 2023 to the release's bound
   (44 count calls): each year's months add up to the yearly counts the card gives (2024 6,366;
   2025 5,864; 2026 to the bound 5,864), so those figures stand. What did not hold was a reading of
