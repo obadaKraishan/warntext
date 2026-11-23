@@ -71,8 +71,8 @@ def test_how_to_cite_and_the_other_sections_are_the_cards_own(pack):
     card = (pack["dir"] / "README.md").read_text()
     for card_heading, heading in kaggle_meta.FROM_CARD:
         body = kaggle_meta.card_section(card, card_heading)
-        if heading == "How to cite":  # WarnText's own citation first, FEMA's credit under it
-            body = f"{citation.apa('0.1.0')}\n\n{body}"
+        if heading == "How to cite":  # the card opens it with WarnText's own citation
+            assert body.startswith(citation.apa("0.1.0"))
         assert f"## {heading}\n{body}\n" in meta["description"]
     assert kaggle_meta.card_box(card) in meta["description"]
     assert "never message text" in meta["description"]
@@ -142,21 +142,19 @@ def test_the_metadata_and_cover_are_written_again_and_the_data_files_stay(pack, 
     assert "dataset-metadata.json unchanged" in said and "not touched" in said
 
 
-def test_the_doi_added_to_the_card_reaches_the_kaggle_page(pack):
-    out, _ = _mirror(pack)
-    readme = pack["dir"] / "README.md"
-    card = readme.read_text()
-    readme.write_text(card.replace("## How to cite\n", "## How to cite\nDOI: 10.5281/zenodo.123\n"))
-    release.rewrite_kaggle(pack["dir"], out)
-    meta = json.loads((out / kaggle_meta.METADATA_NAME).read_text())
-    cite = citation.apa("0.1.0")
-    assert f"## How to cite\n{cite}\n\nDOI: 10.5281/zenodo.123\n" in meta["description"]
+def test_the_cards_citation_bibtex_and_doi_reach_the_kaggle_page(pack):
+    _, meta = _mirror(pack)
+    section = meta["description"].split("## How to cite\n", 1)[1].split("\n## ", 1)[0]
+    assert section.startswith(citation.apa("0.1.0") + "\n\n```bibtex\n@misc{kraishan2026warntext,")
+    assert f"https://doi.org/{citation.SOFTWARE_DOI}" in section
+    assert "Release 0.1.0 was published on 2026-11-23." in section
+    assert section.index("doi.org") < section.index("> Federal Emergency Management Agency")
+    assert meta["description"].count(citation.apa("0.1.0")) == 1
 
 
-def test_the_citation_is_given_once_when_the_card_carries_it(pack):
+def test_an_older_card_without_the_citation_gets_it_first(pack):
     out, meta = _mirror(pack)
     cite = citation.apa("0.1.0")
-    assert meta["description"].count(citation.TITLE) == 1
     assert cite == (
         "Kraishan, O. (2026). *WarnText: A research corpus of the public emergency alert messages "
         "sent in the United States* (Version 0.1.0) [Data set]. Hugging Face. "
@@ -164,12 +162,28 @@ def test_the_citation_is_given_once_when_the_card_carries_it(pack):
     )
     assert "*" not in citation.apa("0.1.0", markdown=False)
     readme = pack["dir"] / "README.md"
-    readme.write_text(readme.read_text().replace("## How to cite\n", f"## How to cite\n{cite}\n\n"))
+    card = readme.read_text()
+    old = re.sub(
+        r"## How to cite\n.*?(?=Cite the source too)", "## How to cite\n", card, flags=re.S
+    )
+    assert citation.TITLE not in old
+    readme.write_text(old)
     release.rewrite_kaggle(pack["dir"], out)
     again = json.loads((out / kaggle_meta.METADATA_NAME).read_text())["description"]
-    assert again.count(citation.TITLE) == 1 and f"## How to cite\n{cite}\n" in again
+    assert f"## How to cite\n{cite}\n\nCite the source too" in again
+    assert again.count(cite) == 1
     no_cite = meta["description"].replace(f"## How to cite\n{cite}\n\n", "## How to cite\n")
     assert any("own citation" in p for p in kaggle_meta.problems(dict(meta, description=no_cite)))
+
+
+def test_the_bibtex_entry_and_the_software_sentence():
+    entry = citation.bibtex("0.1.0")
+    assert entry.startswith("@misc{kraishan2026warntext,\n") and entry.endswith("\n}")
+    assert "date      = {2026-11-23}" in entry and "version   = {0.1.0}" in entry
+    assert entry.count("{") == entry.count("}")
+    assert "date" not in citation.bibtex("0.9.9")
+    assert citation.software_sentence("0.9.9").startswith("The code and documents")
+    assert citation.SOFTWARE_DOI in citation.software_sentence("0.1.0")
 
 
 def test_a_data_file_that_differs_stops_the_rewrite_and_fails_the_check(pack):

@@ -32,7 +32,7 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from warntext import __version__, cover, durable, hfpage, kaggle_meta, patterns, privacy
+from warntext import __version__, citation, cover, durable, hfpage, kaggle_meta, patterns, privacy
 from warntext import check as ck
 from warntext.probe import ENDPOINT
 from warntext.tables import CONFIGS, RECORD_TABLES, SCHEMAS, TEXT_TABLES
@@ -411,6 +411,9 @@ def card(manifest: Mapping[str, Any]) -> str:
         "total_rows": f"{manifest['rows']:,}",
         "total_mb": _mb(manifest["bytes"]),
         "terms_url": TERMS_URL,
+        "citation": citation.apa(manifest["version"]),
+        "bibtex": citation.bibtex(manifest["version"]),
+        "software_sentence": citation.software_sentence(manifest["version"]),
     }
     for key, n in manifest.get("facts", {}).items():
         values[key] = f"{n:,}"
@@ -523,7 +526,7 @@ def card_metadata_problems(
         out.append("license_name is missing")
     if f"license_link: {TERMS_URL}" not in head:
         out.append(f"license_link must be {TERMS_URL}")
-    if "{{" in text:
+    if re.search(r"\{\{\w+\}\}", text):  # a BibTeX title's {{Name} is not one
         out.append("the card still holds a placeholder")
     if rows is not None and f"size_categories:\n- {size_category(rows)}\n" not in head + "\n":
         out.append(f"size_categories must be {size_category(rows)}, for {rows:,} rows in all")

@@ -129,7 +129,8 @@ def test_the_card_is_filled_and_carries_the_license_fields(pack):
     assert "a config for text_other, which this pack does not hold" in (
         release.card_metadata_problems(text, federal)
     )
-    assert "{{" not in text and "2026-11-15" in text and "not an alerting service" in text
+    assert not re.search(r"\{\{\w+\}\}", text)  # no placeholder left
+    assert "2026-11-15" in text and "not an alerting service" in text
     assert "license_link: https://www.fema.gov/about/openfema/terms-conditions" in text
     assert release.card_metadata_problems("no header") == ["the card has no YAML header"]
     bad = text.replace("license: other", "license: cc-by-4.0").replace("config_name: codes", "x")
@@ -506,7 +507,7 @@ def test_the_card_says_what_is_withheld_and_the_reading_of_what_is_left(pack):
     assert "**What is withheld:**" in text
     assert "a phone number or an email address in any written form" in text
     assert "rules miss cases" in text
-    assert "{{" not in text
+    assert not re.search(r"\{\{\w+\}\}", text)
     assert release.privacy_reading_sentence({}).startswith("No reading")
     reading = {"alerts": 300, "tests": 100, "contact": 0, "described": 0, "named": 2, "rounds": 2}
     sentence = release.privacy_reading_sentence(reading)

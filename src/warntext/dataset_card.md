@@ -108,7 +108,7 @@ In all {{total_rows}} rows, {{total_mb}} MB as Parquet. The field list is in the
 - **The record layer** (`messages`, `infos`, `areas`, `references`, `threads`, `codes`) holds no
   message text. Rows are keyed by FEMA's record ids; no raw sender value (often an employee's
   email address) and no raw CAP identifier is in it. It is released here and on the Kaggle
-  mirror.
+  mirror (https://www.kaggle.com/datasets/obadakraishan/warntext).
 - **The text layer** holds the words, one row per language block: the event, headline,
   description, instruction, web address, the phone texts of 90 and 360 characters and the
   broadcast texts. `text_federal` holds federal senders' messages ({{federal_text_alerts}} real
@@ -244,8 +244,15 @@ paraphrase; the maintainer keeps the email.
 row names it in its `credit` column (its name as released and its FEMA ID).
 
 ## How to cite
-Cite WarnText with its version (the DOI is added here once the code and documents are archived
-on Zenodo), and the source, with the endpoint and the time it was read, as FEMA asks:
+{{citation}}
+
+```bibtex
+{{bibtex}}
+```
+
+{{software_sentence}}
+
+Cite the source too, with the endpoint and the time it was read, as FEMA asks:
 
 > Federal Emergency Management Agency (FEMA), OpenFEMA Dataset: IPAWS Archived Alerts - v1.
 > Retrieved from https://www.fema.gov/api/open/v1/IpawsArchivedAlerts on {{retrieved}} (UTC).
