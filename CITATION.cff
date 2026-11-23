@@ -1,7 +1,8 @@
 # The preferred citation is the dataset and its version on Hugging Face, so that GitHub's "Cite
 # this repository" gives the dataset. Cite the source too, as FEMA asks (the dataset card's "How
 # to cite"). Zenodo archives each GitHub release of this repository (the code and documents, no
-# data) from .zenodo.json, which it reads in place of this file.
+# data) from .zenodo.json, which it reads in place of this file; the DOI below stands for all
+# versions of the software and documents and resolves to the latest.
 cff-version: 1.2.0
 message: "If you use WarnText, please cite the dataset and its version as below, and the source as FEMA asks (see the dataset card's How to cite)."
 type: software
@@ -27,6 +28,14 @@ authors:
     affiliation: "College of Media and Communication, Texas Tech University"
     orcid: "https://orcid.org/0009-0007-7180-8620"
 license: Apache-2.0
+doi: 10.5281/zenodo.24475949
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.24475949
+    description: "The software and documents on Zenodo, all versions"
+  - type: doi
+    value: 10.5281/zenodo.24475950
+    description: "The software and documents on Zenodo, version 0.1.0"
 repository-code: "https://github.com/obadaKraishan/warntext"
 url: "https://huggingface.co/datasets/obadakr/warntext"
 keywords:

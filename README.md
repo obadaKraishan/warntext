@@ -1,5 +1,7 @@
 # WarnText
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24475949.svg)](https://doi.org/10.5281/zenodo.24475949)
+
 WarnText is a research corpus of the public emergency alert messages sent in the United States
 through the Integrated Public Alert and Warning System (IPAWS): Wireless Emergency Alerts on
 phones, Emergency Alert System messages on radio and television, and the other channels the
@@ -91,7 +93,10 @@ read):
 > Federal Emergency Management Agency (FEMA), OpenFEMA Dataset: IPAWS Archived Alerts - v1.
 > Retrieved from https://www.fema.gov/api/open/v1/IpawsArchivedAlerts on 2026-11-15 (UTC).
 
-`CITATION.cff` gives the same citation for GitHub's "Cite this repository".
+The code and documents that build the corpus (no data table) are archived on Zenodo:
+https://doi.org/10.5281/zenodo.24475949 (all versions; it resolves to the latest), and release
+0.1.0's at https://doi.org/10.5281/zenodo.24475950. `CITATION.cff` gives the dataset's citation for
+GitHub's "Cite this repository", with both DOIs.
 
 ## License
 The software in this repository is licensed under the Apache License, Version 2.0 (see

@@ -6,6 +6,19 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+- The Zenodo DOIs of the code and documents: 10.5281/zenodo.24475949 (all versions) and
+  10.5281/zenodo.24475950 (0.1.0), in the README (a badge and "How to cite") and in
+  `CITATION.cff`.
+- The dataset card's "How to cite" opens with WarnText's citation and a BibTeX entry
+  (`warntext.citation.bibtex`), then the release's date and the Zenodo DOI of the code and
+  documents, then FEMA's citation and its statement, unchanged. The card names the Kaggle mirror's
+  address.
+
+### Changed
+- The card check counts `{{name}}` as a leftover placeholder, so a BibTeX title such as
+  `{{WarnText}: ...}` is not one.
+
 ## [0.1.0] - 2026-11-23
 
 Release 0.1.0 is published: the dataset on Hugging Face
