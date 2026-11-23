@@ -7,6 +7,8 @@ All notable changes to this project are recorded here. The format follows
 ## [Unreleased]
 
 ### Added
+- The repository is public. Changes reach `main` through pull requests that pass the four
+  checks (ruff and pytest on Python 3.10, 3.11, 3.12 and 3.13).
 - The Kaggle mirror's page: a description in Markdown with headings and a visible "How to cite"
   (lifted from the pack's own card, so a DOI added there reaches Kaggle), tags only from Kaggle's
   own list, the update frequency "not specified" until a weekly update runs, the sources in every
