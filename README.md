@@ -47,7 +47,7 @@ The method, the schema, the codebook and the source terms are in [`docs/`](docs/
   the evacuation wordings and two flags are released.
 - Later: a weekly update.
 
-See [`docs/data-card.md`](docs/data-card.md) (draft), [`docs/schema.md`](docs/schema.md),
+See [`docs/data-card.md`](docs/data-card.md), [`docs/schema.md`](docs/schema.md),
 [`docs/method.md`](docs/method.md) and [`docs/codebook.md`](docs/codebook.md) (draft).
 
 ## What it is not
