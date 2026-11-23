@@ -433,15 +433,40 @@ def cmd_sheet_repeat_check(args: argparse.Namespace) -> int:
         {int(k["earlier_row"]): earlier_key[int(k["earlier_row"])] for k in second_key.values()},
         codes,
     )
-    result = sh.repeat_check(first, second, second_key, rules)
+    same = None
+    if args.check_texts:
+        # The repeat's texts against the earlier workbook's, row by row (a count, never printed).
+        earlier_texts = sh.texts_of_workbook(args.first)
+        second_texts = sh.texts_of_workbook(args.second)
+        pairs = [(row, int(k["earlier_row"])) for row, k in second_key.items()]
+        same = sum(
+            second_texts.get(row) is not None and second_texts.get(row) == earlier_texts.get(e)
+            for row, e in pairs
+        )
+        if same != len(pairs):
+            raise SystemExit(
+                f"{len(pairs) - same} of the repeat's {len(pairs)} texts differ from the earlier "
+                "workbook's rows; nothing scored."
+            )
+    result = sh.repeat_check(
+        first, second, second_key, rules, seed=args.seed, resamples=args.resamples
+    )
+    result["texts_same_as_earlier_workbook"] = same
     Path(args.out).write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
+    if same is not None:
+        print(f"Texts the same as the earlier workbook's rows: {same} of {len(second_key)}.")
     for field, r in result["codes"].items():
-        a = "n/a" if r["alpha"] is None else f"{r['alpha']:.2f}"
+        a = "n/a" if r["alpha"] is None else f"{r['alpha']:.4f}"
+        iv = r["interval"]
+        low = "n/a" if iv["low"] is None else f"{iv['low']:.2f}"
+        high = "n/a" if iv["high"] is None else f"{iv['high']:.2f}"
         print(
-            f"{field}: {r['rows']} rows, the two passes agree {r['agreement']}, alpha {a}; of "
-            f"{r['first_differed_from_rules']} answers that differed from the rules, "
-            f"{r['second_stood_by_first']} stood and {r['second_sided_with_rules']} turned; "
-            f"{r['new_differences']} new differences"
+            f"{field}: {r['rows']} rows ({r['rows_blank_first']} blank in the first pass, "
+            f"{r['rows_blank_second']} in the second), the two passes agree {r['agreement']}, "
+            f"alpha {a} (95% {low} to {high}), yes {r['share_yes_first']} then "
+            f"{r['share_yes_second']}, table {r['table']}; of {r['first_differed_from_rules']} "
+            f"answers that differed from the rules, {r['second_stood_by_first']} stood and "
+            f"{r['second_sided_with_rules']} turned; {r['new_differences']} new differences"
         )
     return 0
 
@@ -884,6 +909,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--second-key", required=True, help="the repeat's key (with earlier_row)")
     p.add_argument("--tables", required=True, help="the rules' tables the earlier sheet scored")
     p.add_argument("--out", required=True, help="JSON file for the result (counts, row numbers)")
+    p.add_argument("--resamples", type=int, default=2000, help="bootstrap resamples of the rows")
+    p.add_argument("--seed", type=int, default=20261115, help="the bootstrap's seed (recorded)")
+    p.add_argument(
+        "--check-texts",
+        action="store_true",
+        help="stop unless every repeat text equals its earlier row's text (a count only)",
+    )
     p.set_defaults(func=cmd_sheet_repeat_check)
 
     p = sub.add_parser("sheet-resolve", help="the resolution list where two passes differ")

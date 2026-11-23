@@ -462,10 +462,23 @@ def test_sheet_and_sheet_check_commands(tmp_path, capsys):
         "--out",
         str(both),
     ]
-    assert cli.main(check2) == 0
+    assert cli.main([*check2, "--check-texts", "--resamples", "40", "--seed", "4"]) == 0
     printed = capsys.readouterr().out
-    assert "hazard: 2 rows, the two passes agree 0.0" in printed and "Brush fire" not in printed
-    assert json.loads(both.read_text())["codes"]["hazard"]["passes_differ_rows"] == [1, 2]
+    head = "hazard: 2 rows (0 blank in the first pass, 0 in the second), the two passes agree 0.0"
+    assert head in printed and "Brush fire" not in printed
+    assert "Texts the same as the earlier workbook's rows: 2 of 2." in printed
+    assert "[" not in printed  # no row list on screen
+    scored = json.loads(both.read_text())
+    assert scored["codes"]["hazard"]["passes_differ_rows"] == [1, 2]
+    assert scored["bootstrap"] == {"resamples": 40, "seed": 4}
+    assert scored["texts_same_as_earlier_workbook"] == 2
+    # A repeat whose texts are not the earlier rows' is not scored.
+    wrong = [*check2[:6], str(tmp_path / "pass2" / "second_pass.xlsx"), *check2[7:-1]]
+    with pytest.raises(SystemExit, match="texts differ from the earlier workbook's rows"):
+        cli.main([*wrong, str(tmp_path / "never.json"), "--check-texts"])
+    assert not (tmp_path / "never.json").exists()
+    assert cli.main(check2) == 0
+    capsys.readouterr()
     resolve = [
         "sheet-resolve",
         "--repeat-check",

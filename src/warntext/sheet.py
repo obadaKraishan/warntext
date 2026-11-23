@@ -960,31 +960,38 @@ def repeat_check(
     second_key: Mapping[int, Mapping[str, str]],
     rules: Mapping[int, Mapping[str, bool]],
     seed: int = 20261115,
+    resamples: int = 2000,
 ) -> dict[str, Any]:
     """One person's two passes over the same texts, per code (counts and row numbers only).
 
     ``first`` and ``rules`` are by the earlier sheet's row numbers; ``second`` and
     ``second_key`` by the repeat's, whose key gives each row's ``earlier_row``. Reported:
-    agreement and alpha between the passes, with a bootstrap interval and the two-by-two table;
-    for the first pass's answers that differed from the rules, how many the second pass kept and
-    how many it turned to the rules' answer; for those that agreed with the rules, how many the
-    second pass now differs on (new differences); and the repeat's rows where the passes differ.
-    A row the rules do not code counts between the passes but not against the rules
-    (``rules_not_coded``).
+    agreement and alpha between the passes, with a bootstrap interval (``resamples`` resamples
+    of the rows with ``seed``, both recorded in ``bootstrap``), the two-by-two table and each
+    pass's share of "yes"; for the first pass's answers that differed from the rules, how many
+    the second pass kept and how many it turned to the rules' answer; for those that agreed with
+    the rules, how many the second pass now differs on (new differences); and the repeat's rows
+    where the passes differ. A row the rules do not code counts between the passes but not
+    against the rules (``rules_not_coded``). A row left blank in either pass is left out of that
+    code's score and counted (``rows_blank_first``, ``rows_blank_second``), never read as "no".
     """
-    out: dict[str, Any] = {"rows": len(second_key), "codes": {}}
+    out: dict[str, Any] = {
+        "rows": len(second_key),
+        "bootstrap": {"resamples": resamples, "seed": seed},
+        "codes": {},
+    }
     for _, field in CODES:
         pairs, table = [], Counter()
         stood = turned = agreed = new = no_rule = 0
+        blank_first = blank_second = 0
         passes_differ = []
         for row in sorted(second_key):
             earlier = int(second_key[row]["earlier_row"])
             a, b = first.get(earlier, {}).get(field), second.get(row, {}).get(field)
             if a is None or b is None:
-                raise SystemExit(
-                    f"Row {row} of the repeat (or its earlier row) has no answer for {field}; "
-                    "fill it first."
-                )
+                blank_first += a is None
+                blank_second += b is None
+                continue
             pairs.append((a, b))
             table[f"first_{'yes' if a else 'no'}_second_{'yes' if b else 'no'}"] += 1
             if a != b:
@@ -999,11 +1006,18 @@ def repeat_check(
                 agreed += 1
                 new += b != rule
         alpha = alpha_nominal(pairs)
+        n = len(pairs)
         out["codes"][field] = {
-            "rows": len(pairs),
-            "agreement": round(sum(a == b for a, b in pairs) / len(pairs), 4),
+            "rows": n,
+            "rows_blank_first": blank_first,
+            "rows_blank_second": blank_second,
+            "agreement": round(sum(a == b for a, b in pairs) / n, 4) if n else None,
             "alpha": alpha,
-            "interval": bootstrap_alpha(pairs, seed=seed),
+            "interval": bootstrap_alpha(pairs, resamples=resamples, seed=seed),
+            "bar": BAR,
+            "passes": alpha is not None and alpha >= BAR,
+            "share_yes_first": round(sum(a for a, _ in pairs) / n, 4) if n else None,
+            "share_yes_second": round(sum(b for _, b in pairs) / n, 4) if n else None,
             "table": dict(table),
             "first_differed_from_rules": stood + turned,
             "second_stood_by_first": stood,
