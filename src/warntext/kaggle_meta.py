@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from warntext import authorities, hfpage
+from warntext import authorities, citation, hfpage
 from warntext.cover import HEIGHT, WIDTH, png_size
 
 KAGGLE_ID = "obadakraishan/warntext"
@@ -113,6 +113,15 @@ def card_section(card: str, heading: str) -> str:
     return m.group(1).strip()
 
 
+def how_to_cite(manifest: Mapping[str, Any], card: str) -> str:
+    """WarnText's own citation first, then the card's "How to cite" (FEMA's credit) under it.
+    Once the card opens that section with the citation itself, it is not given twice."""
+    section = card_section(card, "How to cite")
+    if citation.TITLE in section:
+        return section
+    return f"{citation.apa(manifest['version'])}\n\n{section}"
+
+
 def card_box(card: str) -> str:
     """The card's opening box: the first paragraph after its title."""
     m = re.search(r"^# WarnText\n\n(.+?)\n\n", card, re.M | re.S)
@@ -191,7 +200,7 @@ def description(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...])
         card_section(card, "Terms that users must follow"),
         "",
         "## How to cite",
-        card_section(card, "How to cite"),
+        how_to_cite(manifest, card),
         "",
         "## Links",
         f"- The dataset with its text layer and card (Hugging Face): {HF_URL}",
@@ -273,6 +282,16 @@ def problems(meta: Mapping[str, Any]) -> list[str]:
         )
     elif not re.search(r"^## How to cite\n+(?!## )\S", text, re.M):
         out.append(f"kaggle/{name}: the description's 'How to cite' section is empty.")
+    elif not re.search(
+        rf"^## How to cite\n+{re.escape(citation.AUTHOR_APA)} \(\d{{4}}\)\. .*"
+        rf"\(Version [^)]+\) \[Data set\]\. .*{re.escape(citation.URL)}",
+        text,
+        re.M,
+    ):
+        out.append(
+            f"kaggle/{name}: the description's 'How to cite' does not open with WarnText's own "
+            "citation (author, year, title, version, Hugging Face address)."
+        )
     keywords = list(meta.get("keywords") or [])
     if not keywords:
         out.append(f"kaggle/{name}: no tags; give at least one of {list(KAGGLE_TAGS)}.")

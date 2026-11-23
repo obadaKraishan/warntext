@@ -19,6 +19,9 @@ All notable changes to this project are recorded here. The format follows
   `warntext release kaggle-settings` writes the file for a Kaggle metadata update from the live
   settings and the pack's page, with the visibility given and checked: the update sends every
   field, and a missing `isPrivate` would make the dataset public.
+- How to cite WarnText, defined once (`warntext.citation`, APA 7 for a data set, with the
+  version). The Kaggle page's "How to cite" opens with it, FEMA's credit under it; once the card
+  carries the citation itself, it is not given twice.
 - README: how to ask for a message's text to be removed.
 - The repository: Apache-2.0 license, README, NOTICE, a draft citation file and CI (ruff and
   pytest on Python 3.10 to 3.13).
