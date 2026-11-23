@@ -1,20 +1,34 @@
-# DRAFT: nothing has been released yet. The version, date and DOI are filled in at release.
+# The preferred citation is the dataset and its version on Hugging Face, so that GitHub's "Cite
+# this repository" gives the dataset. Cite the source too, as FEMA asks (the dataset card's "How
+# to cite"). Zenodo archives each GitHub release of this repository (the code and documents, no
+# data) from .zenodo.json, which it reads in place of this file.
 cff-version: 1.2.0
-message: "If you use WarnText, please cite it as below."
+message: "If you use WarnText, please cite the dataset and its version as below, and the source as FEMA asks (see the dataset card's How to cite)."
 type: software
-title: "WarnText: a research corpus of the public emergency alert messages sent in the United States"
+title: "WarnText: software and documentation for a research corpus of US public alert messages"
+version: "0.1.0"
+date-released: "2026-11-23"
 abstract: >-
-  WarnText is a corpus of the public emergency alert messages sent in the United States through
-  the Integrated Public Alert and Warning System since June 2012 (Wireless Emergency Alerts,
-  Emergency Alert System messages and others), one row per message with its sender, time,
-  place, channel and full text, and with updates and cancellations linked to the alert they
-  follow.
+  WarnText is a research corpus of the public alert messages that US federal, state, local,
+  tribal and territorial alerting authorities sent through the Integrated Public Alert and Warning
+  System (IPAWS), read from FEMA's OpenFEMA dataset "IPAWS Archived Alerts" (version 1). Version
+  0.1.0 holds every message in that archive from senders other than the National Weather
+  Service, sent before 2026-11-14: 34,678 real alerts from 1,260 alerting authorities and 49,186
+  tests and demonstrations, one row per message, with its alerting authority, its time, type and
+  event codes, its places, the channels it asked for, the updates and cancellations that followed
+  it, and measures of its text. The message text is included for the alerts that are not about
+  people; the text of 13,885 real alerts is withheld (alerts about people by their event codes,
+  texts about a missing person or that describe a person, and texts with a phone number or an
+  email address), and their rows stay. It is a research record, not an alerting service. This
+  repository holds the software that builds and checks the corpus, and its documents.
 authors:
   - family-names: Kraishan
     given-names: Obada
     affiliation: "College of Media and Communication, Texas Tech University"
+    orcid: "https://orcid.org/0009-0007-7180-8620"
 license: Apache-2.0
 repository-code: "https://github.com/obadaKraishan/warntext"
+url: "https://huggingface.co/datasets/obadakr/warntext"
 keywords:
   - emergency alerts
   - Wireless Emergency Alerts
@@ -22,3 +36,17 @@ keywords:
   - risk communication
   - communication research
   - dataset
+preferred-citation:
+  type: data
+  title: "WarnText: A research corpus of the public emergency alert messages sent in the United States"
+  authors:
+    - family-names: Kraishan
+      given-names: Obada
+      affiliation: "College of Media and Communication, Texas Tech University"
+      orcid: "https://orcid.org/0009-0007-7180-8620"
+  year: 2026
+  version: "0.1.0"
+  date-released: "2026-11-23"
+  publisher:
+    name: "Hugging Face"
+  url: "https://huggingface.co/datasets/obadakr/warntext"
