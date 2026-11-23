@@ -14,6 +14,9 @@ All notable changes to this project are recorded here. The format follows
   pixels with the name in the top left (`warntext.kaggle_meta`, `warntext.cover`).
   `warntext release kaggle-meta --pack P` writes the folder's metadata and cover again and never
   touches its data files, which the release check now compares with the pack by SHA-256.
+  `warntext release kaggle-settings` writes the file for a Kaggle metadata update from the live
+  settings and the pack's page, with the visibility given and checked: the update sends every
+  field, and a missing `isPrivate` would make the dataset public.
 - README: how to ask for a message's text to be removed.
 - The repository: Apache-2.0 license, README, NOTICE, a draft citation file and CI (ruff and
   pytest on Python 3.10 to 3.13).

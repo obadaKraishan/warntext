@@ -177,3 +177,67 @@ def test_the_command_stops_on_a_data_file_that_differs(pack):
     target.write_bytes(target.read_bytes() + b"\0")
     with pytest.raises(SystemExit, match=r"alerts-codes\.parquet differs"):
         cli.main(["release", "kaggle-meta", "--pack", str(pack["dir"])])
+
+
+def _live(meta, **change):
+    """Settings as Kaggle gives them back: wrapped in ``info``, a false ``isPrivate`` left out."""
+    info = {
+        "title": meta["title"],
+        "subtitle": meta["subtitle"],
+        "description": "an older description",
+        "isPrivate": True,
+        "licenses": [{"name": "other"}],
+        "keywords": ["government"],
+    }
+    info.update(change)
+    return {"info": {k: v for k, v in info.items() if v is not False}}
+
+
+def test_an_update_carries_the_live_visibility_and_the_packs_page(pack):
+    _, meta = _mirror(pack)
+    out, problems = kaggle_meta.update_settings(_live(meta), meta, private=True)
+    assert problems == [] and out["isPrivate"] is True
+    assert out["description"] == meta["description"] and out["resources"] == meta["resources"]
+    assert out["userSpecifiedSources"] == meta["userSpecifiedSources"]
+    assert out["expectedUpdateFrequency"] == "not specified"
+    public, problems = kaggle_meta.update_settings(
+        _live(meta, isPrivate=False), meta, private=False
+    )
+    assert problems == [] and public["isPrivate"] is False
+    kept, _ = kaggle_meta.update_settings(
+        _live(meta, keywords=["tabular", "data cleaning"]), meta, True
+    )
+    assert kept["keywords"] == [*kaggle_meta.KAGGLE_TAGS, "data cleaning"]
+    helpers = [{"username": "someone", "role": "reader"}]
+    with_c, _ = kaggle_meta.update_settings(_live(meta, collaborators=helpers), meta, True)
+    assert with_c["collaborators"] == helpers
+
+
+def test_an_update_is_refused_when_visibility_or_title_disagree(pack):
+    _, meta = _mirror(pack)
+    _, problems = kaggle_meta.update_settings(_live(meta, isPrivate=False), meta, private=True)
+    assert any("say the dataset is public" in p for p in problems)
+    _, problems = kaggle_meta.update_settings(_live(meta), meta, private=False)
+    assert any("say the dataset is private" in p for p in problems)
+    _, problems = kaggle_meta.update_settings(_live(meta, title="Another title"), meta, True)
+    assert any("live title" in p for p in problems)
+    _, problems = kaggle_meta.update_settings(
+        _live(meta, licenses=[{"name": "CC0-1.0"}]), meta, True
+    )
+    assert any("live license" in p for p in problems)
+
+
+def test_the_settings_command_writes_the_update_or_nothing(pack, tmp_path, capsys):
+    _, meta = _mirror(pack)
+    live = tmp_path / "live.json"
+    live.write_text(json.dumps(_live(meta)))
+    send = tmp_path / "send"
+    args = ["release", "kaggle-settings", "--pack", str(pack["dir"]), "--live", str(live)]
+    assert cli.main([*args, "--visibility", "private", "--out", str(send)]) == 0
+    sent = json.loads((send / kaggle_meta.METADATA_NAME).read_text())
+    assert sent["isPrivate"] is True and sent["keywords"] == list(kaggle_meta.KAGGLE_TAGS)
+    assert (send / kaggle_meta.COVER_NAME).read_bytes() == cover.TRACKED.read_bytes()
+    assert "for a private dataset" in capsys.readouterr().out
+    other = tmp_path / "other"
+    assert cli.main([*args, "--visibility", "public", "--out", str(other)]) == 1
+    assert not other.exists() and "NOTHING WRITTEN" in capsys.readouterr().out

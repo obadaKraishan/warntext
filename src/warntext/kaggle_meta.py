@@ -315,3 +315,56 @@ def cover_problems(path: Path) -> list[str]:
             f"{WIDTH} by {HEIGHT} pixels, because Kaggle crops it from the top left corner."
         ]
     return []
+
+
+#: What a metadata update takes from the pack; the title, subtitle and license must already be
+#: the pack's, and the visibility is the live page's, given explicitly.
+FROM_PACK = (
+    "description",
+    "keywords",
+    "expectedUpdateFrequency",
+    "userSpecifiedSources",
+    "resources",
+)
+
+
+def update_settings(
+    live: Mapping[str, Any], meta: Mapping[str, Any], private: bool
+) -> tuple[dict[str, Any], list[str]]:
+    """The file for ``kaggle datasets metadata --update``, from the live settings (as
+    ``kaggle datasets metadata`` downloads them, wrapped in ``info`` or not) and the pack's.
+
+    The update sends every field, and a missing ``isPrivate`` makes the dataset public, so the
+    visibility is given by the caller (checked signed out) and must agree with the live settings,
+    which leave ``isPrivate`` out when it is false. A tag added on the website stays.
+    """
+    info = live.get("info") or live
+    problems = []
+    live_private = bool(info.get("isPrivate", False))
+    if live_private != private:
+        problems.append(
+            f"the live settings say the dataset is {'private' if live_private else 'public'}, "
+            f"and this update was asked for a {'private' if private else 'public'} one; "
+            "nothing is sent."
+        )
+    for field in ("title", "subtitle"):
+        if info.get(field) != meta.get(field):
+            problems.append(
+                f"the live {field} is {info.get(field)!r}, not the pack's {meta.get(field)!r}; "
+                "change it on the website or in the pack first."
+            )
+    live_licenses = [lic.get("name") for lic in info.get("licenses") or []]
+    if live_licenses != [lic["name"] for lic in meta["licenses"]]:
+        problems.append(f"the live license is {live_licenses}, not the pack's.")
+    out = {
+        "id": meta["id"],
+        "title": meta["title"],
+        "subtitle": meta["subtitle"],
+        "isPrivate": private,
+        "licenses": meta["licenses"],
+        **{k: meta[k] for k in FROM_PACK},
+    }
+    out["keywords"] = list(dict.fromkeys([*meta["keywords"], *(info.get("keywords") or [])]))
+    if info.get("collaborators"):
+        out["collaborators"] = info["collaborators"]
+    return out, problems

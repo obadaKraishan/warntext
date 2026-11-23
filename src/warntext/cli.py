@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from warntext import authorities as au
 from warntext import backfill as bf
 from warntext import check as ck
 from warntext import client as cl
+from warntext import kaggle_meta as km
 from warntext import olson as ol
 from warntext import probe as pr
 from warntext import profile as pf
@@ -638,6 +640,31 @@ def cmd_release_kaggle_meta(args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
+def cmd_release_kaggle_settings(args: argparse.Namespace) -> int:
+    """The file for a Kaggle metadata update: the live settings merged with the pack's page."""
+    kaggle = Path(f"{str(args.pack).rstrip('/')}-kaggle")
+    meta = json.loads((kaggle / km.METADATA_NAME).read_text(encoding="utf-8"))
+    live = json.loads(Path(args.live).read_text(encoding="utf-8"))
+    settings, problems = km.update_settings(live, meta, args.visibility == "private")
+    problems += km.problems(settings) + km.cover_problems(kaggle / km.COVER_NAME)
+    if problems:
+        print("NOTHING WRITTEN:")
+        for p in problems:
+            print(f"  FAIL {p}")
+        return 1
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / km.METADATA_NAME).write_text(json.dumps(settings, indent=1) + "\n", encoding="utf-8")
+    shutil.copyfile(kaggle / km.COVER_NAME, out / km.COVER_NAME)
+    print(
+        f"{out}: the update for a {args.visibility} dataset ({len(settings['keywords'])} tags: "
+        f"{', '.join(settings['keywords'])}; frequency {settings['expectedUpdateFrequency']!r}; "
+        f"{len(settings['description']):,} characters of description; the sources; "
+        f"{len(settings['resources'])} files; the cover)."
+    )
+    return 0
+
+
 def cmd_release_check(args: argparse.Namespace) -> int:
     """The pack's own check: its files, its card, and the release check of its tables."""
     state = json.loads(Path(args.state).read_text(encoding="utf-8"))
@@ -949,6 +976,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     q.add_argument("--pack", required=True, help="the pack; its folder PACK-kaggle is written")
     q.set_defaults(func=cmd_release_kaggle_meta)
+    q = rsub.add_parser(
+        "kaggle-settings",
+        help="the file for a Kaggle metadata update: live settings merged with the pack's page",
+    )
+    q.add_argument("--pack", required=True, help="the pack; its folder PACK-kaggle is read")
+    q.add_argument("--live", required=True, help="dataset-metadata.json as Kaggle gives it now")
+    q.add_argument("--visibility", required=True, choices=("private", "public"))
+    q.add_argument("--out", required=True, help="a new folder for the update's two files")
+    q.set_defaults(func=cmd_release_kaggle_settings)
     q = rsub.add_parser("check", help="the pack's own check (exits 1 on any failure)")
     q.add_argument("--pack", required=True)
     q.add_argument("--private", default="data/interim/private")
