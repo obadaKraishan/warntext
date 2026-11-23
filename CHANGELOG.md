@@ -7,6 +7,29 @@ All notable changes to this project are recorded here. The format follows
 ## [Unreleased]
 
 ### Added
+- The rule for release, second half: the coder's recheck of 30 of the third sheet's texts,
+  coded again blind six days later, scored once (`warntext sheet-repeat-check`). His
+  consistency with himself is 1.00 for time and location, so both reach .80 on the sheet and on
+  the recheck and are **validated in codebook version 3**; hazard, hazard description, source and
+  guidance stay experimental for version 3. Release 0.1.0 keeps version 1's codes and its card
+  still says it releases no validated content code.
+- `code_status.csv` holds the statuses per codebook version (a `codebook_version` column;
+  version 1's rows unchanged) and adds version 3's, with both figures of the rule and their
+  intervals for each content code. A pack's manifest records its `codebook_version` (0.1.0's,
+  which has none, reads as version 1), and the card's Codes section and its line on the language
+  check follow it (`card_codes_v1.md`, `card_codes_v3.md`); the Kaggle page's description of the
+  codes file names the validated codes from version 3 on.
+- `warntext sheet-repeat-check` leaves a blank answer out of that code's score and counts it,
+  gives each pass's share of "yes", records its resamples and seed (`--resamples`, `--seed`) and
+  can stop unless the repeat's texts are the earlier rows' (`--check-texts`, a count).
+- `warntext nws-counts`: the weather service's records per month and per year up to a bound,
+  through the polite client, each count printed beside its exact filter.
+- The removal list, `src/warntext/removals.csv` (tracked, empty): FEMA record ids whose text
+  leaves on request. Every build reads it: a listed message loses its text and shapes
+  (`removed_on_request` where no earlier rule withholds it) and keeps its record row. The tables'
+  and the pack's checks fail on a listed message that is not withheld, so a pack built before an
+  entry fails; `release build` refuses such tables; `warntext text` never reads a listed message.
+  The card counts removals only when there are some.
 - `docs/paper-facts.md`: every figure the dataset card and the method give (sizes, text and
   withheld counts by rule, the hand checks with their intervals, the comparison with Olson et
   al., the privacy reading, the limits, the coverage), each with the file it comes from and its
@@ -22,6 +45,15 @@ All notable changes to this project are recorded here. The format follows
   address.
 
 ### Changed
+- The release's bound in words, one definition (`warntext.citation.bound_words`) for the card,
+  the Kaggle description and sources, the README, `CITATION.cff` and `.zenodo.json`: "sent before
+  17:00 UTC on 14 November 2026" (the data hold messages from the 14th up to that hour; it was
+  "sent before 2026-11-14").
+- The weather service's records recounted month by month from July 2023 to the release's bound
+  (44 count calls): each year's months add up to the yearly counts the card gives (2024 6,366;
+  2025 5,864; 2026 to the bound 5,864), so those figures stand. What did not hold was a reading of
+  "50 to 309 a month" as every month after August 2023: that range is September to December 2023;
+  from 2024 the months run from 57 to 1,325. `docs/method.md` and `docs/paper-facts.md` say so.
 - `docs/data-card.md` is no longer a draft: release 0.1.0 published, with its addresses, DOIs and
   citation; the text tables' message counts and the federal, local and state counts as the
   release was rebuilt (219 and 16,595 real alerts; 3,869 and 44,256 tests).
