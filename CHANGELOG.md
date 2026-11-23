@@ -7,6 +7,14 @@ All notable changes to this project are recorded here. The format follows
 ## [Unreleased]
 
 ### Added
+- The Kaggle mirror's page: a description in Markdown with headings and a visible "How to cite"
+  (lifted from the pack's own card, so a DOI added there reaches Kaggle), tags only from Kaggle's
+  own list, the update frequency "not specified" until a weekly update runs, the sources in every
+  metadata file, one description per file, and a cover drawn by code at exactly 560 by 280
+  pixels with the name in the top left (`warntext.kaggle_meta`, `warntext.cover`).
+  `warntext release kaggle-meta --pack P` writes the folder's metadata and cover again and never
+  touches its data files, which the release check now compares with the pack by SHA-256.
+- README: how to ask for a message's text to be removed.
 - The repository: Apache-2.0 license, README, NOTICE, a draft citation file and CI (ruff and
   pytest on Python 3.10 to 3.13).
 - Runtime dependencies: pydantic (frozen record models), requests (HTTP) and defusedxml. The
@@ -114,6 +122,8 @@ All notable changes to this project are recorded here. The format follows
   unchanged.
 
 ### Changed
+- CI: pull requests and runs started by hand test Python 3.10 to 3.13; a push to `main` runs
+  Python 3.12 only.
 - Messages with a people code carry their times rounded down to the hour in the record layer
   (`times_rounded`); the exact times are kept only in a private local table.
 - Raw CAP identifiers are no longer released: `identifier`, `identifier_withheld` and

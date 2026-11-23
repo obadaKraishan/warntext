@@ -622,6 +622,22 @@ def cmd_release_card(args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
+def cmd_release_kaggle_meta(args: argparse.Namespace) -> int:
+    """The Kaggle folder's metadata and cover written again from the pack; data files checked."""
+    kaggle = Path(f"{str(args.pack).rstrip('/')}-kaggle")
+    changed = rl.rewrite_kaggle(args.pack, kaggle)
+    manifest = json.loads((Path(args.pack) / "manifest.json").read_text(encoding="utf-8"))
+    problems = rl.check_kaggle(kaggle, manifest)
+    said = ", ".join(f"{name} {'changed' if c else 'unchanged'}" for name, c in changed.items())
+    print(
+        f"{kaggle}: {said}; its data files match the pack's manifest by SHA-256 and were not "
+        "touched."
+    )
+    for p in problems:
+        print(f"  FAIL {p}")
+    return 1 if problems else 0
+
+
 def cmd_release_check(args: argparse.Namespace) -> int:
     """The pack's own check: its files, its card, and the release check of its tables."""
     state = json.loads(Path(args.state).read_text(encoding="utf-8"))
@@ -631,7 +647,8 @@ def cmd_release_check(args: argparse.Namespace) -> int:
     )
     kaggle = Path(f"{str(args.pack).rstrip('/')}-kaggle")
     if kaggle.exists():
-        failures += rl.check_kaggle(kaggle)
+        manifest = json.loads((Path(args.pack) / "manifest.json").read_text(encoding="utf-8"))
+        failures += rl.check_kaggle(kaggle, manifest)
     if failures:
         print(f"RELEASE PACK CHECK FAILED: {len(failures)} problem(s).")
         for f in failures:
@@ -926,6 +943,12 @@ def build_parser() -> argparse.ArgumentParser:
     q = rsub.add_parser("card", help="a card-only fix: README.md again, data files untouched")
     q.add_argument("--pack", required=True)
     q.set_defaults(func=cmd_release_card)
+    q = rsub.add_parser(
+        "kaggle-meta",
+        help="the Kaggle folder's metadata and cover written again; its data files untouched",
+    )
+    q.add_argument("--pack", required=True, help="the pack; its folder PACK-kaggle is written")
+    q.set_defaults(func=cmd_release_kaggle_meta)
     q = rsub.add_parser("check", help="the pack's own check (exits 1 on any failure)")
     q.add_argument("--pack", required=True)
     q.add_argument("--private", default="data/interim/private")

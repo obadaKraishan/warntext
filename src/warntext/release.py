@@ -32,7 +32,7 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from warntext import __version__, durable, hfpage, patterns, privacy
+from warntext import __version__, cover, durable, hfpage, kaggle_meta, patterns, privacy
 from warntext import check as ck
 from warntext.probe import ENDPOINT
 from warntext.tables import CONFIGS, RECORD_TABLES, SCHEMAS, TEXT_TABLES
@@ -733,20 +733,29 @@ def text_problems(
 
 # --- the Kaggle mirror: the record layer and the codes, no text ---------------------------
 
-KAGGLE_ID = "obadakraishan/warntext"
+KAGGLE_ID = kaggle_meta.KAGGLE_ID
 KAGGLE_TABLES = RECORD_TABLES
-_DESCRIBE = {
-    "messages": "one row per message: authority, kind, time, type, codes, places, channels",
-    "infos": "one row per language block: categories, urgency, times, allowed parameters",
-    "areas": "one row per area block: area codes (shapes when allowed)",
-    "references": "links from updates and cancels to earlier messages",
-    "threads": "one row per alert with its updates and cancels",
-    "codes": "content codes per text unit (released codes only)",
-}
+#: Kaggle's limits, which its command line enforces only when the dataset is created.
+KAGGLE_TITLE = kaggle_meta.KAGGLE_TITLE
+KAGGLE_SUBTITLE = kaggle_meta.KAGGLE_SUBTITLE
+
+
+def _kaggle_metadata(pack_dir: Path) -> dict[str, Any]:
+    manifest = json.loads((pack_dir / "manifest.json").read_text(encoding="utf-8"))
+    card = (pack_dir / "README.md").read_text(encoding="utf-8")
+    return kaggle_meta.metadata(manifest, card, KAGGLE_TABLES)
+
+
+def _write_kaggle_page(pack_dir: Path, out_dir: Path) -> dict[str, Any]:
+    """Write the folder's metadata and cover; return the metadata."""
+    meta = _kaggle_metadata(pack_dir)
+    (out_dir / kaggle_meta.METADATA_NAME).write_text(json.dumps(meta, indent=1) + "\n", "utf-8")
+    (out_dir / kaggle_meta.COVER_NAME).write_bytes(cover.png(cover.draw()))
+    return meta
 
 
 def build_kaggle(pack_dir: Path | str, out_dir: Path | str) -> dict[str, Any]:
-    """The Kaggle mirror's folder: flat copies of the record-layer files and its metadata.
+    """The Kaggle mirror's folder: flat copies of the record-layer files, its metadata, cover.
 
     It holds no text table: the mirror carries the record layer and the released codes only, and
     points to the Hugging Face dataset for the text.
@@ -756,88 +765,71 @@ def build_kaggle(pack_dir: Path | str, out_dir: Path | str) -> dict[str, Any]:
         raise SystemExit(f"{out_dir} is not empty; the mirror's folder is built once.")
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest = json.loads((pack_dir / "manifest.json").read_text(encoding="utf-8"))
-    resources = []
-    for f in manifest["files"]:
-        config, name = f["path"].removesuffix(".parquet").split("/")
-        if name not in KAGGLE_TABLES:
-            continue
-        flat = f"{config}-{name}.parquet"
-        shutil.copyfile(pack_dir / f["path"], out_dir / flat)
-        label = "real alerts" if config == "alerts" else "tests and demonstrations"
-        resources.append({"path": flat, "description": f"{label}: {_DESCRIBE[name]}"})
-    meta = {
-        "title": "WarnText: US public alert records",
-        "id": KAGGLE_ID,
-        "subtitle": "The record layer and content codes of US public alert messages (IPAWS)",
-        "description": (
-            f"# WarnText {manifest['version']} (record layer)\n\n"
-            "A research record of the public alert messages sent through the Integrated Public "
-            "Alert and Warning System, from FEMA's OpenFEMA dataset IPAWS Archived Alerts. Not "
-            "an alerting service. This mirror holds the record layer and the released codes "
-            "only, never message text. The message text (for the alerts that are not about "
-            "people), the dataset card, the terms and the removal route are on Hugging Face "
-            "(https://huggingface.co/datasets/obadakr/warntext); the code and method are at "
-            "https://github.com/obadaKraishan/warntext.\n\n"
-            "The data are under OpenFEMA's terms, which every user must follow: "
-            f"{TERMS_URL}. This product uses the Federal Emergency Management Agency's OpenFEMA "
-            "API, but is not endorsed by FEMA. The Federal Government or FEMA cannot vouch for "
-            "the data or analyses derived from these data after the data have been retrieved "
-            "from the Agency's website(s)."
-        ),
-        "isPrivate": True,
-        "licenses": [{"name": "other"}],
-        "keywords": ["emergency alerts", "crisis communication", "text"],
-        "expectedUpdateFrequency": "weekly",
-        "userSpecifiedSources": (
-            "FEMA OpenFEMA Dataset: IPAWS Archived Alerts - v1, "
-            "https://www.fema.gov/api/open/v1/IpawsArchivedAlerts, retrieved "
-            f"{manifest['retrieved']} (UTC); records sent before "
-            f"{manifest['records_sent_before']}."
-        ),
-        "resources": resources,
-    }
-    (out_dir / "dataset-metadata.json").write_text(json.dumps(meta, indent=1) + "\n", "utf-8")
-    return meta
+    for f in kaggle_meta.kaggle_files(manifest, KAGGLE_TABLES):
+        shutil.copyfile(pack_dir / f["path"], out_dir / f["flat"])
+    return _write_kaggle_page(pack_dir, out_dir)
 
 
-def check_kaggle(out_dir: Path | str) -> list[str]:
-    """The mirror holds record-layer files and its metadata only."""
+def _kaggle_data_problems(out_dir: Path, manifest: Mapping[str, Any]) -> list[str]:
+    """Every mirror file present and equal to the pack's file by SHA-256."""
+    fail = []
+    for f in kaggle_meta.kaggle_files(manifest, KAGGLE_TABLES):
+        path = out_dir / f["flat"]
+        if not path.exists():
+            fail.append(f"kaggle/{f['flat']} is missing; the pack has {f['path']}.")
+        elif durable.sha256_file(path) != f["sha256"]:
+            fail.append(
+                f"kaggle/{f['flat']} differs from the pack's {f['path']} (SHA-256); the mirror's "
+                "data files are copies of the pack's and are never rebuilt."
+            )
+    return fail
+
+
+def rewrite_kaggle(pack_dir: Path | str, out_dir: Path | str) -> dict[str, bool]:
+    """The mirror's metadata and cover written again; its data files are checked, not touched.
+
+    Stops before writing when a data file differs from the pack's manifest, and checks them again
+    after. Returns which of the two files changed.
+    """
+    pack_dir, out_dir = Path(pack_dir), Path(out_dir)
+    manifest = json.loads((pack_dir / "manifest.json").read_text(encoding="utf-8"))
+    bad = _kaggle_data_problems(out_dir, manifest)
+    if bad:
+        raise SystemExit("Nothing was written: " + " ".join(bad))
+    names = (kaggle_meta.METADATA_NAME, kaggle_meta.COVER_NAME)
+    before = {n: (out_dir / n).read_bytes() if (out_dir / n).exists() else None for n in names}
+    _write_kaggle_page(pack_dir, out_dir)
+    bad = _kaggle_data_problems(out_dir, manifest)
+    if bad:  # pragma: no cover - the data files are only read above
+        raise SystemExit("A data file changed while the metadata was written: " + " ".join(bad))
+    return {n: (out_dir / n).read_bytes() != before[n] for n in names}
+
+
+def check_kaggle(out_dir: Path | str, manifest: Mapping[str, Any] | None = None) -> list[str]:
+    """The mirror holds record-layer files, its metadata and its cover only; with the pack's
+    manifest, every data file is the pack's own by SHA-256."""
     out_dir = Path(out_dir)
     fail = []
     for path in sorted(p for p in out_dir.rglob("*") if p.is_file()):
         name = path.name
-        if name == "dataset-metadata.json":
+        if name in (kaggle_meta.METADATA_NAME, kaggle_meta.COVER_NAME):
             continue
         base = name.removesuffix(".parquet")
         config, _, table = base.partition("-")
         if config not in CONFIGS or table not in KAGGLE_TABLES or not name.endswith(".parquet"):
             fail.append(f"kaggle/{name}: not a record-layer file; the mirror holds no text.")
-    meta_path = out_dir / "dataset-metadata.json"
+    meta_path = out_dir / kaggle_meta.METADATA_NAME
     if not meta_path.exists():
-        fail.append("kaggle/dataset-metadata.json is missing.")
+        fail.append(f"kaggle/{kaggle_meta.METADATA_NAME} is missing.")
     else:
         fail += kaggle_metadata_problems(json.loads(meta_path.read_text(encoding="utf-8")))
+    fail += kaggle_meta.cover_problems(out_dir / kaggle_meta.COVER_NAME)
+    if manifest is not None:
+        fail += _kaggle_data_problems(out_dir, manifest)
     return fail
 
 
-#: Kaggle's limits, which its command line enforces only when the dataset is created.
-KAGGLE_TITLE = (6, 50)
-KAGGLE_SUBTITLE = (20, 80)
-
-
 def kaggle_metadata_problems(meta: Mapping[str, Any]) -> list[str]:
-    """The mirror's title and subtitle within Kaggle's lengths, its id, no raw tag in its text."""
-    out = []
-    for field, (low, high) in (("title", KAGGLE_TITLE), ("subtitle", KAGGLE_SUBTITLE)):
-        n = len(meta.get(field) or "")
-        if not low <= n <= high:
-            out.append(
-                f"kaggle/dataset-metadata.json: the {field} has {n} characters; Kaggle takes "
-                f"{low} to {high}."
-            )
-    if meta.get("id") != KAGGLE_ID:
-        out.append(f"kaggle/dataset-metadata.json: the id is {meta.get('id')!r}, not {KAGGLE_ID}.")
-    out += hfpage.tag_problems(
-        "kaggle/dataset-metadata.json description", meta.get("description", "")
-    )
-    return out
+    """The mirror's metadata: Kaggle's lengths, its id, the description's headings and "How to
+    cite", tags from Kaggle's list, the update frequency, the sources, no raw tag."""
+    return kaggle_meta.problems(meta)
