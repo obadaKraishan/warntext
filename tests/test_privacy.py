@@ -1,5 +1,7 @@
 """The privacy rules on invented messages (phone numbers in the 555-01xx fiction range)."""
 
+import pytest
+
 from cap_samples import invented
 from warntext import cap, privacy
 from warntext.schema import Pair
@@ -175,3 +177,41 @@ def test_messages_about_a_missing_person_in_either_language():
     assert privacy.about_missing_person(english)
     assert privacy.about_missing_person(spanish)
     assert not privacy.about_missing_person(plain)
+
+
+# --- the removal list ----------------------------------------------------------------------
+
+INVENTED_ID = "0a1b2c3d-0000-4000-8000-00000000abcd"
+
+
+def test_the_tracked_removal_list_is_empty_and_reads():
+    from importlib import resources
+
+    text = resources.files("warntext").joinpath(privacy.REMOVALS_FILE).read_text("utf-8")
+    assert text == "record_id,added,request\n"
+    assert privacy.load_removals() == frozenset()
+
+
+def test_a_removal_entry_reads_and_a_bad_one_is_refused():
+    head = "record_id,added,request\n"
+    ok = privacy.read_removals(head + f"{INVENTED_ID},2026-11-23,issue 7\n")
+    assert ok == frozenset({INVENTED_ID})
+    bad = {
+        "record id must be FEMA's": f"{INVENTED_ID.upper()},2026-11-23,issue 7\n",
+        "date it was added": f"{INVENTED_ID},23 Nov 2026,issue 7\n",
+        "never by a person's name": f"{INVENTED_ID},2026-11-23,request by a.person@example.org\n",
+        "already listed": f"{INVENTED_ID},2026-11-23,issue 7\n{INVENTED_ID},2026-11-24,issue 8\n",
+    }
+    for message, rows in bad.items():
+        with pytest.raises(SystemExit, match=message):
+            privacy.read_removals(head + rows)
+    with pytest.raises(SystemExit, match="the header must be"):
+        privacy.read_removals("id,added\n")
+
+
+def test_a_message_is_on_the_list_by_any_of_its_copies_record_ids():
+    listed = frozenset({INVENTED_ID})
+    assert privacy.on_removal_list({"message_id": "x", "record_ids": ["x", INVENTED_ID]}, listed)
+    assert privacy.on_removal_list({"message_id": INVENTED_ID}, listed)
+    assert not privacy.on_removal_list({"message_id": "x", "record_ids": ["x"]}, listed)
+    assert not privacy.on_removal_list({}, listed)

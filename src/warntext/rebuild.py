@@ -46,11 +46,17 @@ def id_filter(ids: Iterable[str]) -> str:
     return " or ".join(f"id eq '{i}'" for i in ids)
 
 
-def wanted(messages: Iterable[Mapping[str, Any]], kinds: set[str] | None) -> list[dict]:
-    """The messages whose text may be rebuilt: not withheld, and of the kinds asked for."""
+def wanted(
+    messages: Iterable[Mapping[str, Any]],
+    kinds: set[str] | None,
+    removals: Iterable[str] | None = None,
+) -> list[dict]:
+    """The messages whose text may be rebuilt: not withheld, not on the removal list (by
+    default the tracked list), and of the kinds asked for."""
+    removal_ids = privacy.load_removals() if removals is None else frozenset(removals)
     out = []
     for m in messages:
-        if m["text_withheld"]:
+        if m["text_withheld"] or privacy.on_removal_list(m, removal_ids):
             continue
         if kinds is not None and m["sender_kind"] not in kinds:
             continue
@@ -73,18 +79,22 @@ def plan(
     kinds: set[str] | None,
     released: set[str],
     ids: set[str] | None = None,
+    removals: Iterable[str] | None = None,
 ) -> dict[str, list[dict]]:
     """What a rebuild would do with each message: ``withheld``, ``already``, ``read``, ``other``.
 
-    ``withheld``: the privacy rules withhold its text, so it is never read. ``already``: its text
-    is in the release. ``read``: it is read from FEMA. ``other``: a sender kind not asked for.
-    With ``ids``, only those messages are planned.
+    ``withheld``: the privacy rules withhold its text, or the removal list (by default the
+    tracked list, read now, so an older release's records cannot bring a removed text back)
+    names it, so it is never read. ``already``: its text is in the release. ``read``: it is read
+    from FEMA. ``other``: a sender kind not asked for. With ``ids``, only those messages are
+    planned.
     """
+    removal_ids = privacy.load_removals() if removals is None else frozenset(removals)
     out: dict[str, list[dict]] = {"withheld": [], "already": [], "read": [], "other": []}
     for m in messages:
         if ids is not None and m["message_id"] not in ids:
             continue
-        if m["text_withheld"]:
+        if m["text_withheld"] or privacy.on_removal_list(m, removal_ids):
             out["withheld"].append(dict(m))
         elif kinds is not None and m["sender_kind"] not in kinds:
             out["other"].append(dict(m))

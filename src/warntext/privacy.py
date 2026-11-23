@@ -37,15 +37,76 @@ The functions here return names and reasons, never the matched text.
 
 from __future__ import annotations
 
+import csv
+import io
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import datetime
+from importlib import resources
+from typing import Any
 
 from warntext import patterns
 from warntext.schema import Info, Message, Pair
 
 #: SAME event codes for messages about people (FEMA's IPAWS event-code glossary).
 PEOPLE_CODES = frozenset({"CAE", "MEP", "BLU", "LEW"})
+
+# --- the removal list ----------------------------------------------------------------------
+
+#: The removal list (tracked package data, empty until the first request): FEMA record ids whose
+#: text leaves the next version at the request of FEMA, an alerting authority or a person named
+#: in the message. Every build reads it; the message's record row stays.
+REMOVALS_FILE = "removals.csv"
+REMOVALS_COLUMNS = ("record_id", "added", "request")
+#: The reason a listed message's text is withheld, where no earlier rule withholds it.
+REMOVED = "removed_on_request"
+_RECORD_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+_ADDED = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+#: A request is named by where it came in and its number ("issue 12", "community 3"), never by
+#: a person's name or address.
+_REQUEST = re.compile(r"^(?:issue|community|email) \d{1,6}$")
+
+
+def read_removals(text: str, name: str = REMOVALS_FILE) -> frozenset[str]:
+    """The record ids of a removal list's text; stops, naming the line, on a malformed entry."""
+    reader = csv.DictReader(io.StringIO(text))
+    if tuple(reader.fieldnames or ()) != REMOVALS_COLUMNS:
+        raise SystemExit(
+            f"{name}: the header must be {','.join(REMOVALS_COLUMNS)}; "
+            f"it is {','.join(reader.fieldnames or [])!r}."
+        )
+    ids: list[str] = []
+    for n, row in enumerate(reader, start=2):
+        rid, added, request = (row[c] or "" for c in REMOVALS_COLUMNS)
+        if not _RECORD_ID.match(rid):
+            raise SystemExit(
+                f"{name}, line {n}: the record id must be FEMA's (lowercase, 8-4-4-4-12 hex)."
+            )
+        if not _ADDED.match(added):
+            raise SystemExit(f"{name}, line {n}: give the date it was added as YYYY-MM-DD.")
+        if not _REQUEST.match(request):
+            raise SystemExit(
+                f"{name}, line {n}: name the request as 'issue N', 'community N' or 'email N', "
+                "never by a person's name or address."
+            )
+        if rid in ids:
+            raise SystemExit(f"{name}, line {n}: record id already listed; keep one entry.")
+        ids.append(rid)
+    return frozenset(ids)
+
+
+def load_removals() -> frozenset[str]:
+    """The tracked removal list's record ids."""
+    text = resources.files("warntext").joinpath(REMOVALS_FILE).read_text(encoding="utf-8")
+    return read_removals(text)
+
+
+def on_removal_list(message: Mapping[str, Any], removals: Iterable[str]) -> bool:
+    """Whether a messages row (any of its archive copies' record ids) is on the list."""
+    ids = message.get("record_ids") or [message.get("message_id")]
+    listed = removals if isinstance(removals, (set, frozenset)) else set(removals)
+    return not listed.isdisjoint(i for i in ids if i)
+
 
 #: Parameters kept in the record layer, each with the form its value must have. Each is
 #: documented by the IPAWS CAP profile or the EAS-CAP implementation guide, holds a code or a

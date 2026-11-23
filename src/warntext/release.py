@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -242,6 +242,7 @@ def build_pack(
     if out_dir.exists() and any(out_dir.iterdir()):
         raise SystemExit(f"{out_dir} is not empty; a pack is built once into a new folder.")
     left_out = experimental_codes(codebook_version)  # stops if the version has no statuses
+    stale_on_removal_list(tables_dir)
     codes_dir = Path(codes_from) if codes_from is not None else tables_dir
     if codes_from is not None:
         same_units(tables_dir, codes_dir)
@@ -302,6 +303,29 @@ def build_pack(
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n", "utf-8")
     (out_dir / "README.md").write_text(card(manifest), encoding="utf-8")
     return manifest
+
+
+def stale_on_removal_list(tables_dir: Path | str, removals: Iterable[str] | None = None) -> None:
+    """Stop unless every message the removal list names is withheld in the tables (tables
+    built before an entry was added must be rebuilt before a pack is made from them)."""
+    removal_ids = privacy.load_removals() if removals is None else frozenset(removals)
+    if not removal_ids:
+        return
+    for config in CONFIGS:
+        path = Path(tables_dir) / config / "messages.parquet"
+        if not path.exists():
+            continue
+        rows = pq.read_table(path, columns=["message_id", "record_ids", "text_withheld"])
+        stale = sum(
+            1
+            for m in rows.to_pylist()
+            if not m["text_withheld"] and privacy.on_removal_list(m, removal_ids)
+        )
+        if stale:
+            raise SystemExit(
+                f"{path}: {stale} message(s) on the removal list are not withheld; rebuild the "
+                "tables (`warntext update --rebuild`) before the pack."
+            )
 
 
 #: The columns that key a coded unit.
@@ -381,6 +405,8 @@ def pack_facts(
         "withheld_person_described": sum(
             1 for r in alerts if r["text_withheld"] == "person_described"
         ),
+        "withheld_removed": sum(1 for r in alerts if r["text_withheld"] == privacy.REMOVED),
+        "tests_removed": sum(1 for r in tests if r["text_withheld"] == privacy.REMOVED),
         "rounded": sum(1 for r in alerts if r["times_rounded"]),
         "federal_text_alerts": len(with_text("alerts", ["text_federal"])),
         "text_alerts": len(alert_text),
@@ -519,7 +545,18 @@ def text_sentences(facts: Mapping[str, int]) -> dict[str, str]:
         )
     else:
         tests += "."
-    return {"no_text_sentence": alerts, "tests_text_sentence": tests}
+    removed, removed_tests = facts.get("withheld_removed", 0), facts.get("tests_removed", 0)
+    removal = ""
+    if removed or removed_tests:
+        removal = (
+            f" In this version {removed:,} real alert(s) and {removed_tests:,} test(s) have their "
+            "text withheld only because a removal was asked for."
+        )
+    return {
+        "no_text_sentence": alerts,
+        "tests_text_sentence": tests,
+        "removed_sentence": removal,
+    }
 
 
 def code_tables(version: str = CODE_STATUS_VERSION) -> dict[str, str]:
@@ -653,8 +690,12 @@ def check_pack(
     sender_values: list[str],
     identifiers: list[str],
     server_counts: Mapping[int, int] | None,
+    removals: Iterable[str] | None = None,
 ) -> list[str]:
-    """Every rule the pack must pass; returns the failures (empty when it passes)."""
+    """Every rule the pack must pass; returns the failures (empty when it passes).
+
+    ``removals`` (by default the tracked removal list) are read now, so a pack built before an
+    entry was added fails."""
     pack_dir = Path(pack_dir)
     fail: list[str] = []
     manifest_path = pack_dir / "manifest.json"
@@ -718,8 +759,8 @@ def check_pack(
             rel = f"{config}/{name}.parquet"
             path = pack_dir / rel
             loaded[config][name] = pq.read_table(path).to_pylist() if rel in readable else []
-    fail += ck.check(loaded, sender_values, server_counts, identifiers)
-    fail += text_problems(loaded, kinds)
+    fail += ck.check(loaded, sender_values, server_counts, identifiers, removals)
+    fail += text_problems(loaded, kinds, removals)
     return fail
 
 
@@ -734,12 +775,15 @@ WITHHOLDING_RULES = {
 
 
 def text_problems(
-    tables: Mapping[str, Mapping[str, list[dict[str, Any]]]], kinds: list[str] | tuple[str, ...]
+    tables: Mapping[str, Mapping[str, list[dict[str, Any]]]],
+    kinds: list[str] | tuple[str, ...],
+    removals: Iterable[str] | None = None,
 ) -> list[str]:
     """The text layer's own rules, in both splits; counts and rule names only, never text.
 
     - no text row for a message that any privacy rule withholds (a people code, the
-      missing-person rule, the pattern rule), and every such message is marked withheld;
+      missing-person rule, the pattern rule) or that the removal list names (``removals``, by
+      default the tracked list), and every such message is marked withheld;
     - every text row of a released kind, with its credit: the message's alerting authority
       (FEMA's identifier and the released organization name) and the credit line;
     - no personal-detail pattern (a phone number or an email address in any form, the rest)
@@ -747,12 +791,17 @@ def text_problems(
       text fields, read together, describe a person.
     """
     fail: list[str] = []
+    removal_ids = privacy.load_removals() if removals is None else frozenset(removals)
+    rules = {
+        **WITHHOLDING_RULES,
+        "the removal list": lambda m: privacy.on_removal_list(m, removal_ids),
+    }
     for config in CONFIGS:
         messages = {m["message_id"]: m for m in tables[config].get("messages", [])}
         unmarked = sum(
             1
             for m in messages.values()
-            if not m.get("text_withheld") and any(rule(m) for rule in WITHHOLDING_RULES.values())
+            if not m.get("text_withheld") and any(rule(m) for rule in rules.values())
         )
         if unmarked:
             fail.append(
@@ -763,7 +812,7 @@ def text_problems(
             rows = tables[config].get(name, [])
             if not rows:
                 continue
-            for label, rule in WITHHOLDING_RULES.items():
+            for label, rule in rules.items():
                 n = sum(1 for r in rows if rule(messages.get(r["message_id"], {})))
                 if n:
                     fail.append(

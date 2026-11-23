@@ -180,7 +180,7 @@ taken out: open an issue with the "Remove a message's text" form on the project'
 (https://github.com/obadaKraishan/warntext/issues/new/choose), or write on this dataset's
 Community tab. Give the record id, never the text or personal details. Each request is answered
 within 14 days. The text row leaves the next version; the message's record row, which holds no
-text, stays, as it does in FEMA's own archive.
+text, stays, as it does in FEMA's own archive.{{removed_sentence}}
 
 ## Terms that users must follow
 WarnText's records come from OpenFEMA, whose terms apply to anyone who uses them

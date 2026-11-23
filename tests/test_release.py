@@ -606,3 +606,73 @@ def test_the_card_says_what_is_withheld_and_the_reading_of_what_is_left(pack):
     assert "300 released alert texts and 100 released test texts" in text
     assert "0 held a phone number or an email address, 0 described a person" in sentence
     assert "and 2 named a private individual" in sentence
+
+
+def test_a_removal_takes_the_text_row_keeps_the_record_row_and_a_stale_pack_fails(pack, tmp_path):
+    # Invented records: the first (a county's alert with text) is asked to be removed.
+    ids = {
+        m["message_id"]
+        for m in pq.read_table(pack["dir"] / "alerts" / "text_other.parquet").to_pylist()
+    }
+    target = sorted(ids)[0]
+    listed = frozenset({target})
+    # The pack built before the entry fails its check now: the record row is not marked
+    # withheld and its text row is still there.
+    out = release.check_pack(pack["dir"], pack["senders"], pack["ids"], {2024: 4}, listed)
+    assert any("on the removal list are not withheld" in f for f in out)
+    assert any("not marked withheld" in f for f in out)
+    assert any("text row(s) for messages withheld by the removal list" in f for f in out)
+    with pytest.raises(SystemExit, match="on the removal list are not withheld"):
+        release.stale_on_removal_list(pack["tmp"] / "t", listed)
+    # A build that reads the list: the text row leaves, the record row stays.
+    from cap_samples import invented
+    from test_tables import BASE, COUNTY, record
+
+    recs = [
+        record(invented(identifier="EX-1", sender=COUNTY), target),
+        record(invented(identifier="EX-2", sender=COUNTY, code="CAE"), "r02"),
+        record(invented(identifier="EX-3", sender=BASE), "r03", cog=202),
+    ]
+    b = tables.build(
+        tables.parse_records(
+            (type("L", (), {"fetched_at": "2026-11-15T15:00:00.000Z"})(), r) for r in recs
+        ),
+        removals=listed | {"r02"},
+    )
+    messages = {m["message_id"]: m for m in b.tables["alerts"]["messages"]}
+    assert messages[target]["text_withheld"] == "removed_on_request"
+    assert messages["r02"]["text_withheld"] == "people_code"  # the earlier reason is kept
+    assert messages["r03"]["text_withheld"] is None
+    text_ids = {
+        r["message_id"] for t in ("text_federal", "text_other") for r in b.tables["alerts"][t]
+    }
+    assert target not in text_ids and "r03" in text_ids
+    assert any(r["message_id"] == target for r in b.tables["alerts"]["infos"])
+    assert any(r["message_id"] == target for r in b.tables["alerts"]["codes"])
+    assert b.summary["removal_list"] == {
+        "entries": 2,
+        "messages_listed": 2,
+        "withheld_only_by_the_list": 1,
+        "entries_not_in_the_records": 0,
+    }
+    # (the build's rows carry no credit columns yet; only the withholding rules are asked here)
+    problems = release.text_problems(b.tables, release.TEXT_KINDS, listed)
+    assert not [f for f in problems if "removal list" in f or "not marked withheld" in f]
+    assert release.text_sentences({"withheld_removed": 1})["removed_sentence"].startswith(
+        " In this version 1 real alert(s) and 0 test(s)"
+    )
+    assert release.text_sentences({})["removed_sentence"] == ""
+
+
+def test_warntext_text_never_reads_a_listed_message_again():
+    from warntext import rebuild
+
+    messages = [
+        {"message_id": "a", "record_ids": ["a"], "text_withheld": None, "sender_kind": "local"},
+        {"message_id": "b", "record_ids": ["b"], "text_withheld": None, "sender_kind": "local"},
+    ]
+    planned = rebuild.plan(messages, None, set(), removals={"a"})
+    assert [m["message_id"] for m in planned["withheld"]] == ["a"]
+    assert [m["message_id"] for m in planned["read"]] == ["b"]
+    assert [m["message_id"] for m in rebuild.wanted(messages, None, removals={"a"})] == ["b"]
+    assert len(rebuild.wanted(messages, None)) == 2  # the tracked list is empty
