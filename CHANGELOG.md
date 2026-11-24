@@ -7,6 +7,12 @@ All notable changes to this project are recorded here. The format follows
 ## [Unreleased]
 
 ### Added
+- `warntext page history`: every commit that any ref of the dataset reaches (branches, tags, the
+  Hub's conversion refs, pull requests) may hold only released files: a data file by path and
+  SHA-256 (by SHA-256 alone in a conversion ref), a released `manifest.json`, the card and
+  `.gitattributes`. It reads several released versions' packs, asks signed out or reads a
+  listing made signed in, and names commits, refs and paths only. It sees what refs reach, not a
+  commit the Hub still serves by id, so a superseded commit is checked by its id as well.
 - The rule for release, second half: the coder's recheck of 30 of the third sheet's texts,
   coded again blind six days later, scored once (`warntext sheet-repeat-check`). His
   consistency with himself is 1.00 for time and location, so both reach .80 on the sheet and on
