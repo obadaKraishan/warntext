@@ -236,3 +236,7 @@ Each row's `retrieved_at` gives the exact time its message was read.
 ## Updates
 Later versions are meant to follow weekly, built from the records the archive added since, with
 the same rules and the same release check; each version's records end where its card says.
+
+On 24 November 2026 the dataset's commit history was squashed, so that earlier, superseded files,
+which held text the privacy rules now withhold, can no longer be downloaded; the files of release
+0.1.0 are unchanged (the same hashes).
