@@ -753,6 +753,44 @@ def cmd_page_visibility(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_page_history(args: argparse.Namespace) -> int:
+    """Every commit any ref of the dataset reaches holds released files only (counts, commit
+    ids, refs and paths only; nothing is downloaded)."""
+    manifests = []
+    for pack in args.pack:
+        data = (Path(pack) / hfpage.MANIFEST_FILE).read_bytes()
+        manifests.append((json.loads(data), hfpage.git_blob_id(data)))
+    if args.listing:
+        listing = json.loads(Path(args.listing).read_text(encoding="utf-8"))
+        how = f"the listing {args.listing}"
+    else:
+        try:
+            listing = hfpage.fetch_history(args.dataset)
+        except hfpage.PageCheckError as exc:
+            print(f"SIGNED-OUT CHECK FAILED, nothing could be told: {exc}")
+            return 2
+        how = "signed out (no token, no cookie, no netrc)"
+    if args.save:
+        Path(args.save).write_text(json.dumps(listing, indent=1) + "\n", encoding="utf-8")
+    refs = listing.get("refs") or {}
+    commits = listing.get("commits") or {}
+    files = sum(len(c.get("files") or []) for c in commits.values())
+    print(
+        f"{args.dataset}, {how}: {len(refs)} ref(s) ("
+        + ", ".join(f"{r} -> {(e.get('target') or '')[:8]}" for r, e in sorted(refs.items()))
+        + f"), {len(commits)} commit(s) reached, {files} file entries; released versions: "
+        + ", ".join(m["version"] for m, _ in manifests)
+    )
+    problems = hfpage.history_problems(listing, manifests)
+    for p in problems:
+        print(f"  PROBLEM: {p}")
+    if problems:
+        print(f"STOP: {len(problems)} problem(s) in the dataset's history.")
+        return 1
+    print("History passed: every commit any ref reaches holds released files only.")
+    return 0
+
+
 def cmd_page_headings(args: argparse.Namespace) -> int:
     """The card's headings against the rendered page's, in order, down to the last one."""
     card = Path(args.card).read_text(encoding="utf-8")
@@ -1062,6 +1100,16 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--dataset", default="obadakr/warntext")
     q.add_argument("--expect", required=True, choices=("public", "not-public"))
     q.set_defaults(func=cmd_page_visibility)
+    q = psub.add_parser(
+        "history", help="every commit any ref reaches holds released files only (signed out)"
+    )
+    q.add_argument("--dataset", default="obadakr/warntext")
+    q.add_argument(
+        "--pack", action="append", required=True, help="a released version's pack (repeatable)"
+    )
+    q.add_argument("--listing", help="a listing made signed in (JSON), instead of asking")
+    q.add_argument("--save", help="write the listing asked signed out to this file (JSON)")
+    q.set_defaults(func=cmd_page_history)
     q = psub.add_parser("headings", help="the card's headings on the rendered page, in order")
     q.add_argument("--card", required=True, help="the pack's README.md")
     where = q.add_mutually_exclusive_group(required=True)

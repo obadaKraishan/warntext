@@ -165,3 +165,194 @@ def test_the_commands(tmp_path, monkeypatch, capsys):
 
     monkeypatch.setattr(hfpage, "signed_out_get", unreachable)
     assert cli.main(["page", "headings", "--card", str(card), "--url", "https://x"]) == 2
+
+
+# --- the dataset's history ---------------------------------------------------------------
+
+DATA = {"alerts/messages.parquet": "a" * 64, "alerts/text_other.parquet": "b" * 64}
+MANIFEST = {
+    "version": "9.9.9",
+    "files": [{"path": p, "sha256": h} for p, h in DATA.items()],
+}
+MANIFEST_BLOB = "c" * 40
+
+
+def commit(files):
+    return {"files": [{"path": p, "sha256": s, "blob_id": b} for p, s, b in files]}
+
+
+def released_commit():
+    return commit(
+        [
+            (".gitattributes", None, "d" * 40),
+            ("README.md", None, "e" * 40),
+            ("manifest.json", None, MANIFEST_BLOB),
+            *((p, h, "f" * 40) for p, h in DATA.items()),
+        ]
+    )
+
+
+def test_a_history_of_released_files_passes_and_an_old_build_fails():
+    good = {
+        "refs": {
+            "refs/heads/main": {"kind": "branches", "commits": ["1" * 40]},
+            "refs/tags/v9.9.9": {"kind": "tags", "commits": ["1" * 40]},
+        },
+        "commits": {"1" * 40: released_commit()},
+    }
+    assert hfpage.history_problems(good, [(MANIFEST, MANIFEST_BLOB)]) == []
+    # An older commit, reached from the tag only, holds a superseded text file and manifest.
+    old = commit(
+        [
+            ("alerts/text_other.parquet", "9" * 64, "f" * 40),
+            ("manifest.json", None, "8" * 40),
+            ("README.md", None, "7" * 40),
+        ]
+    )
+    bad = {
+        "refs": {
+            "refs/heads/main": {"kind": "branches", "commits": ["1" * 40]},
+            "refs/tags/v9.9.9": {"kind": "tags", "commits": ["1" * 40, "2" * 40]},
+        },
+        "commits": {"1" * 40: released_commit(), "2" * 40: old},
+    }
+    problems = hfpage.history_problems(bad, [(MANIFEST, MANIFEST_BLOB)])
+    assert problems == [
+        "22222222 holds alerts/text_other.parquet, which no released version has (reached "
+        "from refs/tags/v9.9.9)",
+        "22222222 holds manifest.json, which no released version has (reached from "
+        "refs/tags/v9.9.9)",
+    ]
+    # A released file under another path counts only in the Hub's conversion ref.
+    moved = commit([("other/place.parquet", "a" * 64, "f" * 40)])
+    for kind, fails in (("converts", False), ("branches", True), ("pullRequests", True)):
+        listing = {
+            "refs": {"refs/x": {"kind": kind, "commits": ["3" * 40]}},
+            "commits": {"3" * 40: moved},
+        }
+        assert bool(hfpage.history_problems(listing, [(MANIFEST, MANIFEST_BLOB)])) is fails
+    copy_unknown = commit([("messages/alerts/0000.parquet", "6" * 64, "f" * 40)])
+    listing = {
+        "refs": {"refs/convert/parquet": {"kind": "converts", "commits": ["4" * 40]}},
+        "commits": {"4" * 40: copy_unknown},
+    }
+    assert (
+        "no released version has"
+        in hfpage.history_problems(listing, [(MANIFEST, MANIFEST_BLOB)])[0]
+    )
+
+
+def test_a_history_check_needs_refs_and_every_commits_files_and_reads_several_versions():
+    assert hfpage.history_problems({}, [(MANIFEST, MANIFEST_BLOB)])[0].startswith("no ref")
+    unlisted = {"refs": {"refs/heads/main": {"kind": "branches", "commits": ["5" * 40]}}}
+    assert (
+        "whose files are not listed"
+        in hfpage.history_problems(unlisted, [(MANIFEST, MANIFEST_BLOB)])[0]
+    )
+    # A later version keeps the earlier version's commit in its history: both are released.
+    later = {
+        "version": "9.9.10",
+        "files": [{"path": "alerts/messages.parquet", "sha256": "0" * 64}],
+    }
+    listing = {
+        "refs": {"refs/heads/main": {"kind": "branches", "commits": ["6" * 40, "1" * 40]}},
+        "commits": {
+            "6" * 40: commit(
+                [("alerts/messages.parquet", "0" * 64, "f" * 40), ("manifest.json", None, "b" * 40)]
+            ),
+            "1" * 40: released_commit(),
+        },
+    }
+    both = [(MANIFEST, MANIFEST_BLOB), (later, "b" * 40)]
+    assert hfpage.history_problems(listing, both) == []
+    assert len(hfpage.history_problems(listing, both[1:])) == 3  # the earlier version's files
+
+
+class PagedSession(FakeSession):
+    """Answers by URL, with a Link header for the next page where one is given."""
+
+    def __init__(self, pages):
+        super().__init__(None)
+        self.pages = pages
+
+    def send(self, prepared, **kw):
+        self.sent.append(prepared)
+        payload, nxt = self.pages[prepared.url]
+        r = FakeResponse(200, payload)
+        r.links = {"next": {"url": nxt}} if nxt else {}
+        return r
+
+
+def test_the_history_is_fetched_signed_out_page_by_page():
+    base = "https://huggingface.co/api/datasets/x/y"
+    c = "1" * 40
+    tree = [
+        {"type": "directory", "path": "alerts", "oid": "x"},
+        {
+            "type": "file",
+            "path": "alerts/messages.parquet",
+            "oid": "f" * 40,
+            "lfs": {"oid": "a" * 64},
+        },
+    ]
+    pages = {
+        f"{base}/refs?include_prs=1": (
+            {
+                "branches": [{"ref": "refs/heads/main", "targetCommit": c}],
+                "converts": [],
+                "tags": [],
+            },
+            None,
+        ),
+        f"{base}/commits/refs%2Fheads%2Fmain": ([{"id": c}], None),
+        f"{base}/tree/{c}?recursive=true&expand=true": (tree[:1], f"{base}/tree/{c}?cursor=2"),
+        f"{base}/tree/{c}?cursor=2": (
+            [*tree[1:], {"type": "file", "path": "README.md", "oid": "e" * 40}],
+            None,
+        ),
+    }
+    s = PagedSession(pages)
+    listing = hfpage.fetch_history("x/y", session=s)
+    assert listing["refs"]["refs/heads/main"]["commits"] == [c]
+    assert listing["commits"][c]["files"] == [
+        {"path": "alerts/messages.parquet", "sha256": "a" * 64, "blob_id": "f" * 40},
+        {"path": "README.md", "sha256": None, "blob_id": "e" * 40},
+    ]
+    assert all("authorization" not in {k.lower() for k in p.headers} for p in s.sent)
+    bad = FakeSession(FakeResponse(401, {}))
+    with pytest.raises(hfpage.PageCheckError, match="HTTP 401"):
+        hfpage.fetch_history("x/y", session=bad)
+
+
+def test_the_history_command_reads_a_listing_and_says_what_it_found(tmp_path, capsys):
+    import json
+
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    data = json.dumps(MANIFEST).encode()
+    (pack / "manifest.json").write_bytes(data)
+    blob = hfpage.git_blob_id(data)
+    assert blob == __import__("hashlib").sha1(b"blob %d\0" % len(data) + data).hexdigest()
+    good = {
+        "refs": {
+            "refs/heads/main": {"kind": "branches", "target": "1" * 40, "commits": ["1" * 40]}
+        },
+        "commits": {
+            "1" * 40: commit(
+                [("manifest.json", None, blob), ("alerts/messages.parquet", "a" * 64, "f" * 40)]
+            )
+        },
+    }
+    path = tmp_path / "listing.json"
+    path.write_text(json.dumps(good))
+    args = ["page", "history", "--dataset", "x/y", "--pack", str(pack), "--listing", str(path)]
+    assert cli.main(args) == 0
+    out = capsys.readouterr().out
+    assert "1 ref(s) (refs/heads/main -> 11111111), 1 commit(s) reached, 2 file entries" in out
+    assert "History passed" in out and "released versions: 9.9.9" in out
+    good["commits"]["1" * 40]["files"].append(
+        {"path": "alerts/old.parquet", "sha256": "9" * 64, "blob_id": "f" * 40}
+    )
+    path.write_text(json.dumps(good))
+    assert cli.main(args) == 1
+    assert "11111111 holds alerts/old.parquet" in capsys.readouterr().out
