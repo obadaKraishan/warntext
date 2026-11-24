@@ -10,6 +10,9 @@
   after it on the rendered page while the source looks complete.
 - :func:`raw_tags` finds what a Markdown renderer would read as raw HTML, outside code; the
   release check fails on any.
+- :func:`history_problems` checks that every commit any ref of the dataset reaches (branches,
+  tags, the Hub's conversion refs, pull requests) holds only released files, so that no
+  superseded build can be downloaded by its commit; :func:`fetch_history` lists them signed out.
 
 Nothing here reads or sends a token.
 """
@@ -17,6 +20,7 @@ Nothing here reads or sends a token.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from html.parser import HTMLParser
 from typing import Any
 
@@ -192,3 +196,118 @@ def tag_problems(name: str, text: str) -> list[str]:
         "text after it; write it in words or in backticks."
         for line, tag in raw_tags(text)
     ]
+
+
+# --- the dataset's history: every commit any ref reaches holds released files only ----------
+
+#: Files any commit may hold besides the released data: the card (its wording may change), the
+#: manifest (one of the released versions', by git blob id) and the Hub's own attributes file.
+CARD_FILE = "README.md"
+MANIFEST_FILE = "manifest.json"
+HUB_FILES = frozenset({".gitattributes"})
+#: The Hub's ref kinds, as its API names them; a conversion ref holds the Hub's own copies of
+#: the data files under other paths, so its files are checked by SHA-256 alone.
+REF_KINDS = ("branches", "converts", "tags", "pullRequests")
+
+
+def git_blob_id(data: bytes) -> str:
+    """The git blob id of a file's bytes (how the Hub names a file that is not in LFS)."""
+    import hashlib
+
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def history_problems(
+    listing: Mapping[str, Any], manifests: Sequence[tuple[Mapping[str, Any], str]]
+) -> list[str]:
+    """Each file of a commit that some ref reaches and that no released version holds.
+
+    ``listing`` is ``{"refs": {ref: {"kind": ..., "commits": [commit ids]}}, "commits": {commit
+    id: {"files": [{"path", "sha256", "blob_id"}]}}}`` (``sha256`` is the LFS hash, None for a
+    file not in LFS). ``manifests`` are the released versions' manifests, each with its git blob
+    id. A data file must be a released one by path and SHA-256 (by SHA-256 alone in a conversion
+    ref); ``manifest.json`` must be a released manifest; the card and ``.gitattributes`` may be
+    any. Messages name commits, refs and paths only; nothing is downloaded or read.
+    """
+    pairs = {(f["path"], f["sha256"]) for m, _ in manifests for f in m["files"]}
+    hashes = {sha for _, sha in pairs}
+    blobs = {blob for _, blob in manifests}
+    refs = listing.get("refs") or {}
+    if not refs:
+        return ["no ref is listed: the listing is empty or the dataset has no branch"]
+    found: dict[tuple[str, str], set[str]] = {}
+    problems = []
+    for ref, entry in sorted(refs.items()):
+        converted = entry.get("kind") in ("converts", "convert")
+        for commit in entry.get("commits") or []:
+            files = (listing.get("commits") or {}).get(commit)
+            if files is None:
+                problems.append(f"{ref} reaches {commit[:8]}, whose files are not listed")
+                continue
+            for f in files.get("files") or []:
+                path, sha = f["path"], f.get("sha256")
+                if path == CARD_FILE or path in HUB_FILES:
+                    continue
+                if path == MANIFEST_FILE:
+                    ok = f.get("blob_id") in blobs
+                elif converted:
+                    ok = sha is not None and sha in hashes
+                else:
+                    ok = (path, sha) in pairs
+                if not ok:
+                    found.setdefault((commit, path), set()).add(ref)
+    for (commit, path), by in sorted(found.items()):
+        problems.append(
+            f"{commit[:8]} holds {path}, which no released version has (reached from "
+            f"{', '.join(sorted(by))})"
+        )
+    return problems
+
+
+def _pages(url: str, session: Any) -> list[Any]:
+    """Every page of a listing the Hub's API pages by its Link header, signed out."""
+    out: list[Any] = []
+    while url:
+        r = signed_out_get(url, session)
+        if r.status_code != 200:
+            raise PageCheckError(f"{url} answered HTTP {r.status_code} signed out.")
+        out.extend(r.json())
+        url = (r.links.get("next") or {}).get("url")
+    return out
+
+
+def fetch_history(dataset: str, session: Any = None) -> dict[str, Any]:
+    """The listing :func:`history_problems` reads, asked signed out (a public dataset only)."""
+    from urllib.parse import quote
+
+    s = session if session is not None else signed_out_session()
+    base = f"{SITE}/api/datasets/{dataset}"
+    r = signed_out_get(f"{base}/refs?include_prs=1", s)
+    if r.status_code != 200:
+        raise PageCheckError(f"{base}/refs answered HTTP {r.status_code} signed out.")
+    listing: dict[str, Any] = {"refs": {}, "commits": {}}
+    for kind in REF_KINDS:
+        for ref in r.json().get(kind) or []:
+            name = ref["ref"]
+            commits = [c["id"] for c in _pages(f"{base}/commits/{quote(name, safe='')}", s)]
+            listing["refs"][name] = {
+                "kind": kind,
+                "target": ref.get("targetCommit"),
+                "commits": commits,
+            }
+            for c in commits:
+                if c in listing["commits"]:
+                    continue
+                tree = _pages(f"{base}/tree/{c}?recursive=true&expand=true", s)
+                listing["commits"][c] = {
+                    "files": [
+                        {
+                            "path": e["path"],
+                            "sha256": (e.get("lfs") or {}).get("oid"),
+                            "blob_id": e.get("oid"),
+                        }
+                        for e in tree
+                        if e.get("type") == "file"
+                    ]
+                }
+    return listing
