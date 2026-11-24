@@ -678,10 +678,10 @@ def test_warntext_text_never_reads_a_listed_message_again():
     assert len(rebuild.wanted(messages, None)) == 2  # the tracked list is empty
 
 
-def test_the_cards_updates_say_the_history_was_squashed(pack):
+def test_the_cards_updates_say_the_dataset_was_re_created(pack):
     card = (pack["dir"] / "README.md").read_text()
     updates = card[card.index("## Updates") :]
-    assert "On 24 November 2026 the dataset's commit history was squashed" in " ".join(
+    assert "On 24 November 2026 the dataset was re-created with a single version" in " ".join(
         updates.split()
     )
     assert "the files of release 0.1.0 are unchanged (the same hashes)." in " ".join(
