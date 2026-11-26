@@ -7,6 +7,35 @@ All notable changes to this project are recorded here. The format follows
 ## [Unreleased]
 
 ### Added
+- **The easy-access layer**, in every version from 0.2.0, built by `warntext release build` and
+  checked by `warntext release check`: `00_start_here_messages.csv` (every message, real alerts
+  and tests together, with the words of its first language block where the text is released and
+  `text_status` saying why where it is not), the same rows as an Excel workbook with a Read me
+  sheet and a Fields sheet (a seeded sample of 1,000 rows, named so, if the whole workbook would
+  pass about 100 MB), `fields.csv` (every column of every table: type, meaning, allowed values),
+  `codebook.csv` (the six content codes, their definitions and statuses) and a gzipped CSV beside
+  every Parquet file. The manifest lists them (`access_files`); the check holds every CSV to its
+  Parquet table row for row, the workbook to the start-here file, the start-here words to the
+  privacy rules, and every cell to Excel's limits. The card's `configs` still point at the
+  Parquet files only. A stdlib workbook writer streams the rows (`xlsx.write_data_workbook`).
+- The card opens with **Start here** (which file for which need, how to open each in Excel, SPSS,
+  Stata, R and Python, what 1, 0 and an empty cell mean, what a withheld text looks like, and
+  three lines in R and in Python that join the messages with their codes and references), says
+  that a removal request that concerns a person deletes and re-creates the dataset with the
+  removal applied to every version still offered, and describes the weekly versions. The Kaggle
+  page opens with its own Start here (no words), its files in reading order and the start-here
+  file first, and an update frequency of monthly. Release 0.1.0's manifest still renders its
+  published card byte for byte (a test).
+- `warntext release remove` (a built version again with the removal list applied, exactly as a
+  build applies it) and `warntext release removal-proof` (only the removed text changed: every
+  other file and row the same by hash); a version rebuilt with the list equals a fresh build with
+  it, row for row (a test on invented versions).
+- `warntext release shrink`: the shrink limit against the version before.
+- `warntext page history` accepts a version's easy-access files, by SHA-256 in LFS or by git
+  blob id outside it.
+- The field catalogue (`warntext.fields`): the one definition of every column's meaning and
+  allowed values; a test holds it to the tables' schemas.
+
 - `warntext page history`: every commit that any ref of the dataset reaches (branches, tags, the
   Hub's conversion refs, pull requests) may hold only released files: a data file by path and
   SHA-256 (by SHA-256 alone in a conversion ref), a released `manifest.json`, the card and
@@ -51,6 +80,11 @@ All notable changes to this project are recorded here. The format follows
   address.
 
 ### Changed
+- `warntext update` and `warntext release build` need `--codebook-version`: the weekly versions
+  name frozen codebook version 3 every time, never the code's default. The update's summary
+  records the version.
+- A version is cited by the year its records were retrieved.
+- The package version is 0.2.0.
 - The dataset on Hugging Face is re-created (2026-11-24) with release 0.1.0 alone, its files the
   same by hash, and the tag `v0.1.0` on them. The earlier commits held superseded builds whose
   text layer kept texts the widened privacy rules withhold (phone numbers in other written forms,

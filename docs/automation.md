@@ -1,8 +1,8 @@
-# Automation: the weekly update (DRAFT)
+# Automation: the weekly update
 
-**Built and dry-run once; switched off.** `warntext update` works from the maintainer's local
-state today. Nothing runs on a schedule, and nothing is delivered until the maintainer switches
-delivery on after the first release.
+**Route (c), from version 0.2.0 (November 2026).** A scheduler on the maintainer's machine runs
+the weekly update on Mondays; each run that passes every check opens a draft pull request on the
+Hugging Face dataset, which the maintainer publishes and merges. Section 3 says how it runs.
 
 ## 1. What one run does (`warntext update`)
 1. **The window.** From the end of the last window (kept in a small state file next to the raw
@@ -62,15 +62,34 @@ move). Route (b) is the fallback once the repository is public (Actions minutes 
 public repositories), if a store is found that the maintainer accepts for staff addresses; route
 (a) only if exactness of text groups and some references across weeks can be given up.
 
-## 3. Route (c) as prepared (switched off)
-- A weekly script runs `warntext update`, `release build` and `release check`, logs counts only,
-  and stops before delivery unless delivery is switched on.
-- A scheduler entry for the machine (launchd), with no schedule and marked disabled, not
-  installed.
-- Delivery, when switched on: the next version as a **pull request on the Hugging Face dataset**,
-  merged by the maintainer after reading it. Versions are numbered 0.1.N.
+## 3. Route (c) as it runs (from 0.2.0)
+- **When:** Mondays, by the machine's scheduler (launchd). A week the machine missed is caught up
+  by the next run, since each run reads from where the last good one ended.
+- **The drive first:** when the data drive is not mounted, the run reads and sends nothing and
+  leaves a notice.
+- **One version at a time:** while a pull request is open on the dataset (a draft counts), the
+  run stops; the maintainer merges or closes it first.
+- **The update:** `warntext update --codebook-version 3`, into a work folder of its own (never the
+  tables release 0.1.0 was built from); the state moves only when its check passes.
+- **The version:** weekly versions are numbered 0.2.N, one more than the last delivered (0.2.0
+  first), and coded with frozen codebook version 3, named on the command line every time
+  (`--codebook-version 3`), never taken from the code's default. Release 0.1.0 keeps version 1's
+  codes.
+- **The checks:** `warntext release check` (every file against the manifest, the card, the
+  tables' release check, the privacy scans of the released text, the easy-access files against
+  their Parquet tables row for row), a secret scan of the pack's text files, Hugging Face's card
+  validation, and the shrink limit (`warntext release shrink`: a record-layer table may lose no
+  rows from the version before, a text table at most 1% or 10 rows).
+- **Delivery:** the version as a **draft pull request on the dataset**, its files checked signed
+  out against the pack by hash, then the history check. The maintainer takes it out of draft and
+  merges it. Weekly versions are commits on `main`; minor releases (0.1.0, 0.2.0) are also tagged.
+- **When a step fails:** nothing is delivered; one notice is left (an issue titled "Weekly update
+  stopped" on the repository, or a comment on one already open; a desktop notification when the
+  command line cannot reach GitHub) and a log on the machine. The run never retries: the next
+  Monday's run tries again.
+- **The Kaggle mirror** (no text) is refreshed by hand about once a month.
 - **GitHub Actions minutes:** none for the update. Each push still runs CI on Python 3.12 (about
-  one minute); the full matrix runs only when started by hand, before a release.
+  one minute); pull requests run the full matrix.
 
 ## 4. Hardening
 - Every request goes through the polite client: one at a time, at least 3.5 seconds apart,
