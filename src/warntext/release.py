@@ -358,6 +358,41 @@ def stale_on_removal_list(tables_dir: Path | str, removals: Iterable[str] | None
             )
 
 
+#: The shrink limit: a text table may lose at most this share of its rows (or ``SHRINK_FLOOR``
+#: rows, whichever is more) from the version before; a record-layer table may lose none, since
+#: the archive only grows and a removal leaves the record row.
+MAX_SHRINK = 0.01
+SHRINK_FLOOR = 10
+
+
+def shrink_problems(
+    new: Mapping[str, Any], old: Mapping[str, Any], max_shrink: float = MAX_SHRINK
+) -> list[str]:
+    """Where a new version holds fewer rows than the version before beyond the limit."""
+    out = []
+    rows = {f["path"]: f["rows"] for f in new["files"]}
+    for f in old["files"]:
+        path, before = f["path"], f["rows"]
+        after = rows.get(path)
+        name = path.split("/")[1].removesuffix(".parquet")
+        if after is None:
+            out.append(
+                f"{path}: in {old['version']} ({before:,} rows) but not in {new['version']}."
+            )
+        elif name in TEXT_TABLES:
+            if before - after > max(SHRINK_FLOOR, before * max_shrink):
+                out.append(
+                    f"{path}: {before:,} rows in {old['version']}, {after:,} in {new['version']} "
+                    f"(a text table may lose at most {max_shrink:.0%} or {SHRINK_FLOOR} rows)."
+                )
+        elif after < before:
+            out.append(
+                f"{path}: {before:,} rows in {old['version']}, {after:,} in {new['version']} (a "
+                "record-layer table never loses rows: the archive only grows)."
+            )
+    return out
+
+
 #: The columns that key a coded unit.
 UNIT_KEY = ("message_id", "info_index", "unit")
 
