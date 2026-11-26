@@ -778,7 +778,13 @@ def start_here_section(manifest: Mapping[str, Any], kaggle: bool = False) -> str
         f'- **Python:** `pandas.read_parquet("{m}.parquet")`, or `pandas.read_csv("{m}.csv.gz")`.',
         "",
         "In the CSV files and the workbook, 1 is yes and 0 is no, an empty cell has no value, a "
-        'list\'s items are joined with "; ", and times are in UTC.',
+        'list\'s items are joined with "; ", and times are in UTC.'
+        + (
+            ""
+            if kaggle
+            else ' A few list items of the text tables hold "; " themselves; the Parquet files '
+            "keep every item apart."
+        ),
         "",
         "**What a withheld text looks like.** A message whose text is withheld keeps its row in "
         "`messages`, with the reason in `text_withheld` (for example `people_code`), and has no "
