@@ -242,6 +242,31 @@ def test_a_history_of_released_files_passes_and_an_old_build_fails():
     )
 
 
+def test_the_history_accepts_the_easy_access_files_by_hash_or_by_git_blob():
+    layered = {
+        **MANIFEST,
+        "access_files": [
+            {"path": "00_start_here_messages.csv", "sha256": "c" * 64},
+            {"path": "fields.csv", "sha256": "d" * 64},
+        ],
+        "access_blobs": {"fields.csv": "e" * 40, "00_start_here_messages.csv": "b" * 40},
+    }
+    files = commit(
+        [
+            ("00_start_here_messages.csv", "c" * 64, "f" * 40),  # in LFS, by SHA-256
+            ("fields.csv", None, "e" * 40),  # a regular file, by its git blob id
+        ]
+    )
+    listing = {
+        "refs": {"refs/pr/1": {"kind": "pullRequests", "commits": ["5" * 40]}},
+        "commits": {"5" * 40: files},
+    }
+    assert hfpage.history_problems(listing, [(layered, MANIFEST_BLOB)]) == []
+    other = commit([("fields.csv", None, "0" * 40)])
+    listing["commits"]["5" * 40] = other
+    assert "holds fields.csv" in hfpage.history_problems(listing, [(layered, MANIFEST_BLOB)])[0]
+
+
 def test_a_history_check_needs_refs_and_every_commits_files_and_reads_several_versions():
     assert hfpage.history_problems({}, [(MANIFEST, MANIFEST_BLOB)])[0].startswith("no ref")
     unlisted = {"refs": {"refs/heads/main": {"kind": "branches", "commits": ["5" * 40]}}}

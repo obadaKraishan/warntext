@@ -832,7 +832,13 @@ def cmd_page_history(args: argparse.Namespace) -> int:
     manifests = []
     for pack in args.pack:
         data = (Path(pack) / hfpage.MANIFEST_FILE).read_bytes()
-        manifests.append((json.loads(data), hfpage.git_blob_id(data)))
+        manifest = json.loads(data)
+        # The easy-access files may be stored outside LFS: name them by their git blob ids too.
+        manifest["access_blobs"] = {
+            f["path"]: hfpage.git_blob_id((Path(pack) / f["path"]).read_bytes())
+            for f in manifest.get("access_files") or []
+        }
+        manifests.append((manifest, hfpage.git_blob_id(data)))
     if args.listing:
         listing = json.loads(Path(args.listing).read_text(encoding="utf-8"))
         how = f"the listing {args.listing}"

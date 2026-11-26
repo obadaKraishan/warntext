@@ -226,10 +226,19 @@ def history_problems(
     id: {"files": [{"path", "sha256", "blob_id"}]}}}`` (``sha256`` is the LFS hash, None for a
     file not in LFS). ``manifests`` are the released versions' manifests, each with its git blob
     id. A data file must be a released one by path and SHA-256 (by SHA-256 alone in a conversion
-    ref); ``manifest.json`` must be a released manifest; the card and ``.gitattributes`` may be
-    any. Messages name commits, refs and paths only; nothing is downloaded or read.
+    ref), or, for an easy-access file stored outside LFS, by path and git blob id (the manifest's
+    ``access_blobs``, measured from the pack); ``manifest.json`` must be a released manifest; the
+    card and ``.gitattributes`` may be any. Messages name commits, refs and paths only; nothing
+    is downloaded or read.
     """
-    pairs = {(f["path"], f["sha256"]) for m, _ in manifests for f in m["files"]}
+    pairs = {
+        (f["path"], f["sha256"])
+        for m, _ in manifests
+        for f in (*m["files"], *(m.get("access_files") or []))
+    }
+    regular = {
+        (path, blob) for m, _ in manifests for path, blob in (m.get("access_blobs") or {}).items()
+    }
     hashes = {sha for _, sha in pairs}
     blobs = {blob for _, blob in manifests}
     refs = listing.get("refs") or {}
@@ -253,7 +262,9 @@ def history_problems(
                 elif converted:
                     ok = sha is not None and sha in hashes
                 else:
-                    ok = (path, sha) in pairs
+                    ok = (path, sha) in pairs or (
+                        sha is None and (path, f.get("blob_id")) in regular
+                    )
                 if not ok:
                     found.setdefault((commit, path), set()).add(ref)
     for (commit, path), by in sorted(found.items()):
