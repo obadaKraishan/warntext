@@ -238,6 +238,11 @@ def test_the_kaggle_copies_hold_no_words(pack):
     header = _rows(k / access.START_HERE)[0]
     assert "text_status" in header and "headline" not in header and "credit" not in header
     assert (k / "fields.csv").read_bytes() == (pack["dir"] / "fields.csv").read_bytes()
+    # Kaggle unpacks a gzipped file on upload: the mirror holds the plain CSV, the same bytes.
+    assert not any(n.endswith(".gz") for n in names)
+    assert (k / "alerts-messages.csv").read_bytes() == gzip.decompress(
+        (pack["dir"] / "alerts" / "messages.csv.gz").read_bytes()
+    )
     meta = json.loads((k / "dataset-metadata.json").read_text())
     paths = [r["path"] for r in meta["resources"]]
     assert paths[0] == access.START_HERE and set(paths) == set(names) - {
@@ -283,7 +288,8 @@ def test_the_kaggle_description_opens_with_its_own_start_here(pack):
     meta = json.loads((pack["kaggle"] / "dataset-metadata.json").read_text())
     text = meta["description"]
     assert "## Start here" in text and "no words" in text
-    assert "alerts-messages.csv.gz" in text and "alerts/messages.csv.gz" not in text
+    assert "alerts-messages.csv" in text and ".csv.gz" not in text  # Kaggle unpacks .gz
+    assert 'read.csv("alerts-messages.csv")' in text
     assert release.kaggle_metadata_problems(meta) == []
 
 
@@ -318,3 +324,19 @@ def test_the_release_check_cli_reads_the_layer(pack, tmp_path, capsys):
         ]
     )
     assert code == 0, capsys.readouterr().out
+
+
+def test_an_older_version_is_checked_without_the_moved_state_counts(pack, tmp_path, capsys):
+    from warntext import cli
+
+    state = tmp_path / "moved.json"
+    state.write_text(json.dumps({"year_counts": {"2024": 4, "2026": 9}}))  # the state moved on
+    shutil.copytree(pack["dir"].parent / "p", tmp_path / "priv", dirs_exist_ok=True)
+    args = [
+        *("release", "check", "--pack", str(pack["dir"])),
+        *("--private", str(tmp_path / "priv"), "--state", str(state)),
+    ]
+    assert cli.main(args) == 1
+    assert "on the server" in capsys.readouterr().out
+    assert cli.main([*args, "--no-server-counts"]) == 0
+    assert "left out (--no-server-counts)" in capsys.readouterr().out

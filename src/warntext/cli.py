@@ -788,8 +788,15 @@ def cmd_release_shrink(args: argparse.Namespace) -> int:
 
 def cmd_release_check(args: argparse.Namespace) -> int:
     """The pack's own check: its files, its card, and the release check of its tables."""
-    state = json.loads(Path(args.state).read_text(encoding="utf-8"))
-    counts = {int(y): n for y, n in state["year_counts"].items()}
+    if args.no_server_counts:
+        counts = None
+        print(
+            "The comparison with the yearly server counts is left out (--no-server-counts): this "
+            "version was built before the state moved on, and its counts were checked then."
+        )
+    else:
+        state = json.loads(Path(args.state).read_text(encoding="utf-8"))
+        counts = {int(y): n for y, n in state["year_counts"].items()}
     failures = rl.check_pack(
         args.pack, ck.read_sender_values(args.private), ck.read_identifiers(args.private), counts
     )
@@ -1195,6 +1202,12 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--pack", required=True)
     q.add_argument("--private", default="data/interim/private")
     q.add_argument("--state", default="data/raw/update-state.json", help="for the year counts")
+    q.add_argument(
+        "--no-server-counts",
+        action="store_true",
+        help="leave out the comparison with the state's yearly server counts: for a version built "
+        "before the state moved on (its counts were checked when it was built)",
+    )
     q.set_defaults(func=cmd_release_check)
 
     p = sub.add_parser("page", help="checks of the dataset page on Hugging Face (signed out)")

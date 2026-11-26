@@ -126,9 +126,9 @@ def file_description(flat: str, version: str = "1") -> str:
     codes file's names the content codes validated in its codebook ``version``."""
     if flat in _LAYER:
         return _LAYER[flat]
-    if flat.endswith(".csv.gz"):
-        base = flat.removesuffix(".csv.gz")
-        return f"{file_description(base + '.parquet', version)} As a gzipped CSV."
+    if flat.endswith((".csv", ".csv.gz")):
+        base = flat.removesuffix(".gz").removesuffix(".csv")
+        return f"{file_description(base + '.parquet', version)} As a CSV."
     split, _, table = flat.removesuffix(".parquet").partition("-")
     words = _TABLES[table]
     if table == "codes" and version != "1":
@@ -293,14 +293,14 @@ def resources(manifest: Mapping[str, Any], tables: tuple[str, ...]) -> list[dict
     and the two catalogues first, then each table's Parquet file and its gzipped CSV."""
     version = str(manifest.get("codebook_version", "1"))
     layer = access.kaggle_files(manifest, tables)
-    top = [n for n in layer if not n.endswith(".csv.gz")]
+    top = [n for n in layer if not n.startswith(("alerts-", "tests-"))]
     by = {f["path"]: f for f in manifest.get("access_files") or []}
     out = [{"path": n, "rows": by[n]["rows"]} for n in top]
     for f in kaggle_files(manifest, tables):
         out.append({"path": f["flat"], "rows": f["rows"]})
-        gz = f["flat"].replace(".parquet", ".csv.gz")
-        if gz in layer:
-            out.append({"path": gz, "rows": f["rows"]})
+        csv = f["flat"].replace(".parquet", ".csv")
+        if csv in layer:
+            out.append({"path": csv, "rows": f["rows"]})
     for r in out:
         r["description"] = file_description(r["path"], version)
     return out

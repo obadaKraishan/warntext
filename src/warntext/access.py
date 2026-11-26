@@ -636,13 +636,24 @@ def _start_here_privacy(header: list[str], cells: list[list[str]]) -> list[str]:
 
 
 def kaggle_name(path: str) -> str:
-    """A pack path's Kaggle file name: ``alerts/messages.csv.gz`` -> ``alerts-messages.csv.gz``."""
-    return path.replace("/", "-")
+    """A pack path's Kaggle file name: ``alerts/messages.parquet`` -> ``alerts-messages.parquet``,
+    ``alerts/messages.csv.gz`` -> ``alerts-messages.csv``: Kaggle unpacks a gzipped file on
+    upload (seen with 0.2.0), so the mirror holds the plain CSV, byte for byte the gzipped one's
+    content."""
+    return path.replace("/", "-").removesuffix(".gz")
+
+
+def _kaggle_source(name: str) -> str:
+    """The pack path a Kaggle copy comes from (the catalogues keep their names)."""
+    if name in (FIELDS_FILE, CODEBOOK_FILE):
+        return name
+    path = name.replace("-", "/", 1)
+    return path + ".gz" if path.endswith(".csv") else path
 
 
 def kaggle_files(manifest: Mapping[str, Any], record_tables: Iterable[str]) -> list[str]:
     """The layer's Kaggle file names, in order: the start-here file, the workbook, the two
-    catalogues, then the record layer's gzipped CSVs."""
+    catalogues, then the record layer's CSVs (plain on Kaggle)."""
     tables = set(record_tables)
     out = []
     for f in manifest.get("access_files") or []:
@@ -658,7 +669,7 @@ def build_kaggle(
     pack_dir: Path, out_dir: Path, manifest: Mapping[str, Any], record_tables: Iterable[str]
 ) -> list[str]:
     """The mirror's copies of the layer: the start-here file and workbook without the word
-    columns, the two catalogues and the record layer's gzipped CSVs as they are."""
+    columns, the two catalogues as they are, and the record layer's CSVs unpacked."""
     pack_dir, out_dir = Path(pack_dir), Path(out_dir)
     if not manifest.get("access_files"):
         return []
@@ -671,8 +682,11 @@ def build_kaggle(
     for name in names:
         if name in (START_HERE, XLSX_WHOLE, XLSX_SAMPLE):
             continue
-        source = name if name in (FIELDS_FILE, CODEBOOK_FILE) else name.replace("-", "/", 1)
-        shutil.copyfile(pack_dir / source, out_dir / name)
+        source = _kaggle_source(name)
+        if source.endswith(".gz"):
+            (out_dir / name).write_bytes(gzip.decompress((pack_dir / source).read_bytes()))
+        else:
+            shutil.copyfile(pack_dir / source, out_dir / name)
     return names
 
 
@@ -700,10 +714,15 @@ def kaggle_problems(
     for name in names:
         if name in (START_HERE, book):
             continue
-        source = name if name in (FIELDS_FILE, CODEBOOK_FILE) else name.replace("-", "/", 1)
-        if durable.sha256_file(out_dir / name) != durable.sha256_file(pack_dir / source):
+        source = _kaggle_source(name)
+        want = (
+            durable.sha256_bytes(gzip.decompress((pack_dir / source).read_bytes()))
+            if source.endswith(".gz")
+            else durable.sha256_file(pack_dir / source)
+        )
+        if durable.sha256_file(out_dir / name) != want:
             fail.append(f"kaggle/{name}: differs from the pack's {source}.")
-        if name.endswith(".csv.gz"):
+        if source.endswith(".gz"):
             columns = set(next(read_csv(out_dir / name)))
             if columns & (words | {"headline", "description", "instruction"}):
                 fail.append(f"kaggle/{name}: holds a word column; the mirror holds no text.")
@@ -752,6 +771,7 @@ def start_here_section(manifest: Mapping[str, Any], kaggle: bool = False) -> str
     if book == XLSX_SAMPLE:
         look += f" The workbook holds a seeded sample of {SAMPLE_ROWS:,} rows; the CSV holds all."
     m, k, r = at("alerts/messages"), at("alerts/codes"), at("alerts/references")
+    ext = ".csv" if kaggle else ".csv.gz"
     lines = [
         "## Start here",
         "**Which file.**",
@@ -759,7 +779,8 @@ def start_here_section(manifest: Mapping[str, Any], kaggle: bool = False) -> str
         f"- **For analysis:** the Parquet files (`{at('alerts/messages.parquet')}` and the rest), "
         "the full release. Parquet is a compressed format for tables that keeps each column's "
         "type, and R, Python and DuckDB read it directly. Every Parquet file also comes as a "
-        f"gzipped CSV beside it (`{at('alerts/messages.csv.gz')}`).",
+        + ("CSV" if kaggle else "gzipped CSV")
+        + f" beside it (`{at('alerts/messages.csv.gz')}`).",
         f"- **What a column means:** `{FIELDS_FILE}` (every column of every table: its type, "
         f"meaning and allowed values). **The content codes:** `{CODEBOOK_FILE}` (the six codes, "
         "their definitions, and which are validated).",
@@ -769,13 +790,16 @@ def start_here_section(manifest: Mapping[str, Any], kaggle: bool = False) -> str
         "**Opening the files.**",
         f"- **Excel:** open `{book}`. For a CSV file, use Data > From Text/CSV and choose UTF-8 "
         "(opening it with a double-click can garble accented letters).",
-        "- **SPSS:** File > Import Data > CSV Data, on a CSV file (a `.csv.gz` file opens with "
-        "any unzip tool first).",
-        '- **Stata:** `import delimited using "messages.csv", varnames(1) encoding(utf-8) '
-        "bindquote(strict)`, on an unzipped CSV file.",
-        f'- **R:** `read.csv("{m}.csv.gz")` reads a gzipped CSV as it is; '
-        f'`arrow::read_parquet("{m}.parquet")` reads a Parquet file.',
-        f'- **Python:** `pandas.read_parquet("{m}.parquet")`, or `pandas.read_csv("{m}.csv.gz")`.',
+        "- **SPSS:** File > Import Data > CSV Data, on a CSV file"
+        + ("." if kaggle else " (a `.csv.gz` file opens with any unzip tool first)."),
+        "- **Stata:** `import delimited using "
+        + ('"alerts-messages.csv"' if kaggle else '"messages.csv"')
+        + ", varnames(1) encoding(utf-8) bindquote(strict)`"
+        + ("." if kaggle else ", on an unzipped CSV file."),
+        f'- **R:** `read.csv("{m}{ext}")` reads a '
+        + ("CSV" if kaggle else "gzipped CSV as it is")
+        + f'; `arrow::read_parquet("{m}.parquet")` reads a Parquet file.',
+        f'- **Python:** `pandas.read_parquet("{m}.parquet")`, or `pandas.read_csv("{m}{ext}")`.',
         "",
         "In the CSV files and the workbook, 1 is yes and 0 is no, an empty cell has no value, a "
         'list\'s items are joined with "; ", and times are in UTC.'
@@ -799,7 +823,7 @@ def start_here_section(manifest: Mapping[str, Any], kaggle: bool = False) -> str
         "**Joining the tables** (real alerts; the same for the tests). In R:",
         "",
         "```r",
-        f'm <- read.csv("{m}.csv.gz"); k <- read.csv("{k}.csv.gz"); r <- read.csv("{r}.csv.gz")',
+        f'm <- read.csv("{m}{ext}"); k <- read.csv("{k}{ext}"); r <- read.csv("{r}{ext}")',
         'coded <- merge(m, k, by = "message_id", suffixes = c("", ".code"))',
         'linked <- merge(r, m, by.x = "ref_message_id", by.y = "message_id", '
         'suffixes = c("", ".earlier"))',
