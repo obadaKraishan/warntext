@@ -8,18 +8,21 @@ phones, Emergency Alert System messages on radio and television, and the other c
 system serves. It is built for communication, journalism and risk and crisis communication
 research that treats official warnings as text to be read, counted and coded.
 
-**Status: release 0.1.0 is published** (23 November 2026):
+**Status: release 0.2.0 is published** (26 November 2026), and weekly versions follow (0.2.1,
+0.2.2 and on), each built on Mondays from the records the archive added and delivered as a pull
+request on the dataset that the maintainer merges:
 - the dataset on Hugging Face, with the message text of the alerts that are not about people:
-  <https://huggingface.co/datasets/obadakr/warntext> (tag `v0.1.0`);
-- a mirror of the record layer and the released codes on Kaggle, without text:
-  <https://www.kaggle.com/datasets/obadakraishan/warntext>.
+  <https://huggingface.co/datasets/obadakr/warntext> (tags `v0.1.0` and `v0.2.0`; weekly versions
+  are commits on `main`);
+- a mirror of the record layer and the released codes on Kaggle, without text, refreshed about
+  once a month: <https://www.kaggle.com/datasets/obadakraishan/warntext>.
 
 The method, the schema, the codebook and the source terms are in [`docs/`](docs/).
 
-## What it holds (release 0.1.0)
-- **34,678 real alerts from 1,260 alerting authorities, and 49,186 tests and demonstrations**:
+## What it holds (release 0.2.0)
+- **34,876 real alerts from 1,260 alerting authorities, and 49,310 tests and demonstrations**:
   every message in FEMA's public archive from senders other than the National Weather Service,
-  sent before 17:00 UTC on 14 November 2026. The earliest message is dated 30 September 2011;
+  sent before 12:00 UTC on 25 November 2026. The earliest message is dated 30 September 2011;
   five alerts carry 2011 dates, and every other message is dated June 2012 or later. The
   archive's headline count of about 4.9 million records is 98% weather service products, which
   this release leaves out.
@@ -42,11 +45,14 @@ The method, the schema, the codebook and the source terms are in [`docs/`](docs/
   and their places to the county.
 - Content codes from the warning literature for every real alert's phone and full texts
   (hazard, location, time, source and guidance with their kinds, hazard category, completeness
-  and style), coded by rules and checked against two blind hand-coded sheets. Release 0.1.0 holds
-  no validated content code: the hazard passed the first sheet but not the second, so the six
-  contents are experimental and left out; the hazard category, links, abbreviations, all caps,
-  the evacuation wordings and two flags are released.
-- Later: a weekly update.
+  and style), coded by rules (frozen codebook version 3) and checked against a blind hand-coded
+  sheet and the coder's blind recheck. Release 0.2.0 releases two validated content codes, time
+  and location; hazard, hazard description, source and guidance stay experimental and are left
+  out; the hazard category, links, abbreviations, all caps, the evacuation wordings and two flags
+  are released. Release 0.1.0 keeps codebook version 1's codes and no validated content code.
+- Plain files beside the Parquet tables, for readers who do not use Parquet: a start-here CSV
+  and an Excel workbook of every message, `fields.csv` (every column's meaning), `codebook.csv`
+  (the six content codes) and a gzipped CSV of every table (`docs/schema.md`).
 
 See [`docs/data-card.md`](docs/data-card.md), [`docs/schema.md`](docs/schema.md),
 [`docs/method.md`](docs/method.md) and [`docs/codebook.md`](docs/codebook.md) (draft).
@@ -70,7 +76,10 @@ taken out of the dataset: open an issue with the
 write on the dataset's Community tab on Hugging Face. Give the record id (`message_id`), never
 the text or anyone's personal details: the issue is public. Each request is answered within 14
 days. The text row leaves the next version; the message's record row, which holds no text,
-stays, as it does in FEMA's own archive.
+stays, as it does in FEMA's own archive. When a request concerns a person (someone named or
+described in a message), the dataset is deleted and created again, so that the text is gone from
+every version still offered: the tagged releases and the latest weekly version, each rebuilt with
+the removal applied.
 
 ## Source
 The messages come from the "IPAWS Archived Alerts" dataset that FEMA publishes through its
@@ -84,7 +93,7 @@ use and the citation they ask for.
 Cite the dataset with its version:
 
 > Kraishan, O. (2026). *WarnText: A research corpus of the public emergency alert messages sent
-> in the United States* (Version 0.1.0) [Data set]. Hugging Face.
+> in the United States* (Version 0.2.0) [Data set]. Hugging Face.
 > https://huggingface.co/datasets/obadakr/warntext
 
 and the source, with the endpoint and the time it was read, as FEMA asks (the dataset card's
@@ -92,7 +101,7 @@ and the source, with the endpoint and the time it was read, as FEMA asks (the da
 read):
 
 > Federal Emergency Management Agency (FEMA), OpenFEMA Dataset: IPAWS Archived Alerts - v1.
-> Retrieved from https://www.fema.gov/api/open/v1/IpawsArchivedAlerts on 2026-11-15 (UTC).
+> Retrieved from https://www.fema.gov/api/open/v1/IpawsArchivedAlerts on 2026-11-26 (UTC).
 
 The code and documents that build the corpus (no data table) are archived on Zenodo:
 https://doi.org/10.5281/zenodo.24475949 (all versions; it resolves to the latest), and release

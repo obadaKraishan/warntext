@@ -65,7 +65,7 @@ def apa(version: str, year: int = YEAR, markdown: bool = True) -> str:
 SOFTWARE_DOI = "10.5281/zenodo.24475949"
 SOFTWARE_DOIS = {"0.1.0": "10.5281/zenodo.24475950"}
 #: The date each release was published.
-RELEASED = {"0.1.0": "2026-11-23"}
+RELEASED = {"0.1.0": "2026-11-23", "0.2.0": "2026-11-26"}
 
 
 def bibtex(version: str, year: int = YEAR) -> str:

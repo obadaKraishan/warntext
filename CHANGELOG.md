@@ -6,6 +6,11 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-26
+
+The first version on frozen codebook version 3 (`time` and `location` validated) and the first
+weekly version; the dataset's tag `v0.2.0`.
+
 ### Added
 - **The easy-access layer**, in every version from 0.2.0, built by `warntext release build` and
   checked by `warntext release check`: `00_start_here_messages.csv` (every message, real alerts
@@ -95,7 +100,9 @@ All notable changes to this project are recorded here. The format follows
   text layer kept texts the widened privacy rules withhold (phone numbers in other written forms,
   people described); once the dataset was public they could be downloaded by commit. Squashing
   the history and moving the tag was not enough, because the Hub still served the earlier commits
-  by their ids. Re-created, the dataset no longer has them. The card's "Updates" says so. The
+  by their ids. They could be downloaded from 15:54 UTC on 23 November, when the dataset was made
+  public, until shortly after midnight UTC, when it was made private again. Re-created, the
+  dataset no longer has them. The card's "Updates" says so. The
   texts come from FEMA's public archive and no removal request was involved, so no one was
   contacted.
 - The release's bound in words, one definition (`warntext.citation.bound_words`) for the card,

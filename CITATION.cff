@@ -7,18 +7,18 @@ cff-version: 1.2.0
 message: "If you use WarnText, please cite the dataset and its version as below, and the source as FEMA asks (see the dataset card's How to cite)."
 type: software
 title: "WarnText: software and documentation for a research corpus of US public alert messages"
-version: "0.1.0"
-date-released: "2026-11-23"
+version: "0.2.0"
+date-released: "2026-11-26"
 abstract: >-
   WarnText is a research corpus of the public alert messages that US federal, state, local,
   tribal and territorial alerting authorities sent through the Integrated Public Alert and Warning
   System (IPAWS), read from FEMA's OpenFEMA dataset "IPAWS Archived Alerts" (version 1). Version
-  0.1.0 holds every message in that archive from senders other than the National Weather
-  Service, sent before 17:00 UTC on 14 November 2026: 34,678 real alerts from 1,260 alerting
-  authorities and 49,186 tests and demonstrations, one row per message, with its alerting
+  0.2.0 holds every message in that archive from senders other than the National Weather
+  Service, sent before 12:00 UTC on 25 November 2026: 34,876 real alerts from 1,260 alerting
+  authorities and 49,310 tests and demonstrations, one row per message, with its alerting
   authority, its time, type and event codes, its places, the channels it asked for, the updates
   and cancellations that followed it, and measures of its text. The message text is included
-  for the alerts that are not about people; the text of 13,885 real alerts is withheld (alerts about people by their event codes,
+  for the alerts that are not about people; the text of 13,934 real alerts is withheld (alerts about people by their event codes,
   texts about a missing person or that describe a person, and texts with a phone number or an
   email address), and their rows stay. It is a research record, not an alerting service. This
   repository holds the software that builds and checks the corpus, and its documents.
@@ -54,8 +54,8 @@ preferred-citation:
       affiliation: "College of Media and Communication, Texas Tech University"
       orcid: "https://orcid.org/0009-0007-7180-8620"
   year: 2026
-  version: "0.1.0"
-  date-released: "2026-11-23"
+  version: "0.2.0"
+  date-released: "2026-11-26"
   publisher:
     name: "Hugging Face"
   url: "https://huggingface.co/datasets/obadakr/warntext"
