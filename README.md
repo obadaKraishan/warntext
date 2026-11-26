@@ -104,8 +104,9 @@ read):
 > Retrieved from https://www.fema.gov/api/open/v1/IpawsArchivedAlerts on 2026-11-26 (UTC).
 
 The code and documents that build the corpus (no data table) are archived on Zenodo:
-https://doi.org/10.5281/zenodo.24475949 (all versions; it resolves to the latest), and release
-0.1.0's at https://doi.org/10.5281/zenodo.24475950. `CITATION.cff` gives the dataset's citation for
+https://doi.org/10.5281/zenodo.24475949 (all versions; it resolves to the latest), release
+0.1.0's at https://doi.org/10.5281/zenodo.24475950 and release 0.2.0's at
+https://doi.org/10.5281/zenodo.24565177. `CITATION.cff` gives the dataset's citation for
 GitHub's "Cite this repository", with both DOIs.
 
 ## License

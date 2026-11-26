@@ -9,7 +9,8 @@ All notable changes to this project are recorded here. The format follows
 ## [0.2.0] - 2026-11-26
 
 The first version on frozen codebook version 3 (`time` and `location` validated) and the first
-weekly version; the dataset's tag `v0.2.0`.
+weekly version; the dataset's tag `v0.2.0`; the code and documents on Zenodo,
+https://doi.org/10.5281/zenodo.24565177.
 
 ### Added
 - **The easy-access layer**, in every version from 0.2.0, built by `warntext release build` and

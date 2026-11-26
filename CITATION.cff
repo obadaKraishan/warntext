@@ -36,6 +36,9 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.24475950
     description: "The software and documents on Zenodo, version 0.1.0"
+  - type: doi
+    value: 10.5281/zenodo.24565177
+    description: "The software and documents on Zenodo, version 0.2.0"
 repository-code: "https://github.com/obadaKraishan/warntext"
 url: "https://huggingface.co/datasets/obadakr/warntext"
 keywords:
