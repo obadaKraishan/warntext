@@ -238,6 +238,11 @@ def test_the_kaggle_copies_hold_no_words(pack):
     header = _rows(k / access.START_HERE)[0]
     assert "text_status" in header and "headline" not in header and "credit" not in header
     assert (k / "fields.csv").read_bytes() == (pack["dir"] / "fields.csv").read_bytes()
+    # Kaggle unpacks a gzipped file on upload: the mirror holds the plain CSV, the same bytes.
+    assert not any(n.endswith(".gz") for n in names)
+    assert (k / "alerts-messages.csv").read_bytes() == gzip.decompress(
+        (pack["dir"] / "alerts" / "messages.csv.gz").read_bytes()
+    )
     meta = json.loads((k / "dataset-metadata.json").read_text())
     paths = [r["path"] for r in meta["resources"]]
     assert paths[0] == access.START_HERE and set(paths) == set(names) - {
@@ -283,7 +288,8 @@ def test_the_kaggle_description_opens_with_its_own_start_here(pack):
     meta = json.loads((pack["kaggle"] / "dataset-metadata.json").read_text())
     text = meta["description"]
     assert "## Start here" in text and "no words" in text
-    assert "alerts-messages.csv.gz" in text and "alerts/messages.csv.gz" not in text
+    assert "alerts-messages.csv" in text and ".csv.gz" not in text  # Kaggle unpacks .gz
+    assert 'read.csv("alerts-messages.csv")' in text
     assert release.kaggle_metadata_problems(meta) == []
 
 

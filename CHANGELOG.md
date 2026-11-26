@@ -80,6 +80,11 @@ All notable changes to this project are recorded here. The format follows
   address.
 
 ### Changed
+- The Kaggle mirror holds the record layer's CSV files unpacked (`alerts-messages.csv`, byte for byte
+  the content of the pack's `alerts/messages.csv.gz`): Kaggle unpacks a gzipped file on upload,
+  so its file list, descriptions and Start here now name the files it holds.
+- `warntext release check --no-server-counts` re-checks a version built before the state moved on
+  (its yearly counts were checked when it was built), as the re-creation's dry run does.
 - `warntext update` and `warntext release build` need `--codebook-version`: the weekly versions
   name frozen codebook version 3 every time, never the code's default. The update's summary
   records the version.
