@@ -1,10 +1,11 @@
 # WarnText data card
 
-Release 0.1.0 was published on 2026-11-23: the dataset on Hugging Face
-(https://huggingface.co/datasets/obadakr/warntext, tag `v0.1.0`), a mirror of the record layer
-on Kaggle (https://www.kaggle.com/datasets/obadakraishan/warntext), and the code and documents
-on Zenodo (https://doi.org/10.5281/zenodo.24475949). The published dataset card on Hugging Face
-is the authoritative description of that release. This document describes the corpus as built
+Release 0.1.0 was published on 2026-11-23 and release 0.2.0 on 2026-11-26: the dataset on
+Hugging Face (https://huggingface.co/datasets/obadakr/warntext, tags `v0.1.0` and `v0.2.0`; the
+weekly versions 0.2.N are commits on `main`), a mirror of the record layer on Kaggle
+(https://www.kaggle.com/datasets/obadakraishan/warntext), and the code and documents on Zenodo
+(https://doi.org/10.5281/zenodo.24475949). The published dataset card on Hugging Face is the
+authoritative description of each version. This document describes the corpus as built
 from the archive snapshot of 2026-11-15; the numbers are from that build and will change with
 each weekly update.
 
@@ -195,6 +196,30 @@ national authority's. The pack was rebuilt once with the widened rules (method, 
   terms let FEMA ask a user to destroy any copy, and a Zenodo record cannot be withdrawn by its
   depositor, so no copy of the data is kept there, not even the record layer. DOIs:
   10.5281/zenodo.24475949 (all versions) and 10.5281/zenodo.24475950 (0.1.0).
+
+## Release 0.2.0 (published 2026-11-26) and the weekly versions
+Version 0.2.0 covers records sent before 12:00 UTC on 25 November 2026: 34,876 real alerts from
+1,260 authorities and 49,310 tests (322 more records than 0.1.0: 198 real alerts, 49 of them
+withheld, and 124 tests). Its codes are those of frozen codebook version 3, named on the command
+line every time: `time` and `location` are validated (alpha on the third blind sheet 0.91 and
+0.8003; the coder's consistency on the recheck 1.00 and 1.00), and hazard, hazard description,
+source and guidance are experimental and left out. It holds 15 Parquet files (501,997 rows,
+34.8 MB) and the easy-access files (`schema.md`): the start-here CSV and workbook of every
+message (84,186 rows; the workbook whole, 35.1 MB), `fields.csv`, `codebook.csv` and a gzipped
+CSV of every Parquet file. Its text withheld: 13,934 real alerts (8,884 by a people code, 5,024
+by a personal-detail pattern, 15 as about a missing person alone, 11 as describing a person
+alone). Weekly versions 0.2.1 and on follow on Mondays, each delivered as a draft pull request on
+the dataset and merged by the maintainer (`automation.md`); the Kaggle mirror, which holds no
+text, is refreshed by hand about once a month. When a removal request concerns a person, the
+dataset is deleted and created again, offering the tagged releases and the latest weekly version,
+each rebuilt with the removal applied; the weekly versions in between are not offered again.
+
+**The exposure window of 23 November 2026.** From 15:54 UTC on 23 November, when the dataset was
+made public, until shortly after midnight UTC, when it was made private again, the dataset's
+earlier commits (superseded builds of 0.1.0 whose text layer held texts the widened privacy rules
+withhold: 107 real alerts and 9 tests) could be downloaded by commit id. On 24 November the
+dataset was deleted and created again with release 0.1.0 alone, and the earlier commits answer
+"not found" since.
 
 ## Configurations and tables
 | Configuration | Messages | Record layer | Text layer |

@@ -744,3 +744,23 @@ superseded.
 | Abbreviations | 49.8 / 57.2 / 40.1 | docs/method.md section 12 | 2026-11-15 |
 | Evacuation wordings | 11.8 / 19.3 / 12.4 | docs/method.md section 12 | 2026-11-15 |
 | Units about a missing person | a quarter, every one in a withheld message | docs/method.md section 12 | 2026-11-15 |
+
+## 10. Release 0.2.0 (2026-11-26) and the weekly versions
+
+| fact | figure | source | date |
+|---|---|---|---|
+| Version | 0.2.0, the first on frozen codebook version 3 and the first weekly version | manifest.json (release 0.2.0), `version`, `codebook_version`; CHANGELOG.md, [0.2.0] | 2026-11-26 |
+| Published | 2026-11-26: a draft pull request on the dataset (number 1), merged by the maintainer; tag `v0.2.0` on the merge commit d35adfa8 | release records, 2026-11-26 | 2026-11-26 |
+| Built with | warntext 0.2.0 | manifest.json (release 0.2.0), `built_with` | 2026-11-26 |
+| Records | sent before 12:00 UTC on 25 November 2026 (`2026-11-25T12:00:00.000Z`); retrieved 2026-11-26 | manifest.json (release 0.2.0); card (release 0.2.0), How to cite | 2026-11-26 |
+| Real alerts / tests | 34,876 from 1,260 authorities / 49,310 | manifest.json (release 0.2.0), `facts` | 2026-11-26 |
+| New since 0.1.0 | 322 records: 198 real alerts (128 state, 63 local, 5 federal, 2 unknown kind), 124 tests; no new authority | the weekly run's summary, 2026-11-26 | 2026-11-26 |
+| Text withheld, real alerts | 13,934: 8,884 people code, 5,024 personal-detail pattern, 15 missing person alone, 11 describing a person alone; 12,427 keep only the hour and the county | manifest.json (release 0.2.0), `facts` | 2026-11-26 |
+| Real alerts with text / with no words | 16,906 (224 federal) / 4,036 (each a cancellation with no information block) | manifest.json (release 0.2.0), `facts` | 2026-11-26 |
+| Tests with text / withheld / national authority's | 48,249 / 1,050 / 11 | manifest.json (release 0.2.0), `facts` | 2026-11-26 |
+| Validated content codes | `time` (alpha 0.9146 on sheet 3, 95% 0.82 to 0.9796; the coder's consistency 1.00) and `location` (0.8003, 0.6388 to 0.9234; 1.00); hazard, hazard description, source and guidance experimental | code_status.csv, codebook version 3; card (release 0.2.0), Codes | 2026-11-26 |
+| Parquet files | 15 files, 501,997 rows, 34,848,366 bytes | manifest.json (release 0.2.0) | 2026-11-26 |
+| Easy-access files | 19: the start-here CSV (84,186 rows, 79 columns, 84,059,225 bytes, longest cell 2,977 characters), the workbook (whole, 35,132,205 bytes), `fields.csv` (299 rows), `codebook.csv` (6 rows), 15 gzipped CSVs (28,943,751 bytes) | manifest.json (release 0.2.0), `access_files`, `access` | 2026-11-26 |
+| Kaggle mirror | version 2, 26 files (no text, no README; the start-here file first); the record layer's CSVs held unpacked | release records, 2026-11-26 | 2026-11-26 |
+| The weekly run | Mondays at 09:17 local on the maintainer's machine; a draft pull request on the dataset each week; the Kaggle mirror by hand about once a month | docs/automation.md | 2026-11-26 |
+| The first run's cost | 5 calls to OpenFEMA, 4,003,636 bytes; 418 s for the update (mostly the rebuild); 17 min 42 s to the delivery, which stopped (the login could not open pull requests), then 5 min 19 s for the delivery once it could | the weekly run's log, 2026-11-26 | 2026-11-26 |
