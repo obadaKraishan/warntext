@@ -318,3 +318,19 @@ def test_the_release_check_cli_reads_the_layer(pack, tmp_path, capsys):
         ]
     )
     assert code == 0, capsys.readouterr().out
+
+
+def test_an_older_version_is_checked_without_the_moved_state_counts(pack, tmp_path, capsys):
+    from warntext import cli
+
+    state = tmp_path / "moved.json"
+    state.write_text(json.dumps({"year_counts": {"2024": 4, "2026": 9}}))  # the state moved on
+    shutil.copytree(pack["dir"].parent / "p", tmp_path / "priv", dirs_exist_ok=True)
+    args = [
+        *("release", "check", "--pack", str(pack["dir"])),
+        *("--private", str(tmp_path / "priv"), "--state", str(state)),
+    ]
+    assert cli.main(args) == 1
+    assert "on the server" in capsys.readouterr().out
+    assert cli.main([*args, "--no-server-counts"]) == 0
+    assert "left out (--no-server-counts)" in capsys.readouterr().out
