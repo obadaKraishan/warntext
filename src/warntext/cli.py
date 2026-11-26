@@ -592,6 +592,13 @@ def cmd_update(args: argparse.Namespace) -> int:
         up.init_state(args.state, args.init, {y: n for y, (n, _) in counts.items()}, until)
         print(f"State started at {args.state}: raw {args.init}, window end {until}.")
         return 0
+    if args.codebook_version is None:
+        print(
+            "Give --codebook-version: the content codes' rules are named every time, never taken "
+            f"from the code's default ({', '.join(tb.CODEBOOK_VERSIONS)}; 3 for the weekly "
+            "versions)."
+        )
+        return 2
     if args.rebuild:
         result = up.rebuild_from_state(
             args.state, args.raw_root, args.out, args.private, args.codebook_version
@@ -617,6 +624,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         args.private,
         until=args.until,
         fetch_list=not args.no_list,
+        codebook_version=args.codebook_version,
     )
     failures = summary.pop("failures")
     out = Path(args.summary)
@@ -1034,9 +1042,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--codebook-version",
-        default=tb.CODEBOOK_VERSIONS[0],
+        default=None,
         choices=tb.CODEBOOK_VERSIONS,
-        help="with --rebuild: the content codes' rules (3 is frozen, built into its own folder)",
+        help="the content codes' rules, named every time (3, frozen, for the weekly versions); "
+        "not needed with --init",
     )
     p.add_argument("--init", nargs="+", help="start the state from these raw folders, no calls")
     p.add_argument("--counts", nargs="*", help="with --init: backfill-counts files")
@@ -1053,8 +1062,9 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--retrieved", required=True, help="the access date to cite (YYYY-MM-DD)")
     q.add_argument(
         "--codebook-version",
-        default=rl.CODE_STATUS_VERSION,
-        help="the codes' version the release statuses were measured on",
+        required=True,
+        help="the codes' version the release statuses were measured on, named every time (3 for "
+        "the weekly versions; 1 for release 0.1.0)",
     )
     q.add_argument(
         "--text-kinds",

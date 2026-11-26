@@ -184,8 +184,12 @@ def run_update(
     until: str | None = None,
     now: datetime | None = None,
     fetch_list: bool = True,
+    codebook_version: str = cd.CODEBOOK_VERSION,
 ) -> dict[str, Any]:
-    """One weekly run. Returns the summary (counts only); moves the state on a passing check."""
+    """One weekly run. Returns the summary (counts only); moves the state on a passing check.
+
+    ``codebook_version`` chooses the content codes' rules; the command line always names it (the
+    weekly versions use frozen version 3)."""
     t0 = time.monotonic()
     calls0 = getattr(getattr(client, "budget", None), "calls", 0)
     bytes0 = getattr(getattr(client, "budget", None), "nbytes", 0)
@@ -196,7 +200,11 @@ def run_update(
     if parse(until) <= parse(start):
         raise SystemExit(f"Nothing to read: the window would end at {until}, before {start}.")
     folder = "update-" + until[:13].replace(":", "")
-    summary: dict[str, Any] = {"window": {"start": start, "until": until}, "folder": folder}
+    summary: dict[str, Any] = {
+        "window": {"start": start, "until": until},
+        "folder": folder,
+        "codebook_version": codebook_version,
+    }
 
     # FEMA's list, again.
     fema = au.load()
@@ -257,7 +265,11 @@ def run_update(
     for f in (folder, f"{folder}/late"):
         if (raw_root / f / "manifest.csv").exists() and f not in folders:
             folders.append(f)
-    build = tables.build(tables.parse_records(records(raw_root, folders)), fema=fema)
+    build = tables.build(
+        tables.parse_records(records(raw_root, folders)),
+        fema=fema,
+        codebook_version=codebook_version,
+    )
     written = tables.write(build, out_dir, private_dir)
 
     # The server's counts again for every year the run touched, then the check.
