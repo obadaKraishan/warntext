@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from warntext import authorities, citation, hfpage
+from warntext import access, authorities, citation, hfpage
 from warntext.cover import HEIGHT, WIDTH, png_size
 
 KAGGLE_ID = "obadakraishan/warntext"
@@ -48,6 +48,8 @@ HEADINGS = (
     "How to cite",
     "Links",
 )
+#: The headings of a version with the easy-access layer (0.2.0 on): "Start here" first.
+HEADINGS_LAYERED = ("Start here", *HEADINGS)
 #: Sections lifted word for word from the pack's card (heading on the card, heading here).
 FROM_CARD = (
     ("What it is not", "What it is not"),
@@ -58,8 +60,10 @@ FROM_CARD = (
 )
 #: Kaggle publishes no length limit for a description; this is the project's own cap.
 DESCRIPTION_MAX = 20_000
-#: "not specified" until the weekly update really runs (no schedule is promised).
+#: "not specified" for release 0.1.0 (no schedule was promised then); from 0.2.0 the mirror is
+#: refreshed by hand about once a month.
 UPDATE_FREQUENCY = "not specified"
+UPDATE_FREQUENCY_LAYERED = "monthly"
 #: Kaggle's tags, each seen as a tag on public Kaggle datasets in Kaggle's own dataset listing
 #: (2026-11-23). Kaggle refuses a whole metadata update over one keyword that is not one of its
 #: tags, so the check fails on any other keyword.
@@ -102,9 +106,29 @@ def flat_name(path: str) -> str:
     return f"{config}-{name}.parquet"
 
 
+#: The easy-access files' descriptions on Kaggle.
+_LAYER = {
+    access.START_HERE: "Start here: every message of this version, real alerts and tests "
+    "together (config says which), one row each, with text_status. No message words: the words "
+    "are in the Hugging Face copy.",
+    access.XLSX_WHOLE: "The start-here rows as an Excel workbook, with a Read me sheet and a "
+    "Fields sheet. No message words.",
+    access.XLSX_SAMPLE: "A seeded sample of 1,000 start-here rows as an Excel workbook (the whole "
+    "table is too large for one), with a Read me sheet and a Fields sheet. No message words.",
+    access.FIELDS_FILE: "Every column of every table: its type, meaning and allowed values.",
+    access.CODEBOOK_FILE: "The six content codes: their definitions, which are validated, and "
+    "the two figures of the rule for release.",
+}
+
+
 def file_description(flat: str, version: str = "1") -> str:
     """One description per Kaggle file, from its split and table (no text in any file); the
     codes file's names the content codes validated in its codebook ``version``."""
+    if flat in _LAYER:
+        return _LAYER[flat]
+    if flat.endswith(".csv.gz"):
+        base = flat.removesuffix(".csv.gz")
+        return f"{file_description(base + '.parquet', version)} As a gzipped CSV."
     split, _, table = flat.removesuffix(".parquet").partition("-")
     words = _TABLES[table]
     if table == "codes" and version != "1":
@@ -133,7 +157,7 @@ def how_to_cite(manifest: Mapping[str, Any], card: str) -> str:
     section = card_section(card, "How to cite")
     if citation.TITLE in section:
         return section
-    return f"{citation.apa(manifest['version'])}\n\n{section}"
+    return f"{citation.apa(manifest['version'], citation.year_of(dict(manifest)))}\n\n{section}"
 
 
 def card_box(card: str) -> str:
@@ -157,16 +181,17 @@ def kaggle_files(manifest: Mapping[str, Any], tables: tuple[str, ...]) -> list[d
 def description(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...]) -> str:
     """The Kaggle description in Markdown, with the headings of ``HEADINGS``."""
     facts = manifest["facts"]
-    version = str(manifest.get("codebook_version", "1"))
     files = kaggle_files(manifest, tables)
     rows = sum(f["rows"] for f in files)
     size = sum(f["bytes"] for f in files)
     before = citation.bound_words(str(manifest["records_sent_before"]))
+    layered = bool(manifest.get("access_files"))
     lines = [
         f"# WarnText {manifest['version']}: the record layer",
         "",
         card_box(card),
         "",
+        *([access.start_here_section(manifest, kaggle=True), ""] if layered else []),
         "## What WarnText is",
         "WarnText is a research corpus of the public alert messages that US federal, state, "
         "local, tribal and territorial alerting authorities sent through the Integrated Public "
@@ -189,8 +214,8 @@ def description(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...])
         "| file | rows | what it holds |",
         "|---|---:|---|",
         *(
-            f"| `{f['flat']}` | {f['rows']:,} | {file_description(f['flat'], version)} |"
-            for f in files
+            f"| `{r['path']}` | {r['rows']:,} | {r['description']} |"
+            for r in resources(manifest, tables)
         ),
         "",
         f"In all {rows:,} rows, {size / 1_000_000:.1f} MB as Parquet. Every table carries FEMA's "
@@ -244,7 +269,6 @@ def sources(manifest: Mapping[str, Any]) -> str:
 
 def metadata(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...]) -> dict[str, Any]:
     """The mirror's ``dataset-metadata.json``."""
-    version = str(manifest.get("codebook_version", "1"))
     return {
         "title": TITLE,
         "id": KAGGLE_ID,
@@ -253,13 +277,33 @@ def metadata(manifest: Mapping[str, Any], card: str, tables: tuple[str, ...]) ->
         "isPrivate": True,
         "licenses": [{"name": "other"}],
         "keywords": list(KAGGLE_TAGS),
-        "expectedUpdateFrequency": UPDATE_FREQUENCY,
+        "expectedUpdateFrequency": (
+            UPDATE_FREQUENCY_LAYERED if manifest.get("access_files") else UPDATE_FREQUENCY
+        ),
         "userSpecifiedSources": sources(manifest),
         "resources": [
-            {"path": f["flat"], "description": file_description(f["flat"], version)}
-            for f in kaggle_files(manifest, tables)
+            {"path": r["path"], "description": r["description"]}
+            for r in resources(manifest, tables)
         ],
     }
+
+
+def resources(manifest: Mapping[str, Any], tables: tuple[str, ...]) -> list[dict[str, Any]]:
+    """The mirror's files in the order a reader meets them: the start-here file, the workbook
+    and the two catalogues first, then each table's Parquet file and its gzipped CSV."""
+    version = str(manifest.get("codebook_version", "1"))
+    layer = access.kaggle_files(manifest, tables)
+    top = [n for n in layer if not n.endswith(".csv.gz")]
+    by = {f["path"]: f for f in manifest.get("access_files") or []}
+    out = [{"path": n, "rows": by[n]["rows"]} for n in top]
+    for f in kaggle_files(manifest, tables):
+        out.append({"path": f["flat"], "rows": f["rows"]})
+        gz = f["flat"].replace(".parquet", ".csv.gz")
+        if gz in layer:
+            out.append({"path": gz, "rows": f["rows"]})
+    for r in out:
+        r["description"] = file_description(r["path"], version)
+    return out
 
 
 def headings(text: str) -> list[str]:
@@ -293,10 +337,11 @@ def problems(meta: Mapping[str, Any]) -> list[str]:
             f"{DESCRIPTION_MAX:,}."
         )
     found = headings(text)
-    if found != list(HEADINGS):
+    want = list(HEADINGS_LAYERED if "Start here" in found else HEADINGS)
+    if found != want:
         out.append(
             f"kaggle/{name}: the description's headings are {found}; they must be "
-            f"{list(HEADINGS)}, in that order (write the folder again with "
+            f"{want}, in that order (write the folder again with "
             "`warntext release kaggle-meta`)."
         )
     elif not re.search(r"^## How to cite\n+(?!## )\S", text, re.M):
@@ -323,10 +368,12 @@ def problems(meta: Mapping[str, Any]) -> list[str]:
         )
     if len(set(keywords)) != len(keywords):
         out.append(f"kaggle/{name}: a tag is given twice.")
-    if meta.get("expectedUpdateFrequency") != UPDATE_FREQUENCY:
+    frequency = UPDATE_FREQUENCY_LAYERED if "Start here" in found else UPDATE_FREQUENCY
+    if meta.get("expectedUpdateFrequency") != frequency:
         out.append(
             f"kaggle/{name}: the update frequency is {meta.get('expectedUpdateFrequency')!r}, "
-            f"not {UPDATE_FREQUENCY!r} (no schedule is promised before the weekly update runs)."
+            f"not {frequency!r} (0.1.0 promised no schedule; from 0.2.0 the mirror is refreshed "
+            "by hand about once a month)."
         )
     src = meta.get("userSpecifiedSources") or ""
     if SOURCE_ENDPOINT not in src:

@@ -1,0 +1,155 @@
+{
+ "name": "WarnText",
+ "facts": {
+  "real_alerts": 34678,
+  "tests": 49186,
+  "authorities_with_real_alerts": 1260,
+  "withheld": 13885,
+  "withheld_people_code": 8860,
+  "withheld_personal_pattern": 4999,
+  "withheld_missing_person": 15,
+  "withheld_person_described": 11,
+  "rounded": 12384,
+  "federal_text_alerts": 219,
+  "text_alerts": 16814,
+  "no_text_alerts": 3979,
+  "no_text_cancels": 3979,
+  "text_tests": 48125,
+  "tests_withheld": 1050,
+  "tests_no_text": 11,
+  "tests_kind_left_out": 11
+ },
+ "version": "0.1.0",
+ "built_with": "warntext 0.1.0.dev0",
+ "source": "https://www.fema.gov/api/open/v1/IpawsArchivedAlerts",
+ "records_sent_before": "2026-11-14T17:00:00.000Z",
+ "retrieved": "2026-11-15",
+ "text_tables": [
+  "text_federal",
+  "text_other"
+ ],
+ "text_kinds": [
+  "federal",
+  "state",
+  "local",
+  "tribal",
+  "territorial",
+  "unknown"
+ ],
+ "experimental_codes_left_out": [
+  "hazard",
+  "hazard_description",
+  "hazard_characteristics",
+  "hazard_impacts",
+  "source_named",
+  "guidance",
+  "n_actions",
+  "guidance_protective",
+  "guidance_information",
+  "time",
+  "time_impact",
+  "time_action",
+  "time_expiry",
+  "location",
+  "loc_boundary",
+  "loc_road",
+  "loc_landmark",
+  "loc_zone",
+  "loc_vague_or_none",
+  "complete"
+ ],
+ "files": [
+  {
+   "path": "alerts/messages.parquet",
+   "rows": 34678,
+   "bytes": 4666266,
+   "sha256": "d4a1e39cfd525a7ecd999a52477c90b4e29b5a4832c65621c32913633257e86f"
+  },
+  {
+   "path": "alerts/infos.parquet",
+   "rows": 35443,
+   "bytes": 2218661,
+   "sha256": "06c1e3be134a8069524d44fd700aff608267bcd8c7fa6f52eb2befb5b141a812"
+  },
+  {
+   "path": "alerts/areas.parquet",
+   "rows": 38933,
+   "bytes": 3095861,
+   "sha256": "39c3775443585ff4bb8155060e902d399729164c4ec4fa7d664325909e819862"
+  },
+  {
+   "path": "alerts/references.parquet",
+   "rows": 8216,
+   "bytes": 585850,
+   "sha256": "8be9ed650cd1e3e8577565276f689bca9912d21f8265c6f6a7f162522fa6e90d"
+  },
+  {
+   "path": "alerts/threads.parquet",
+   "rows": 26627,
+   "bytes": 1536670,
+   "sha256": "6d3ec93453267f8be29595aab75e7bf1f72e986caa61d2749662f0fa8715dbfc"
+  },
+  {
+   "path": "alerts/codes.parquet",
+   "rows": 84598,
+   "bytes": 1845201,
+   "sha256": "ec9e4831d6bbeb14abe6a32e00e9090c6dbd3b5e517ee3a762058a0ffa82a7ad"
+  },
+  {
+   "path": "alerts/text_federal.parquet",
+   "rows": 384,
+   "bytes": 28297,
+   "sha256": "582269523b92949bec6bcee78c537dc4533e2cc188921f6be5b9d962e08cefdd"
+  },
+  {
+   "path": "alerts/text_other.parquet",
+   "rows": 20208,
+   "bytes": 3214227,
+   "sha256": "04259b2c4665a4eb617e9c4764c48620610244f830a2fd28958b14c98e1a9da7"
+  },
+  {
+   "path": "tests/messages.parquet",
+   "rows": 49186,
+   "bytes": 5952973,
+   "sha256": "d0d7e36f6d186055de73465ff8c3b456064ab3248c3fd7985ed9415b73ba8bc1"
+  },
+  {
+   "path": "tests/infos.parquet",
+   "rows": 50986,
+   "bytes": 3327568,
+   "sha256": "0acc1145ea09059c1d098a50e6e170867f264575a49ae91e5a4eafe6061ba84f"
+  },
+  {
+   "path": "tests/areas.parquet",
+   "rows": 51586,
+   "bytes": 2328316,
+   "sha256": "c4d9ebaa971fa8bcb48f99f074efd601e70929ee03a9222a1b789eb4e5b6640b"
+  },
+  {
+   "path": "tests/references.parquet",
+   "rows": 324,
+   "bytes": 25619,
+   "sha256": "455472b650fa06f51caf5ac950ad353ca035d79a4de20bf8e02fc5cbbd695919"
+  },
+  {
+   "path": "tests/threads.parquet",
+   "rows": 48941,
+   "bytes": 2799169,
+   "sha256": "f449e8b89d28d6957c7bd63de3ea1e6e27790b2ef677c3eb346981c2b823b51b"
+  },
+  {
+   "path": "tests/text_federal.parquet",
+   "rows": 3936,
+   "bytes": 188473,
+   "sha256": "cdfeb165e71b22e06d9720520a3f9578d7087aea01d80e7beea9cca2b278230c"
+  },
+  {
+   "path": "tests/text_other.parquet",
+   "rows": 45963,
+   "bytes": 2872944,
+   "sha256": "a34744333f8a9d2972dcde24de1a7d7a96c97f2f7488f64042ce5e733acfe8f7"
+  }
+ ],
+ "rows": 500009,
+ "bytes": 34686095
+}

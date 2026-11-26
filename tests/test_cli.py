@@ -578,11 +578,14 @@ def test_update_command_starts_the_state_then_runs(tmp_path, monkeypatch, capsys
     args = ["update", "--state", str(state), "--raw-root", str(raw), "--until"]
     args += ["2026-11-18T00:00:00.000Z", "--out", str(tmp_path / "t"), "--private"]
     args += [str(tmp_path / "p"), "--summary", str(tmp_path / "s.json")]
-    assert cli.main(args) == 0
+    assert cli.main(args) == 2  # the codebook version is always named
+    assert "Give --codebook-version" in capsys.readouterr().out
+    assert cli.main([*args, "--codebook-version", "3"]) == 0
     printed = capsys.readouterr().out
     assert "1 new records" in printed and "check passed" in printed
     assert json.loads((tmp_path / "s.json").read_text())["new_real_alerts"] == 1
     again = ["update", "--state", str(state), "--raw-root", str(raw), "--rebuild", "--out"]
     again += [str(tmp_path / "t2"), "--private", str(tmp_path / "p2")]
+    again += ["--codebook-version", "3"]
     assert cli.main([*again, "--summary", str(tmp_path / "b.json")]) == 0
     assert "no request" in capsys.readouterr().out

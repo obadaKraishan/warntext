@@ -59,7 +59,7 @@ configs:
 and must never be used to receive or pass on warnings. If you need warnings, use your phone's
 emergency alerts, a weather radio and your local officials.
 
-WarnText is a research corpus of the public alert messages that US federal, state, local, tribal
+{{start_here}}WarnText is a research corpus of the public alert messages that US federal, state, local, tribal
 and territorial alerting authorities sent through the Integrated Public Alert and Warning System
 (IPAWS), read from FEMA's OpenFEMA dataset "IPAWS Archived Alerts" (version 1). Version
 {{version}} holds every message in that archive from senders other than the National Weather
@@ -180,7 +180,7 @@ taken out: open an issue with the "Remove a message's text" form on the project'
 (https://github.com/obadaKraishan/warntext/issues/new/choose), or write on this dataset's
 Community tab. Give the record id, never the text or personal details. Each request is answered
 within 14 days. The text row leaves the next version; the message's record row, which holds no
-text, stays, as it does in FEMA's own archive.{{removed_sentence}}
+text, stays, as it does in FEMA's own archive.{{removed_sentence}}{{removal_rule}}
 
 ## Terms that users must follow
 WarnText's records come from OpenFEMA, whose terms apply to anyone who uses them
@@ -234,9 +234,4 @@ Cite the source too, with the endpoint and the time it was read, as FEMA asks:
 Each row's `retrieved_at` gives the exact time its message was read.
 
 ## Updates
-Later versions are meant to follow weekly, built from the records the archive added since, with
-the same rules and the same release check; each version's records end where its card says.
-
-On 24 November 2026 the dataset was re-created with a single version, so that earlier, superseded
-files, which held text the privacy rules now withhold, can no longer be downloaded; the files of
-release 0.1.0 are unchanged (the same hashes).
+{{updates_section}}

@@ -174,6 +174,34 @@ FEMA ID), `organization` (its released name, or blank) and `credit` (a line nami
 and FEMA's dataset). A release holds the text tables of the sender kinds its manifest lists
 (`text_kinds`); release 0.1.0 holds federal, state, local, tribal, territorial and unknown.
 
+## The easy-access files (in every version from 0.2.0)
+Beside the Parquet files, which stay the full release, each version holds plain files for readers
+who do not use Parquet. The manifest lists them under `access_files` (path, rows, bytes,
+SHA-256), and `warntext release check` holds each to the Parquet tables row for row.
+
+- `00_start_here_messages.csv`: the `messages` table of both configurations (real alerts first,
+  then tests; `config` says which), with the columns `text_status` (`released`, `withheld`, `no
+  text in the archive`, `sender kind left out`), `text_language`, `headline`, `description`,
+  `instruction`, `wea_short`, `wea_long` and `credit` from the message's first released language
+  block; the word columns are empty unless `text_status` is `released`.
+- `00_start_here_messages.xlsx`: the same rows in a workbook with a Read me sheet (what it is,
+  OpenFEMA's terms and non-endorsement sentence, how to cite) and a Fields sheet. Past about
+  100 MB it is a seeded sample of 1,000 rows instead, named `..._sample_1000.xlsx`.
+- `fields.csv`: every column of every table and of the start-here file: `table`, `column`, `type`
+  (from the Parquet schema, in plain words), `meaning`, `allowed_values`, `where` (Hugging Face
+  and Kaggle, or Hugging Face only). One definition, `warntext.fields`, held to the schemas by a
+  test.
+- `codebook.csv`: the six content codes of the version's codebook, with each code's label,
+  definition, status (validated or experimental), whether the `codes` table holds it, alpha on
+  the blind sheet and the coder's consistency, each with its 95% interval.
+- `<config>/<table>.csv.gz`: every Parquet file as a gzipped CSV, beside it.
+
+In every CSV file a list's items are joined with "; " (a few items of the text tables' lists hold
+"; " themselves; the Parquet files keep them apart), yes and no are 1 and 0, an empty cell has no
+value, and times are in UTC (`YYYY-MM-DDTHH:MM:SSZ`). The Kaggle mirror holds the same files
+without any words: its start-here file and workbook leave the word columns out, and it holds no
+text table.
+
 ## Private local files (never released)
 Next to the tables, in a private folder: `sender_values.json` (the raw sender values, with their
 authorities), `identifiers.json` (the raw CAP identifiers of every message and of every message a

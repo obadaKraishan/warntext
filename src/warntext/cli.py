@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-from warntext import __version__, hfpage
+from warntext import __version__, hfpage, privacy, removal
 from warntext import authorities as au
 from warntext import backfill as bf
 from warntext import check as ck
@@ -592,6 +592,13 @@ def cmd_update(args: argparse.Namespace) -> int:
         up.init_state(args.state, args.init, {y: n for y, (n, _) in counts.items()}, until)
         print(f"State started at {args.state}: raw {args.init}, window end {until}.")
         return 0
+    if args.codebook_version is None:
+        print(
+            "Give --codebook-version: the content codes' rules are named every time, never taken "
+            f"from the code's default ({', '.join(tb.CODEBOOK_VERSIONS)}; 3 for the weekly "
+            "versions)."
+        )
+        return 2
     if args.rebuild:
         result = up.rebuild_from_state(
             args.state, args.raw_root, args.out, args.private, args.codebook_version
@@ -617,6 +624,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         args.private,
         until=args.until,
         fetch_list=not args.no_list,
+        codebook_version=args.codebook_version,
     )
     failures = summary.pop("failures")
     out = Path(args.summary)
@@ -713,6 +721,71 @@ def cmd_release_kaggle_settings(args: argparse.Namespace) -> int:
     return 0
 
 
+def _removals(path: str | None) -> frozenset[str]:
+    if path is None:
+        return privacy.load_removals()
+    return privacy.read_removals(Path(path).read_text(encoding="utf-8"), Path(path).name)
+
+
+def cmd_release_remove(args: argparse.Namespace) -> int:
+    """A version as built, again with the removal list applied (counts only)."""
+    recreated = None
+    if args.recreated_on:
+        offered = [v.strip() for v in (args.offered or "").split(",") if v.strip()]
+        if not offered:
+            print("Give --offered with --recreated-on: the versions the dataset offers again.")
+            return 2
+        recreated = {"date": args.recreated_on, "versions": offered}
+    m = removal.apply(args.pack, args.out, _removals(args.removals), recreated)
+    applied = m["removal_list_applied"]
+    print(
+        f"Version {m['version']} rebuilt in {args.out} with the removal list applied: "
+        f"{applied['entries']} entr(ies), {applied['messages_listed']} message(s) listed, "
+        f"{applied['newly_withheld']} newly withheld; {len(m['files'])} Parquet files, "
+        f"{len(m.get('access_files') or [])} easy-access files."
+    )
+    return 0
+
+
+def cmd_release_removal_proof(args: argparse.Namespace) -> int:
+    """Only the removed text changed between two builds of one version (exits 1 otherwise)."""
+    result = removal.proof(args.old, args.new, _removals(args.removals))
+    if args.out:
+        Path(args.out).write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
+    print(
+        f"Version {result['version']}: {result['messages_listed']} message(s) listed; Parquet "
+        f"files the same by SHA-256 {result['parquet_same_by_hash']}, changed "
+        f"{result['parquet_changed']}; text rows left out {result['text_rows_left_out']}; "
+        f"easy-access files the same by SHA-256 "
+        f"{sum(1 for f in result['access_files'] if f['same_hash'])} of "
+        f"{len(result['access_files'])}; card lines changed {result['card_lines_changed']}."
+    )
+    for f in result["files"]:
+        if not f["same_hash"]:
+            print(
+                f"  {f['path']}: rows left out {f['rows_left_out']}, rows changed "
+                f"{f['rows_changed']} (fields {', '.join(f['fields_changed']) or 'none'})"
+            )
+    for p in result["problems"]:
+        print(f"  PROBLEM {p}")
+    print("Proved: only the removed text changed." if result["proved"] else "NOT PROVED.")
+    return 0 if result["proved"] else 1
+
+
+def cmd_release_shrink(args: argparse.Namespace) -> int:
+    """The shrink limit: a new version against the version before it (exits 1 past it)."""
+    new = json.loads((Path(args.pack) / "manifest.json").read_text(encoding="utf-8"))
+    old = json.loads((Path(args.previous) / "manifest.json").read_text(encoding="utf-8"))
+    problems = rl.shrink_problems(new, old, args.max_shrink)
+    print(
+        f"{new['version']} against {old['version']}: {new['rows']:,} rows against "
+        f"{old['rows']:,}; {len(problems)} table(s) past the shrink limit."
+    )
+    for p in problems:
+        print(f"  FAIL {p}")
+    return 1 if problems else 0
+
+
 def cmd_release_check(args: argparse.Namespace) -> int:
     """The pack's own check: its files, its card, and the release check of its tables."""
     state = json.loads(Path(args.state).read_text(encoding="utf-8"))
@@ -759,7 +832,13 @@ def cmd_page_history(args: argparse.Namespace) -> int:
     manifests = []
     for pack in args.pack:
         data = (Path(pack) / hfpage.MANIFEST_FILE).read_bytes()
-        manifests.append((json.loads(data), hfpage.git_blob_id(data)))
+        manifest = json.loads(data)
+        # The easy-access files may be stored outside LFS: name them by their git blob ids too.
+        manifest["access_blobs"] = {
+            f["path"]: hfpage.git_blob_id((Path(pack) / f["path"]).read_bytes())
+            for f in manifest.get("access_files") or []
+        }
+        manifests.append((manifest, hfpage.git_blob_id(data)))
     if args.listing:
         listing = json.loads(Path(args.listing).read_text(encoding="utf-8"))
         how = f"the listing {args.listing}"
@@ -1034,9 +1113,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--codebook-version",
-        default=tb.CODEBOOK_VERSIONS[0],
+        default=None,
         choices=tb.CODEBOOK_VERSIONS,
-        help="with --rebuild: the content codes' rules (3 is frozen, built into its own folder)",
+        help="the content codes' rules, named every time (3, frozen, for the weekly versions); "
+        "not needed with --init",
     )
     p.add_argument("--init", nargs="+", help="start the state from these raw folders, no calls")
     p.add_argument("--counts", nargs="*", help="with --init: backfill-counts files")
@@ -1053,8 +1133,9 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--retrieved", required=True, help="the access date to cite (YYYY-MM-DD)")
     q.add_argument(
         "--codebook-version",
-        default=rl.CODE_STATUS_VERSION,
-        help="the codes' version the release statuses were measured on",
+        required=True,
+        help="the codes' version the release statuses were measured on, named every time (3 for "
+        "the weekly versions; 1 for release 0.1.0)",
     )
     q.add_argument(
         "--text-kinds",
@@ -1088,6 +1169,28 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--visibility", required=True, choices=("private", "public"))
     q.add_argument("--out", required=True, help="a new folder for the update's two files")
     q.set_defaults(func=cmd_release_kaggle_settings)
+    q = rsub.add_parser(
+        "remove", help="a built version again with the removal list applied (a new folder)"
+    )
+    q.add_argument("--pack", required=True, help="the version as built")
+    q.add_argument("--out", required=True, help="a new folder for the version rebuilt")
+    q.add_argument("--removals", help="a removal list (CSV); default: the tracked one")
+    q.add_argument("--recreated-on", help="the date the dataset is created again (YYYY-MM-DD)")
+    q.add_argument("--offered", help="with --recreated-on: the versions offered, comma-separated")
+    q.set_defaults(func=cmd_release_remove)
+    q = rsub.add_parser(
+        "removal-proof", help="only the removed text changed between two builds of a version"
+    )
+    q.add_argument("--old", required=True)
+    q.add_argument("--new", required=True)
+    q.add_argument("--removals", help="a removal list (CSV); default: the tracked one")
+    q.add_argument("--out", help="write the proof (counts only) to this JSON file")
+    q.set_defaults(func=cmd_release_removal_proof)
+    q = rsub.add_parser("shrink", help="no table shrinks from the version before (the limit)")
+    q.add_argument("--pack", required=True, help="the new version")
+    q.add_argument("--previous", required=True, help="the version before it (its pack folder)")
+    q.add_argument("--max-shrink", type=float, default=rl.MAX_SHRINK)
+    q.set_defaults(func=cmd_release_shrink)
     q = rsub.add_parser("check", help="the pack's own check (exits 1 on any failure)")
     q.add_argument("--pack", required=True)
     q.add_argument("--private", default="data/interim/private")

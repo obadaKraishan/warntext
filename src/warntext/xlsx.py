@@ -523,3 +523,185 @@ def read_workbook(path: str | Path) -> list[ReadSheet]:
             hidden = entry.get("state", "visible") in ("hidden", "veryHidden")
             sheets.append(ReadSheet(entry.get("name", ""), hidden, tuple(rows)))
         return sheets
+
+
+# ------------------------------------------------------------------ data workbooks
+
+#: Excel's limits: rows in a sheet (the header included) and characters in a cell.
+MAX_ROWS, MAX_CELL = 1_048_576, 32_767
+
+
+@dataclass(frozen=True)
+class DataSheet:
+    """A sheet of a data workbook: a header row and rows of cells, written as they come.
+
+    A cell is a string (written as text), an int or a float (written as a number), or None or ""
+    (left empty). The header row is bold and frozen when ``header`` is true.
+    """
+
+    name: str
+    rows: object  # an iterable of lists of cells
+    header: bool = True
+    widths: tuple[float, ...] = ()
+
+
+def _data_cell(ref: str, value: object, style: int) -> str:
+    s = f' s="{style}"' if style else ""
+    if value is None or value == "":
+        return ""
+    if isinstance(value, bool):
+        value = int(value)
+    if isinstance(value, (int, float)):
+        return f'<c r="{ref}"{s}><v>{value!r}</v></c>'
+    text = escape(_encode(str(value)))
+    return f'<c r="{ref}"{s} t="inlineStr"><is><t xml:space="preserve">{text}</t></is></c>'
+
+
+_DATA_STYLES = (
+    f'<styleSheet xmlns="{MAIN}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/>'
+    '</font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+    '<fills count="2"><fill><patternFill patternType="none"/></fill>'
+    '<fill><patternFill patternType="gray125"/></fill></fills>'
+    '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+    "</styleSheet>"
+)
+
+
+def write_data_workbook(path: str | Path, sheets: tuple[DataSheet, ...]) -> dict[str, int]:
+    """Write a workbook of data sheets, row by row (no shared strings, no protection).
+
+    The first sheet opens. Returns the rows written per sheet (the header included). Stops when a
+    sheet passes Excel's rows or a cell its characters; the same bytes for the same rows."""
+    names = [s.name for s in sheets]
+    for name in names:
+        _check_name(name)
+    if not sheets or len({n.casefold() for n in names}) != len(names):
+        raise ValueError(f"give one or more sheets with different names: {names}.")
+    declaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    counts: dict[str, int] = {}
+    path = Path(path)
+
+    def part(archive: zipfile.ZipFile, name: str, xml: str) -> None:
+        info = zipfile.ZipInfo(name, date_time=_FIXED_TIME)
+        info.compress_type = zipfile.ZIP_DEFLATED
+        archive.writestr(info, declaration + xml)
+
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        overrides = "".join(
+            f'<Override PartName="/xl/worksheets/sheet{n}.xml" '
+            f'ContentType="{_CONTENT}.worksheet+xml"/>'
+            for n in range(1, len(sheets) + 1)
+        )
+        part(
+            archive,
+            "[Content_Types].xml",
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" '
+            'ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            f'<Override PartName="/xl/workbook.xml" ContentType="{_CONTENT}.sheet.main+xml"/>'
+            f'{overrides}<Override PartName="/xl/styles.xml" '
+            f'ContentType="{_CONTENT}.styles+xml"/></Types>',
+        )
+        part(
+            archive,
+            "_rels/.rels",
+            f'<Relationships xmlns="{_PACKAGE_REL}"><Relationship Id="rId1" '
+            f'Type="{_REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+        )
+        part(
+            archive,
+            "xl/workbook.xml",
+            f'<workbook xmlns="{MAIN}" xmlns:r="{_REL}"><bookViews><workbookView activeTab="0"/>'
+            "</bookViews><sheets>"
+            + "".join(
+                f'<sheet name={quoteattr(name)} sheetId="{n}" r:id="rId{n}"/>'
+                for n, name in enumerate(names, start=1)
+            )
+            + "</sheets></workbook>",
+        )
+        part(
+            archive,
+            "xl/_rels/workbook.xml.rels",
+            f'<Relationships xmlns="{_PACKAGE_REL}">'
+            + "".join(
+                f'<Relationship Id="rId{n}" Type="{_REL}/worksheet" '
+                f'Target="worksheets/sheet{n}.xml"/>'
+                for n in range(1, len(sheets) + 1)
+            )
+            + f'<Relationship Id="rId{len(sheets) + 1}" Type="{_REL}/styles" '
+            'Target="styles.xml"/></Relationships>',
+        )
+        part(archive, "xl/styles.xml", _DATA_STYLES)
+        for n, sheet in enumerate(sheets, start=1):
+            info = zipfile.ZipInfo(f"xl/worksheets/sheet{n}.xml", date_time=_FIXED_TIME)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            with archive.open(info, "w", force_zip64=True) as out:
+                tab = ' tabSelected="1"' if n == 1 else ""
+                view = f'<sheetView{tab} workbookViewId="0">'
+                if sheet.header:
+                    view += '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" '
+                    view += 'state="frozen"/>'
+                cols = "".join(
+                    f'<col min="{i}" max="{i}" width="{w:g}" customWidth="1"/>'
+                    for i, w in enumerate(sheet.widths, start=1)
+                )
+                out.write(
+                    (
+                        f'{declaration}<worksheet xmlns="{MAIN}" xmlns:r="{_REL}"><sheetViews>'
+                        f"{view}</sheetView></sheetViews>"
+                        f"{f'<cols>{cols}</cols>' if cols else ''}<sheetData>"
+                    ).encode()
+                )
+                number = 0
+                for number, row in enumerate(sheet.rows, start=1):
+                    if number > MAX_ROWS:
+                        raise WorkbookError(
+                            f"{path.name}, sheet {sheet.name!r}: more than {MAX_ROWS:,} rows, "
+                            "Excel's limit."
+                        )
+                    style = 1 if sheet.header and number == 1 else 0
+                    cells = []
+                    for i, value in enumerate(row):
+                        if isinstance(value, str) and len(value) > MAX_CELL:
+                            raise WorkbookError(
+                                f"{path.name}, sheet {sheet.name!r}, row {number}: a cell of "
+                                f"{len(value):,} characters, over Excel's {MAX_CELL:,}."
+                            )
+                        cells.append(_data_cell(f"{column_name(i)}{number}", value, style))
+                    out.write(f'<row r="{number}">{"".join(cells)}</row>'.encode())
+                out.write(f"</sheetData>{_MARGINS}</worksheet>".encode())
+                counts[sheet.name] = number
+    return counts
+
+
+def read_data_rows(path: str | Path, sheet_number: int):
+    """The cells of one sheet of a data workbook, row by row, as text (numbers as written).
+
+    Reads the part as a stream with defusedxml, so a large sheet is never held whole. Empty
+    cells read as ""; each row is padded to its last written cell."""
+    path = Path(path)
+    with (
+        zipfile.ZipFile(path) as archive,
+        archive.open(f"xl/worksheets/sheet{sheet_number}.xml") as part,
+    ):
+        row: list[str] = []
+        for _event, element in SafeTree.iterparse(part, events=("end",)):
+            tag = _local(element.tag)
+            if tag == "c":
+                at = _column(element.get("r", "A1"))
+                if element.get("t") == "inlineStr":
+                    value = "".join(t.text or "" for t in element.iter(f"{{{MAIN}}}t"))
+                    value = _decode(value)
+                else:
+                    v = element.find(f"{{{MAIN}}}v")
+                    value = v.text or "" if v is not None else ""
+                row += [""] * (at - len(row))
+                row.append(value)
+            elif tag == "row":
+                yield row
+                row = []
+                element.clear()
