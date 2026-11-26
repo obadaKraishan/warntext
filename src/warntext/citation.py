@@ -63,7 +63,7 @@ def apa(version: str, year: int = YEAR, markdown: bool = True) -> str:
 
 #: The code and documents on Zenodo: every version (resolves to the latest), and each release.
 SOFTWARE_DOI = "10.5281/zenodo.24475949"
-SOFTWARE_DOIS = {"0.1.0": "10.5281/zenodo.24475950"}
+SOFTWARE_DOIS = {"0.1.0": "10.5281/zenodo.24475950", "0.2.0": "10.5281/zenodo.24565177"}
 #: The date each release was published.
 RELEASED = {"0.1.0": "2026-11-23", "0.2.0": "2026-11-26"}
 
