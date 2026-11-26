@@ -32,7 +32,17 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from warntext import __version__, citation, cover, durable, hfpage, kaggle_meta, patterns, privacy
+from warntext import (
+    __version__,
+    access,
+    citation,
+    cover,
+    durable,
+    hfpage,
+    kaggle_meta,
+    patterns,
+    privacy,
+)
 from warntext import check as ck
 from warntext.probe import ENDPOINT
 from warntext.tables import CONFIGS, RECORD_TABLES, SCHEMAS, TEXT_TABLES
@@ -120,6 +130,24 @@ def manifest_version(manifest: Mapping[str, Any]) -> str:
 #: Version 1's experimental codes (release 0.1.0): left out of its release.
 EXPERIMENTAL_CODES = experimental_codes(CODE_STATUS_VERSION)
 ALLOWED_FILES = {"README.md", "manifest.json"}
+#: The first version that carries the easy-access layer (``warntext.access``); every later one
+#: carries it too.
+ACCESS_FROM = (0, 2, 0)
+
+
+def version_tuple(version: str) -> tuple[int, ...]:
+    """A version's numbers: ``"0.2.1"`` -> ``(0, 2, 1)``."""
+    try:
+        return tuple(int(x) for x in str(version).split("."))
+    except ValueError:
+        raise SystemExit(f"{version!r} is not a version of the form 0.2.N.") from None
+
+
+def has_access_layer(version: str) -> bool:
+    """Whether a version carries the easy-access layer (0.2.0 and later)."""
+    return version_tuple(version) >= ACCESS_FROM
+
+
 TERMS_URL = "https://www.fema.gov/about/openfema/terms-conditions"
 CARD_TEMPLATE = "dataset_card.md"
 
@@ -300,6 +328,8 @@ def build_pack(
         "rows": sum(f["rows"] for f in files),
         "bytes": sum(f["bytes"] for f in files),
     }
+    if has_access_layer(version):
+        manifest["access_files"], manifest["access"] = access.build(out_dir, manifest)
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n", "utf-8")
     (out_dir / "README.md").write_text(card(manifest), encoding="utf-8")
     return manifest
@@ -469,8 +499,8 @@ def card(manifest: Mapping[str, Any]) -> str:
         "total_rows": f"{manifest['rows']:,}",
         "total_mb": _mb(manifest["bytes"]),
         "terms_url": TERMS_URL,
-        "citation": citation.apa(manifest["version"]),
-        "bibtex": citation.bibtex(manifest["version"]),
+        "citation": citation.apa(manifest["version"], citation.year_of(manifest)),
+        "bibtex": citation.bibtex(manifest["version"], citation.year_of(manifest)),
         "software_sentence": citation.software_sentence(manifest["version"]),
     }
     for key, n in manifest.get("facts", {}).items():
@@ -483,11 +513,82 @@ def card(manifest: Mapping[str, Any]) -> str:
     values["size_category"] = size_category(manifest["rows"])
     values.update(text_sentences(manifest.get("facts", {})))
     values["privacy_reading"] = privacy_reading_sentence()
+    values.update(series_sections(manifest))
     for path, f in by.items():
         key = path.replace("/", "_").replace(".parquet", "")
         values[f"{key}_rows"] = f"{f['rows']:,}"
         values[f"{key}_mb"] = _mb(f["bytes"])
     return re.sub(r"\{\{(\w+)\}\}", lambda m: values.get(m.group(1), m.group(0)), template)
+
+
+#: The card's Updates section as release 0.1.0 published it (its card renders byte for byte).
+UPDATES_V01 = (
+    "Later versions are meant to follow weekly, built from the records the archive added since, "
+    "with\nthe same rules and the same release check; each version's records end where its card "
+    "says.\n\nOn 24 November 2026 the dataset was re-created with a single version, so that "
+    "earlier, superseded\nfiles, which held text the privacy rules now withhold, can no longer be "
+    "downloaded; the files of\nrelease 0.1.0 are unchanged (the same hashes)."
+)
+#: The card's paragraph on a removal request that concerns a person (from 0.2.0).
+PERSON_RULE = (
+    "**When a request concerns a person** (someone named or described in a message), the text is "
+    "taken out of every version still offered, not only the next one: the dataset is deleted and "
+    "created again, holding only the tagged releases and the latest weekly version, each rebuilt "
+    "with the removal applied. The weekly versions in between are not offered again. The Kaggle "
+    "mirror holds no text, so a text removal leaves it unchanged; if a request ever touches a "
+    "field the mirror holds, its versions are handled the same way. Any other request is taken "
+    "out of the next version, and earlier versions keep the text."
+)
+
+
+def _wrap(text: str) -> str:
+    import textwrap
+
+    return textwrap.fill(text, width=100, break_long_words=False, break_on_hyphens=False)
+
+
+def series_sections(manifest: Mapping[str, Any]) -> dict[str, str]:
+    """The card's parts that depend on the version's series: "Start here" (with the easy-access
+    layer), the paragraph on a removal that concerns a person, and the Updates section. A
+    version before 0.2.0 renders them as release 0.1.0 published them."""
+    version = str(manifest["version"])
+    if not has_access_layer(version):
+        return {"start_here": "", "removal_rule": "", "updates_section": UPDATES_V01}
+    numbers = version_tuple(version)
+    this = (
+        f"This version, {version}, is a minor release, tagged `v{version}`."
+        if numbers[2] == 0
+        else f"This version, {version}, is a weekly version: a commit on `main`, not tagged."
+    )
+    weekly = (
+        "New versions follow weekly: each Monday a run reads the records the archive added since "
+        "the last one, rebuilds every table with the same rules (codebook version "
+        f"{manifest_version(manifest)}) and the same release check, and delivers nothing when a "
+        f"check fails. Each weekly version ({numbers[0]}.{numbers[1]}.1, "
+        f"{numbers[0]}.{numbers[1]}.2 and on) is a commit on this dataset's `main`; minor "
+        f"releases (0.1.0, {numbers[0]}.{numbers[1]}.0) are also tagged. {this} Each version's "
+        "records end where its card says. Earlier versions stay in the history, each minor "
+        "release under its tag and each weekly version as a commit, except as the Removal "
+        "section says. The Kaggle mirror, which holds no text, is refreshed by hand about once a "
+        "month."
+    )
+    history = [
+        "On 24 November 2026 the dataset was re-created with a single version, so that earlier, "
+        "superseded files, which held text the privacy rules now withhold, can no longer be "
+        "downloaded; the files of release 0.1.0 are unchanged (the same hashes)."
+    ]
+    for r in manifest.get("recreated") or []:
+        history.append(
+            f"On {citation.date_words(r['date'])} the dataset was deleted and created again "
+            "after a removal request that concerned a person: it offers "
+            f"{', '.join(r['versions'])}, each rebuilt with the removal applied; the weekly "
+            "versions in between are no longer offered."
+        )
+    return {
+        "start_here": access.start_here_section(manifest) + "\n\n## What WarnText is\n\n",
+        "removal_rule": "\n\n" + _wrap(PERSON_RULE),
+        "updates_section": "\n\n".join(_wrap(t) for t in (weekly, *history)),
+    }
 
 
 #: What each text table holds, for the card.
@@ -709,10 +810,16 @@ def check_pack(
         fail.append(f"manifest.json: text tables {text_tables} do not match the kinds {kinds}.")
     tables = [*RECORD_TABLES, *text_tables]
     listed = {f["path"]: f for f in manifest["files"]}
+    layer = {f["path"] for f in manifest.get("access_files") or []}
+    if has_access_layer(manifest["version"]) and not layer:
+        fail.append(
+            f"manifest.json: version {manifest['version']} lists no easy-access files; every "
+            "version from 0.2.0 carries them (rebuild the pack)."
+        )
     readable: set[str] = set()
     for path in sorted(p for p in pack_dir.rglob("*") if p.is_file()):
         rel = path.relative_to(pack_dir).as_posix()
-        if rel in ALLOWED_FILES:
+        if rel in ALLOWED_FILES or rel in layer:
             continue
         parts = rel.split("/")
         name = parts[-1].removesuffix(".parquet")
@@ -761,6 +868,8 @@ def check_pack(
             loaded[config][name] = pq.read_table(path).to_pylist() if rel in readable else []
     fail += ck.check(loaded, sender_values, server_counts, identifiers, removals)
     fail += text_problems(loaded, kinds, removals)
+    if layer and not any("SHA-256" in f or "missing" in f for f in fail):
+        fail += access.problems(pack_dir, manifest)
     return fail
 
 
@@ -904,6 +1013,7 @@ def build_kaggle(pack_dir: Path | str, out_dir: Path | str) -> dict[str, Any]:
     manifest = json.loads((pack_dir / "manifest.json").read_text(encoding="utf-8"))
     for f in kaggle_meta.kaggle_files(manifest, KAGGLE_TABLES):
         shutil.copyfile(pack_dir / f["path"], out_dir / f["flat"])
+    access.build_kaggle(pack_dir, out_dir, manifest, KAGGLE_TABLES)
     return _write_kaggle_page(pack_dir, out_dir)
 
 
@@ -947,9 +1057,10 @@ def check_kaggle(out_dir: Path | str, manifest: Mapping[str, Any] | None = None)
     manifest, every data file is the pack's own by SHA-256."""
     out_dir = Path(out_dir)
     fail = []
+    layer = set(access.kaggle_files(manifest, KAGGLE_TABLES)) if manifest is not None else set()
     for path in sorted(p for p in out_dir.rglob("*") if p.is_file()):
         name = path.name
-        if name in (kaggle_meta.METADATA_NAME, kaggle_meta.COVER_NAME):
+        if name in (kaggle_meta.METADATA_NAME, kaggle_meta.COVER_NAME) or name in layer:
             continue
         base = name.removesuffix(".parquet")
         config, _, table = base.partition("-")
@@ -963,6 +1074,11 @@ def check_kaggle(out_dir: Path | str, manifest: Mapping[str, Any] | None = None)
     fail += kaggle_meta.cover_problems(out_dir / kaggle_meta.COVER_NAME)
     if manifest is not None:
         fail += _kaggle_data_problems(out_dir, manifest)
+        if has_access_layer(manifest["version"]) and not layer:
+            fail.append("kaggle: no easy-access files; every version from 0.2.0 carries them.")
+        pack_dir = out_dir.parent / out_dir.name.removesuffix("-kaggle")
+        if layer and pack_dir.exists():
+            fail += access.kaggle_problems(pack_dir, out_dir, manifest, KAGGLE_TABLES)
     return fail
 
 

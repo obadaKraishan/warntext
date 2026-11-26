@@ -43,6 +43,18 @@ def bound_words(until: str) -> str:
     return f"{t:%H:%M} UTC on {t.day} {_MONTHS[t.month - 1]} {t.year}"
 
 
+def date_words(day: str) -> str:
+    """A date in words: ``2026-11-24`` is "24 November 2026"."""
+    t = datetime.fromisoformat(day[:10])
+    return f"{t.day} {_MONTHS[t.month - 1]} {t.year}"
+
+
+def year_of(manifest: dict) -> int:
+    """The year a version is cited by: the year its records were retrieved (2026 for 0.1.0)."""
+    retrieved = str(manifest.get("retrieved") or "")
+    return int(retrieved[:4]) if retrieved[:4].isdigit() else YEAR
+
+
 def apa(version: str, year: int = YEAR, markdown: bool = True) -> str:
     """The data set's citation (APA 7); the title in italics when ``markdown``."""
     title = f"*{TITLE}*" if markdown else TITLE
